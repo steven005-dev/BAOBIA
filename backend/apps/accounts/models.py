@@ -6,12 +6,14 @@ from django.db import models
 
 from apps.core.models import StateModel, UUIDModel
 
+from .validators import normalize_phone, validate_phone
+
 
 class UserManager(BaseUserManager):
     def create_user(self, phone, password=None, **extra_fields):
         if not phone:
             raise ValueError("The phone number is required.")
-        user = self.model(phone=phone, **extra_fields)
+        user = self.model(phone=normalize_phone(phone), **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
@@ -25,7 +27,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    phone = models.CharField(max_length=20, unique=True)
+    phone = models.CharField(max_length=20, unique=True, validators=[validate_phone])
     full_name = models.CharField(max_length=120)
     language = models.CharField(max_length=5, default="fr")
     is_active = models.BooleanField(default=True)
@@ -33,9 +35,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     is_simulated = models.BooleanField(default=False)
-
     objects = UserManager()
-
     USERNAME_FIELD = "phone"
     REQUIRED_FIELDS = []
 
@@ -76,9 +76,7 @@ class Role(UUIDModel):
 class Membership(UUIDModel):
     user = models.ForeignKey(User, on_delete=models.PROTECT)
     role = models.ForeignKey(Role, on_delete=models.PROTECT)
-    organization = models.ForeignKey(
-        Organization, null=True, blank=True, on_delete=models.PROTECT
-    )
+    organization = models.ForeignKey(Organization, null=True, blank=True, on_delete=models.PROTECT)
     zone = models.ForeignKey("geo.Zone", null=True, blank=True, on_delete=models.PROTECT)
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField(null=True, blank=True)
@@ -87,8 +85,7 @@ class Membership(UUIDModel):
         db_table = "membership"
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(ends_at__isnull=True)
-                | models.Q(ends_at__gt=models.F("starts_at")),
+                condition=models.Q(ends_at__isnull=True) | models.Q(ends_at__gt=models.F("starts_at")),
                 name="chk_membership_ends_after_start",
             ),
             models.UniqueConstraint(
@@ -115,23 +112,10 @@ class Habilitation(StateModel):
     class Meta:
         db_table = "habilitation"
         constraints = [
-            models.CheckConstraint(
-                condition=models.Q(kind__in=("vet_order", "mandate_state", "other")),
-                name="chk_habilitation_kind",
-            ),
-            models.CheckConstraint(
-                condition=models.Q(status__in=("pending", "verified", "revoked", "expired")),
-                name="chk_habilitation_status",
-            ),
-            models.CheckConstraint(
-                condition=models.Q(valid_to__gte=models.F("valid_from")),
-                name="chk_habilitation_valid_dates",
-            ),
-            models.CheckConstraint(
-                condition=models.Q(verified_by__isnull=True)
-                | ~models.Q(verified_by=models.F("user")),
-                name="chk_habilitation_verified_by_other",
-            ),
+            models.CheckConstraint(condition=models.Q(kind__in=("vet_order", "mandate_state", "other")), name="chk_habilitation_kind"),
+            models.CheckConstraint(condition=models.Q(status__in=("pending", "verified", "revoked", "expired")), name="chk_habilitation_status"),
+            models.CheckConstraint(condition=models.Q(valid_to__gte=models.F("valid_from")), name="chk_habilitation_valid_dates"),
+            models.CheckConstraint(condition=models.Q(verified_by__isnull=True) | ~models.Q(verified_by=models.F("user")), name="chk_habilitation_verified_by_other"),
         ]
 
 
@@ -145,12 +129,7 @@ class Mandate(UUIDModel):
 
     class Meta:
         db_table = "mandate"
-        constraints = [
-            models.CheckConstraint(
-                condition=models.Q(scope__in=("declare", "move", "all")),
-                name="chk_mandate_scope",
-            )
-        ]
+        constraints = [models.CheckConstraint(condition=models.Q(scope__in=("declare", "move", "all")), name="chk_mandate_scope")]
 
 
 class Device(UUIDModel):
@@ -163,9 +142,4 @@ class Device(UUIDModel):
 
     class Meta:
         db_table = "device"
-        constraints = [
-            models.CheckConstraint(
-                condition=models.Q(platform__in=("android", "ios", "web", "other")),
-                name="chk_device_platform",
-            )
-        ]
+        constraints = [models.CheckConstraint(condition=models.Q(platform__in=("android", "ios", "web", "other")), name="chk_device_platform")]
