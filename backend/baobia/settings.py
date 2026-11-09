@@ -52,12 +52,12 @@ INSTALLED_APPS = [
     'drf_spectacular',
 
     # Applications du projet
+    'apps.core',
     'apps.accounts',
     'apps.identity',
     'apps.traceability',
     'apps.health',
     'apps.alerts',
-    'apps.geo',
     'apps.sync',
     'apps.notifications',
     'apps.audit',
