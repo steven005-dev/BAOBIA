@@ -72,14 +72,31 @@ Adresse : http://localhost:5173
 
 Pour arrêter un serveur : **Ctrl + C** dans son terminal.
 
-### Base de données PostgreSQL (quand elle sera utilisée)
+### Base de données PostgreSQL
 ```powershell
-docker compose up -d      # démarrer
-docker compose ps         # voir ce qui tourne
-docker compose logs db    # voir les messages de la base
-docker compose down       # arrêter
+docker compose up -d
+docker compose ps
+docker compose logs db
+docker compose down
 ```
-Docker Desktop doit être ouvert. Pour l'instant, Django utilise une base locale simple ; PostgreSQL sera branché au lot 0.
+Docker Desktop doit être ouvert. Le service `db` doit afficher `healthy` avant de lancer Django.
+
+Si le port 5432 est déjà pris :
+```powershell
+Get-NetTCPConnection -LocalPort 5432 -ErrorAction SilentlyContinue
+docker compose down
+```
+Arrêtez le service qui utilise ce port, ou définissez `DB_HOST_PORT=5433` et `POSTGRES_PORT=5433` dans `.env` (le port interne du conteneur reste `5432`).
+
+Pour repartir sur une base vierge (supprime toutes les données locales) :
+```powershell
+docker compose down -v
+docker compose up -d
+cd backend
+python manage.py migrate
+cd ..
+```
+Le fichier `backend/db.sqlite3` historique n'est plus utilisé. GeoDjango n'est pas activé : si `gdalinfo --version` échoue sous Windows, le projet reste volontairement sur le backend PostgreSQL standard.
 
 ---
 
