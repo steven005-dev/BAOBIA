@@ -53,6 +53,7 @@ INSTALLED_APPS = [
 
     # Applications du projet
     'apps.core',
+    'apps.geo',
     'apps.accounts',
     'apps.identity',
     'apps.traceability',
