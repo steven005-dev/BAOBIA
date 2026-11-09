@@ -49,3 +49,10 @@ python manage.py migrate
 ```
 
 `backend/db.sqlite3` n'est plus utilisé. Les secrets restent dans `.env`, jamais dans Git.
+
+## Choix GeoDjango temporaire
+
+GDAL n'étant pas disponible sur Windows dans l'environnement de développement, les
+coordonnées sont temporairement stockées dans `latitude`/`longitude` pour toute
+l'équipe. Les champs seront migrés vers GeoDjango/PostGIS après décision écrite
+et installation commune de GDAL.
