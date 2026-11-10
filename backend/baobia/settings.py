@@ -99,16 +99,26 @@ WSGI_APPLICATION = 'baobia.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('POSTGRES_DB'),
-        'USER': env('POSTGRES_USER'),
-        'PASSWORD': env('POSTGRES_PASSWORD'),
-        'HOST': env('POSTGRES_HOST', default='127.0.0.1'),
-        'PORT': env('POSTGRES_PORT', default='5432'),
+USE_SQLITE = env.bool('USE_SQLITE', default=True)
+
+if USE_SQLITE:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('POSTGRES_DB', default='baobia'),
+            'USER': env('POSTGRES_USER', default='baobia'),
+            'PASSWORD': env('POSTGRES_PASSWORD', default='change-me'),
+            'HOST': env('POSTGRES_HOST', default='127.0.0.1'),
+            'PORT': env('POSTGRES_PORT', default='5432'),
+        }
+    }
 
 AUTH_USER_MODEL = 'accounts.User'
 

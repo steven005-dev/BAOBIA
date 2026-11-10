@@ -21,6 +21,18 @@ DROP FUNCTION IF EXISTS forbid_audit_log_update_delete();
 """
 
 
+def apply_protection(apps, schema_editor):
+    if schema_editor.connection.vendor == "postgresql":
+        with schema_editor.connection.cursor() as cursor:
+            cursor.execute(FORWARD_SQL)
+
+
+def revert_protection(apps, schema_editor):
+    if schema_editor.connection.vendor == "postgresql":
+        with schema_editor.connection.cursor() as cursor:
+            cursor.execute(REVERSE_SQL)
+
+
 class Migration(migrations.Migration):
     dependencies = [("audit", "0001_initial")]
-    operations = [migrations.RunSQL(FORWARD_SQL, REVERSE_SQL)]
+    operations = [migrations.RunPython(apply_protection, revert_protection)]
