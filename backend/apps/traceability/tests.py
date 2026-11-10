@@ -338,3 +338,88 @@ class DeclareMovementServiceTestCase(TestCase):
                 created_by=self.user,
             )
 
+
+class MovementAPITestCase(TestCase):
+    """
+    Tests d'intégration des endpoints REST de traçabilité (MV-01 à MV-03).
+    Vérification des droits côté serveur (Règle 5) et formats d'échange.
+    """
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            phone="+2250700000003",
+            full_name="Aya Touré",
+            password="testpassword123",
+        )
+        self.zone = Zone.objects.create(code="DAL", name="Daloa", level=1)
+        self.center_from = Center.objects.create(
+            name="Élevage Daloa 1",
+            zone=self.zone,
+            center_type="farm",
+            created_by=self.user,
+        )
+        self.center_to = Center.objects.create(
+            name="Marché Daloa",
+            zone=self.zone,
+            center_type="market",
+            created_by=self.user,
+        )
+        self.species = Species.objects.create(
+            code="goat",
+            label_fr="Caprins",
+            tracking_mode="animal",
+        )
+        self.unit = TrackedUnit.objects.create(
+            kind="animal",
+            species=self.species,
+            current_center=self.center_from,
+            created_by=self.user,
+        )
+
+    def test_api_declare_movement_unauthenticated_rejected(self):
+        """Règle 5 : Rejet 401 sur toute requête non authentifiée."""
+        payload = {
+            "from_center_id": str(self.center_from.id),
+            "to_center_id": str(self.center_to.id),
+            "movement_type": "transfer",
+            "items": [{"unit_id": str(self.unit.id), "quantity_sent": 1}],
+        }
+        response = self.client.post("/api/movements/", payload, format="json")
+        self.assertEqual(response.status_code, 401)
+
+    def test_api_declare_movement_authenticated_success(self):
+        """MV-01 : Création réussie via POST /api/movements/ avec 201 Created."""
+        self.client.force_authenticate(user=self.user)
+        payload = {
+            "from_center_id": str(self.center_from.id),
+            "to_center_id": str(self.center_to.id),
+            "movement_type": "transfer",
+            "to_party_note": "Acheteur local",
+            "items": [{"unit_id": str(self.unit.id), "quantity_sent": 1}],
+        }
+        response = self.client.post("/api/movements/", payload, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["status"], "declared")
+        self.assertIn("confirmation_code", response.data)
+        self.assertEqual(len(response.data["items"]), 1)
+
+    def test_api_declare_movement_already_locked_returns_409(self):
+        """MV-02 : Tentative de double mouvement renvoie un code HTTP 409 Conflict."""
+        self.client.force_authenticate(user=self.user)
+        payload = {
+            "from_center_id": str(self.center_from.id),
+            "to_center_id": str(self.center_to.id),
+            "movement_type": "transfer",
+            "items": [{"unit_id": str(self.unit.id), "quantity_sent": 1}],
+        }
+        res1 = self.client.post("/api/movements/", payload, format="json")
+        self.assertEqual(res1.status_code, 201)
+
+        # Deuxième tentative avec la même unité
+        res2 = self.client.post("/api/movements/", payload, format="json")
+        self.assertEqual(res2.status_code, 409)
+        self.assertEqual(res2.data["error"], "unit_already_locked")
+
+
