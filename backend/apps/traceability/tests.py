@@ -202,3 +202,139 @@ class TraceabilityModelsTestCase(TestCase):
                 occurred_at=now,
                 created_by=self.user,
             )
+
+
+class DeclareMovementServiceTestCase(TestCase):
+    """
+    Tests du service métier declare_movement() (MV-01, MV-02, MV-03, Section 9.1 DB spec).
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            phone="+2250700000002",
+            full_name="Kouamé N'Goran",
+            password="testpassword123",
+        )
+        self.zone = Zone.objects.create(code="BKE", name="Bouaké", level=1)
+        self.center_from = Center.objects.create(
+            name="Ferme Nord",
+            zone=self.zone,
+            center_type="farm",
+            created_by=self.user,
+        )
+        self.center_to = Center.objects.create(
+            name="Marché Central",
+            zone=self.zone,
+            center_type="market",
+            created_by=self.user,
+        )
+        self.species = Species.objects.create(
+            code="sheep",
+            label_fr="Ovins",
+            tracking_mode="animal",
+        )
+        self.unit_1 = TrackedUnit.objects.create(
+            kind="animal",
+            species=self.species,
+            current_center=self.center_from,
+            created_by=self.user,
+        )
+        self.unit_2 = TrackedUnit.objects.create(
+            kind="animal",
+            species=self.species,
+            current_center=self.center_from,
+            created_by=self.user,
+        )
+
+    def test_declare_movement_success(self):
+        """MV-01, MV-02, MV-03 : Déclaration nominale réussie avec verrous et journalisation."""
+        from apps.audit.models import AuditLog
+        from apps.traceability.services import declare_movement
+
+        now = timezone.now()
+        client_uuid = uuid.uuid4()
+        movement, plain_code = declare_movement(
+            movement_id=client_uuid,
+            from_center=self.center_from,
+            to_center=self.center_to,
+            movement_type="transfer",
+            items=[
+                {"unit": self.unit_1, "quantity_sent": 1},
+                {"unit": self.unit_2, "quantity_sent": 1},
+            ],
+            created_by=self.user,
+            occurred_at=now,
+        )
+
+        # 1. Vérification du mouvement
+        self.assertEqual(movement.id, client_uuid)
+        self.assertEqual(movement.status, "declared")
+        self.assertEqual(movement.from_center, self.center_from)
+        self.assertEqual(movement.to_center, self.center_to)
+
+        # 2. Vérification des verrous (MV-02)
+        self.assertTrue(UnitOpenMovement.objects.filter(unit=self.unit_1, movement=movement).exists())
+        self.assertTrue(UnitOpenMovement.objects.filter(unit=self.unit_2, movement=movement).exists())
+
+        # 3. Vérification des items (MV-03)
+        self.assertEqual(movement.items.count(), 2)
+
+        # 4. Vérification de l'événement de statut (MV-08)
+        self.assertTrue(movement.status_events.filter(status="declared").exists())
+
+        # 5. Vérification du code de confirmation (MV-07)
+        self.assertIsNotNone(plain_code)
+        self.assertTrue(movement.confirmation_codes.exists())
+
+        # 6. Vérification de l'audit
+        self.assertTrue(
+            AuditLog.objects.filter(
+                action="movement.declare",
+                entity_table="movement",
+                entity_id=movement.id,
+            ).exists()
+        )
+
+    def test_declare_movement_refuses_already_locked_unit(self):
+        """MV-02 : Refus si une des unités est déjà dans un mouvement ouvert."""
+        from apps.traceability.exceptions import UnitAlreadyLockedError
+        from apps.traceability.services import declare_movement
+
+        # Première déclaration verrouille unit_1
+        declare_movement(
+            from_center=self.center_from,
+            to_center=self.center_to,
+            items=[{"unit": self.unit_1}],
+            created_by=self.user,
+        )
+
+        # Deuxième déclaration avec la même unit_1 doit lever UnitAlreadyLockedError
+        with self.assertRaises(UnitAlreadyLockedError):
+            declare_movement(
+                from_center=self.center_from,
+                to_center=self.center_to,
+                items=[{"unit": self.unit_1}],
+                created_by=self.user,
+            )
+
+    def test_declare_movement_refuses_unit_not_at_origin_center(self):
+        """Refus si l'unité déclarée ne réside pas dans le centre expéditeur."""
+        from apps.traceability.exceptions import UnitNotAtOriginCenterError
+        from apps.traceability.services import declare_movement
+
+        # Unité résidant dans center_to et non center_from
+        other_unit = TrackedUnit.objects.create(
+            kind="animal",
+            species=self.species,
+            current_center=self.center_to,
+            created_by=self.user,
+        )
+
+        with self.assertRaises(UnitNotAtOriginCenterError):
+            declare_movement(
+                from_center=self.center_from,
+                to_center=self.center_to,
+                items=[{"unit": other_unit}],
+                created_by=self.user,
+            )
+
