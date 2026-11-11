@@ -1,0 +1,46 @@
+# BAOBIA : qui relit quoi (voir docs/work_method.md, section 2).
+# GitHub demande automatiquement la relecture des propriétaires du chemin modifié.
+# La DERNIÈRE ligne qui correspond l'emporte : du plus général au plus précis.
+#
+#   @steven005-dev  Chef de projet
+#   @romualdKO      Konan Romuald : mouvements, synchronisation, hors ligne
+#   @yomyyen7       Yéo : santé, alertes, carte
+
+# Par défaut : le chef de projet (infra, docs, configuration, intégration).
+*                                   @steven005-dev
+
+# ---------------------------------------------------------------- Backend
+/backend/apps/core/                 @steven005-dev
+/backend/apps/accounts/             @steven005-dev
+/backend/apps/identity/             @steven005-dev
+/backend/apps/audit/                @steven005-dev
+/backend/apps/notifications/        @steven005-dev
+
+/backend/apps/traceability/         @romualdKO
+/backend/apps/sync/                 @romualdKO
+
+/backend/apps/health/               @yomyyen7
+/backend/apps/alerts/               @yomyyen7
+/backend/apps/geo/                  @yomyyen7
+
+# Spécification de la base : tout changement de schéma concerne les trois.
+/docs/BAOBIA_DB_SPEC.md             @steven005-dev @romualdKO @yomyyen7
+
+# --------------------------------------------------------------- Frontend
+# Le chef de projet est ajouté sur les écrans : il relit tout ce qui touche l'interface.
+/frontend/src/features/identity/    @steven005-dev
+/frontend/src/features/movements/   @romualdKO @steven005-dev
+/frontend/src/features/offline/     @romualdKO @steven005-dev
+/frontend/src/features/health/      @yomyyen7 @steven005-dev
+/frontend/src/features/alerts/      @yomyyen7 @steven005-dev
+/frontend/src/features/map/         @yomyyen7 @steven005-dev
+
+# Socle de l'interface : thème, composants partagés.
+/frontend/src/components/           @steven005-dev
+/frontend/src/styles/               @steven005-dev
+
+# Application installable (PWA) : configuration Vite.
+/frontend/vite.config.ts            @romualdKO @steven005-dev
+
+# Ce fichier lui-même.
+/.github/CODEOWNERS                 @steven005-dev
