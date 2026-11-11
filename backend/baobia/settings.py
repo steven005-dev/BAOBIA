@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 
 import environ
@@ -120,8 +121,38 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'DEFAULT_THROTTLE_RATES': {'login': env('AUTH_LOGIN_RATE', default='5/minute')},
+    'DEFAULT_THROTTLE_RATES': {
+        # Connexion : essais par numéro, et par IP (plus large : IP mobiles partagées).
+        'login_phone': env('AUTH_LOGIN_PHONE_RATE', default='5/minute'),
+        'login_ip': env('AUTH_LOGIN_IP_RATE', default='30/minute'),
+    },
+    # 0 = on prend REMOTE_ADDR et on ignore X-Forwarded-For (sinon falsifiable).
+    # Derrière le proxy (infra/proxy) : mettre 1.
+    'NUM_PROXIES': env.int('DRF_NUM_PROXIES', default=0),
 }
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=env.int('JWT_ACCESS_MINUTES', default=30)),
+    # Long : le téléphone peut rester hors ligne plusieurs jours.
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=env.int('JWT_REFRESH_DAYS', default=14)),
+    # Pas de rotation : sur réseau instable, une réponse perdue déconnecterait l'éleveur.
+    'ROTATE_REFRESH_TOKENS': False,
+    'SIGNING_KEY': env('JWT_SIGNING_KEY', default='') or SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'BAOBIA API',
+    'DESCRIPTION': "API du prototype BAOBIA (sans valeur légale). Authentification : JWT Bearer.",
+    'VERSION': '0.1.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+}
+
+# Indicatif ajouté aux numéros nationaux à 10 chiffres (07 07 07 07 07).
+PHONE_DEFAULT_COUNTRY_CODE = env('PHONE_DEFAULT_COUNTRY_CODE', default='225')
 
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
 CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])
@@ -131,18 +162,20 @@ CORS_ALLOW_ALL_ORIGINS = False
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
+# Utilisateurs peu lettrés, clavier de téléphone : 8 caractères minimum, chiffres seuls
+# acceptés (pas de NumericPasswordValidator, pas de règle majuscule/symbole).
+# Refusés : mots de passe trop courants (12345678...) ou proches du numéro / du nom.
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'OPTIONS': {'user_attributes': ('phone', 'full_name')},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 8},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
 
