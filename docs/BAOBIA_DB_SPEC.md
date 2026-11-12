@@ -1,8 +1,15 @@
 # BAOBIA : spécification de la base de données (source de vérité pour les agents)
 
-> **Version 1.1 - 9 novembre 2026. Ce fichier fait foi.** Il décrit les 55 tables de la base, leurs contraintes et la façon de les coder avec Django.
+> **Version 1.2 - 12 novembre 2026. Ce fichier fait foi.** Il décrit les 56 tables de la base, leurs contraintes et la façon de les coder avec Django.
 > Tout agent (ou personne) qui écrit des modèles, des migrations, des services ou des API **doit s'y conformer**. En cas de doute ou de conflit avec du code existant : **ne pas improviser, signaler**.
 > Document complémentaire pour les humains : `BAOBIA_MCD_MLD.pdf` (schémas MCD).
+
+### Historique des versions
+
+| Version | Date | Changements |
+|---|---|---|
+| 1.2 | 12 novembre 2026 | Regroupement de zone : colonnes `cluster_*` et `escalation_hours` dans `disease_rule` ; `trigger_kind`, `species_id`, `confidence`, `escalation_due_at` dans `alert` (`focus_center_id` devient NULL pour une alerte de zone) ; nouvelle table `alert_review` (56 tables) ; nouveaux types d'`alert_event` ; section 9.9 ; décision D11 à trancher. |
+| 1.1 | 9 novembre 2026 | Version de référence (55 tables). |
 
 ## 0. Comment utiliser ce fichier
 
@@ -41,7 +48,7 @@ core <- geo <- accounts <- identity <- traceability, health <- alerts <- notific
                                   sync (accounts, identity, geo)      audit (accounts)
 ```
 
-| Application | Responsable | Tables (55 au total) |
+| Application | Responsable | Tables (56 au total) |
 |---|---|---|
 | `accounts` | Chef de projet | `app_user`, `organization`, `role`, `membership`, `habilitation`, `mandate`, `device` |
 | `geo` | Yéo | `zone`, `zone_stat` |
@@ -49,7 +56,7 @@ core <- geo <- accounts <- identity <- traceability, health <- alerts <- notific
 | `identity` | Chef de projet | `center`, `center_member`, `center_species`, `tracked_unit`, `animal`, `lot`, `label_batch`, `label`, `identity_support`, `identity_verification`, `ownership_claim`, `subject_photo`, `mandate_center`, `attachment` |
 | `traceability` | Konan Romuald | `movement`, `movement_item`, `unit_open_movement`, `movement_confirmation`, `movement_confirmation_code`, `movement_discrepancy`, `movement_status_event`, `status_event` |
 | `health` | Yéo | `disease`, `disease_species`, `symptom`, `symptom_species`, `health_event`, `health_report`, `health_report_symptom`, `health_report_subject`, `health_report_attachment`, `health_report_review` |
-| `alerts` | Yéo | `disease_rule`, `alert`, `alert_report`, `alert_exposure`, `alert_exposure_step`, `alert_event`, `investigation`, `quarantine` |
+| `alerts` | Yéo | `disease_rule`, `alert`, `alert_report`, `alert_review`, `alert_exposure`, `alert_exposure_step`, `alert_event`, `investigation`, `quarantine` |
 | `sync` | Konan Romuald | `sync_operation`, `sync_conflict`, `change_feed` |
 | `notifications` | Chef de projet | `notification` |
 | `audit` | Chef de projet | `audit_log` |
@@ -160,7 +167,7 @@ class PositionMixin(models.Model):  # bloc POS
 **Piège** : `save()`/`delete()` ne sont pas appelés par `QuerySet.update()`, `bulk_update()`, `bulk_create` en mode mise à jour, ni par du SQL direct. Les **triggers de la section 7 sont obligatoires** : ils sont la vraie protection.
 
 ### 5.2 Quels modèles utilisent quoi
-- **Événements immuables (`EventModel`)** : `movement_confirmation`, `movement_status_event`, `identity_verification`, `health_report_review`, `alert_event`, `status_event`, `health_event`. Plus `audit_log` (protégé par la base).
+- **Événements immuables (`EventModel`)** : `movement_confirmation`, `movement_status_event`, `identity_verification`, `health_report_review`, `alert_review`, `alert_event`, `status_event`, `health_event`. Plus `audit_log` (protégé par la base).
 - **Déclarations (`DeclarationModel`)** : `movement`, `health_report`, `movement_discrepancy`, `ownership_claim` : les colonnes d'origine (qui, quand, où) ne changent jamais ; seules les colonnes de cache/statut changent, via `services.py`.
 - **Corrigeables (`CorrectableMixin`)** : `health_event`, `status_event`, `ownership_claim`. Une ligne ne se corrige qu'une fois.
 - **Position (`PositionMixin`)** : `identity_verification`, `movement_confirmation`, `status_event`, `health_report`.
@@ -764,7 +771,13 @@ Règle sanitaire VERSIONNÉE. Valeurs jamais écrites dans le code.
 | `valid_from, valid_to` | `date` | NOT NULL / NULL |  |
 | `approved_by` | `uuid` | FK app_user NOT NULL |  |
 | `include_unconfirmed` | `boolean` | NOT NULL DEFAULT true | true = un mouvement déclaré mais non confirmé compte (prudence) |
+| `cluster_window_days` | `int` | NOT NULL DEFAULT 7, CHECK > 0 | regroupement de zone : fenêtre glissante (en jours) sur `health_report.occurred_at` |
+| `cluster_min_reports` | `smallint` | NOT NULL DEFAULT 3, CHECK >= 2 | regroupement de zone : nombre minimal de signalements compatibles |
+| `cluster_min_ratio` | `numeric(5,4)` | NULL, CHECK (cluster_min_ratio > 0 AND cluster_min_ratio <= 1) | part minimale d'animaux touchés rapportée à l'effectif connu des centres concernés ; NULL = non utilisé |
+| `escalation_hours` | `int` | NOT NULL DEFAULT 24, CHECK > 0 | délai sans réponse d'un vétérinaire avant relance / escalade |
 | `UNIQUE` | `-` | (disease_id, species_id, version) NULLS NOT DISTINCT | une règle utilisée n'est jamais modifiée : on crée la version suivante |
+
+Les valeurs par défaut des colonnes `cluster_*` et `escalation_hours` sont **expérimentales**, pour la démonstration : elles doivent être validées par un vétérinaire avant tout usage réel.
 
 #### `alert`  ->  `Alert`  (StateModel)
 
@@ -775,8 +788,12 @@ Alerte sanitaire. Niveau 3 = validée par un vétérinaire habilité.
 | `id` | `uuid` | PK |  |
 | `disease_id` | `uuid` | FK disease NULL | NULL tant que non retenue |
 | `rule_id` | `uuid` | FK disease_rule NOT NULL | règle appliquée (traçabilité du calcul) |
-| `focus_center_id` | `uuid` | FK center NOT NULL | foyer |
+| `trigger_kind` | `varchar(14)` | NOT NULL DEFAULT 'single_report', CHECK IN ('single_report','zone_cluster') | origine : un signalement évalué, ou un regroupement de signalements dans une zone (section 9.9) |
+| `focus_center_id` | `uuid` | FK center NULL, CHECK (trigger_kind = 'zone_cluster' OR focus_center_id IS NOT NULL) | foyer ; NULL seulement pour une alerte de zone, dont les centres de départ sont ceux des signalements regroupés (`alert_report` -> `health_report.center_id`) |
 | `zone_id` | `uuid` | FK zone NOT NULL |  |
+| `species_id` | `uuid` | FK species NULL, CHECK (trigger_kind <> 'zone_cluster' OR species_id IS NOT NULL) | espèce du regroupement ; obligatoire pour une alerte de zone |
+| `confidence` | `varchar(7)` | NOT NULL DEFAULT 'normal', CHECK IN ('normal','reduced') | `reduced` si l'effectif d'au moins un centre concerné est inconnu ; affiché au vétérinaire |
+| `escalation_due_at` | `timestamptz` | NULL | CALCULÉ : échéance de relance si aucun vétérinaire n'a répondu ; NULL = pas de relance en attente |
 | `level` | `smallint` | NOT NULL, CHECK IN (1,2,3) |  |
 | `status` | `varchar(10)` | NOT NULL DEFAULT 'open', CHECK IN ('open','monitoring','closed','cancelled') |  |
 | `opened_at` | `timestamptz` | NOT NULL |  |
@@ -796,6 +813,19 @@ Signalements regroupés dans une alerte.
 |---|---|---|---|
 | `alert_id` | `uuid` | FK alert NOT NULL | PK composite (alert_id, report_id) |
 | `report_id` | `uuid` | FK health_report NOT NULL |  |
+
+#### `alert_review`  ->  `AlertReview`  (EventModel)
+
+Décision d'un vétérinaire habilité sur une alerte, notamment une alerte de zone : confirmer, infirmer ou demander des informations (EVT, append-only).
+
+| Colonne | Type | Contraintes | Remarque |
+|---|---|---|---|
+| `id` | `uuid` | PK |  |
+| `alert_id` | `uuid` | FK alert NOT NULL |  |
+| `decision` | `varchar(10)` | NOT NULL, CHECK IN ('confirm','dismiss','need_info') | confirm = niveau 3 ; dismiss = alerte infirmée ; need_info = reste ouverte |
+| `habilitation_id` | `uuid` | FK habilitation NOT NULL | preuve d'habilitation valide au moment de la décision (vérifiée par le service) |
+| `note` | `text` | NULL | motif, obligatoire côté service pour `dismiss` |
+| `(bloc EVT)` | `-` | voir sections 4 et 5 | `created_by` = le vétérinaire qui décide |
 
 #### `alert_exposure`  ->  `AlertExposure`  (UUIDModel)
 
@@ -838,7 +868,7 @@ Journal de l'alerte : changement de niveau, notification, clôture (EVT).
 |---|---|---|---|
 | `id` | `uuid` | PK |  |
 | `alert_id` | `uuid` | FK alert NOT NULL |  |
-| `event_type` | `varchar(16)` | NOT NULL, CHECK IN ('opened','level_changed','recomputed','notified','closed','cancelled') |  |
+| `event_type` | `varchar(16)` | NOT NULL, CHECK IN ('opened','level_changed','recomputed','notified','vets_notified','escalated','reviewed','reopened','closed','cancelled') | longueur maximale 13 (`level_changed`, `vets_notified`) : `varchar(16)` suffit |
 | `payload` | `jsonb` | NOT NULL DEFAULT '{}' |  |
 | `(bloc EVT)` | `-` | voir sections 4 et 5 |  |
 
@@ -987,7 +1017,10 @@ FOR EACH ROW EXECUTE FUNCTION forbid_update_delete();
 `disease_rule` : trigger `BEFORE UPDATE` qui lève une erreur si une ligne `alert` référence déjà cette règle (`alert.rule_id`). Pour changer une règle : insérer la version suivante.
 
 ### 7.5 Autres contraintes (à écrire en `CheckConstraint` / `UniqueConstraint`, pas en trigger)
-- `alert` : `level IN (1,2,3)` ; `level < 3 OR (validated_by IS NOT NULL AND validated_at IS NOT NULL AND habilitation_id IS NOT NULL)`.
+- `alert` : `level IN (1,2,3)` ; `level < 3 OR (validated_by IS NOT NULL AND validated_at IS NOT NULL AND habilitation_id IS NOT NULL)` ; `trigger_kind IN ('single_report','zone_cluster')` ; `trigger_kind = 'zone_cluster' OR focus_center_id IS NOT NULL` ; `trigger_kind <> 'zone_cluster' OR species_id IS NOT NULL` ; `confidence IN ('normal','reduced')`.
+- `alert_review` : `decision IN ('confirm','dismiss','need_info')`.
+- `alert_event` : `event_type IN ('opened','level_changed','recomputed','notified','vets_notified','escalated','reviewed','reopened','closed','cancelled')`.
+- `disease_rule` : `cluster_window_days > 0` ; `cluster_min_reports >= 2` ; `cluster_min_ratio IS NULL OR (cluster_min_ratio > 0 AND cluster_min_ratio <= 1)` ; `escalation_hours > 0`.
 - `movement` : `from_center_id <> to_center_id`.
 - `habilitation` : `verified_by <> user_id` ; `valid_to >= valid_from`.
 - `identity_support` : `support_type <> 'qr_label' OR label_id IS NOT NULL` ; UNIQUE partiel `(label_id) WHERE unbound_at IS NULL` ; UNIQUE partiel `(unit_id) WHERE support_type='qr_label' AND unbound_at IS NULL`.
@@ -1002,9 +1035,9 @@ FOR EACH ROW EXECUTE FUNCTION forbid_update_delete();
 - `label(short_code)` unique (scan QR, requête la plus fréquente).
 - `tracked_unit(current_center_id)` ; `identity_support(unit_id) WHERE unbound_at IS NULL`.
 - Moteur d'exposition : `movement_item(unit_id, movement_id)` ; `movement(from_center_id, occurred_at)` ; `movement(to_center_id, occurred_at)` ; `movement(status)`.
-- `alert(status, zone_id)` ; `alert_exposure(alert_id, run_id)` ; `alert_exposure(center_id)` ; `zone_stat(zone_id, species_id)`.
+- `alert(status, zone_id)` ; `alert(trigger_kind, status, zone_id)` (recherche d'une alerte de zone ouverte) ; `alert_review(alert_id)` ; `alert_exposure(alert_id, run_id)` ; `alert_exposure(center_id)` ; `zone_stat(zone_id, species_id)`.
 - GIST : `zone(boundary)`, `center(location)`.
-- `health_report(center_id, occurred_at DESC)` ; `health_report(status)`.
+- `health_report(center_id, occurred_at DESC)` ; `health_report(status)`. Le comptage par zone (section 9.9) passe par `center.zone_id` (index créé automatiquement par Django sur la clé étrangère), puis `health_report(center_id, occurred_at DESC)` pour la fenêtre de dates, puis `health_report_subject` (clé `report_id, unit_id`) et `tracked_unit` pour l'espèce : **aucun index supplémentaire** tant qu'`EXPLAIN` ne montre pas de besoin.
 - `sync_operation(device_id, server_seq)` ; `change_feed(center_id, seq)` ; `change_feed(zone_id, seq)`.
 - `notification(user_id, status, created_at DESC)` ; `membership(user_id) WHERE ends_at IS NULL` ; `habilitation(user_id, status, valid_to)`.
 - **Aucun autre index « au cas où »** : on l'ajoute quand une requête réelle le demande (`EXPLAIN`), puis on met ce fichier à jour.
@@ -1024,11 +1057,15 @@ Mouvement d'une partie d'un lot (ex. 10 poules sur 40) : à la confirmation, le 
 Dans une transaction : `identity_support.unbound_at` + `unbound_reason` sur l'ancien support, `label.status = 'deactivated'` ; nouveau support lié à la nouvelle étiquette. L'identifiant de l'unité ne change jamais. Un scan d'une étiquette désactivée affiche « étiquette remplacée » et renvoie vers l'unité.
 
 ### 9.5 Signalement et alerte
-`health_report` (cache `status`) -> évaluation par un vétérinaire (`health_report_review`, avec `habilitation_id` valide à cet instant, vérifié par le service) -> création/mise à jour d'`alert` -> calcul d'expositions. Niveau 3 : uniquement après validation par un vétérinaire habilité.
+Une alerte a **deux déclencheurs** (`alert.trigger_kind`) :
+- **`single_report`** (parcours d'origine) : `health_report` (cache `status`) -> évaluation par un vétérinaire (`health_report_review`, avec `habilitation_id` valide à cet instant, vérifié par le service) -> création/mise à jour d'`alert` (avec `focus_center_id`) -> calcul d'expositions.
+- **`zone_cluster`** : plusieurs signalements similaires dans une même zone, pour une même espèce, sur une période -> le système repère un regroupement -> les vétérinaires de la zone confirment ou infirment (`alert_review`). Voir section 9.9.
+
+Dans les deux cas : niveau 3 uniquement après validation par un vétérinaire habilité.
 
 ### 9.6 Calcul des expositions (`alerts.services.compute_exposures`)
 1. Charger la règle (`alert.rule_id`) : fenêtres, profondeur, `include_unconfirmed`.
-2. Partir de `alert.focus_center_id`. Parcourir le graphe des mouvements : un centre est **exposé** s'il a reçu des unités d'un centre exposé (ou du foyer) dans la fenêtre `lookback_days`/`lookforward_days`, jusqu'à `max_depth` ; ne compter les mouvements `declared` que si `include_unconfirmed`. Suivre aussi la lignée des lots (`origin_unit_id`).
+2. Partir de `alert.focus_center_id` ; pour une alerte de zone (`trigger_kind = 'zone_cluster'`), partir de **l'ensemble des centres ayant signalé** (`alert_report` -> `health_report.center_id`), chacun à la profondeur 0. Parcourir le graphe des mouvements : un centre est **exposé** s'il a reçu des unités d'un centre exposé (ou du foyer) dans la fenêtre `lookback_days`/`lookforward_days`, jusqu'à `max_depth` ; ne compter les mouvements `declared` que si `include_unconfirmed`. Suivre aussi la lignée des lots (`origin_unit_id`).
 3. Utiliser une **CTE récursive** avec garde anti-boucle (tableau des centres déjà visités) et la borne de profondeur.
 4. Écrire un nouveau `run_id` : une ligne `alert_exposure` par centre (ou unité) avec son statut, et une ligne `alert_exposure_step` par étape du chemin. **Écrire aussi les cas écartés** (`excluded_negative`) avec `explanation_code` (ex. `outside_window`).
 5. Mettre à jour `alert.current_run_id` en dernier, dans la même transaction. Ne jamais supprimer les calculs précédents.
@@ -1042,6 +1079,44 @@ Dans une transaction : `identity_support.unbound_at` + `unbound_reason` sur l'an
 
 ### 9.8 Carte
 `zone_stat` est recalculé par `geo.services`. Si l'effectif d'une zone est inférieur à `disease_rule.min_zone_effectif`, `is_masked = true` et aucune statistique fine n'est exposée. États : `normal`, `watch`, `exposure`, `alert`, `unknown`.
+
+Correspondance avec les alertes (**proposition, à valider avec la charte**) :
+
+| Situation | `zone_stat.state` |
+|---|---|
+| Alerte de zone en attente de confirmation par un vétérinaire | `watch` |
+| Exposition potentielle (zone contenant des centres exposés) | `exposure` |
+| Alerte validée (niveau 3) | `alert` |
+| Zone masquée (effectif trop faible, `is_masked = true`) | `unknown` |
+
+Quand plusieurs situations s'appliquent à une zone, l'état le plus grave l'emporte (`alert` > `exposure` > `watch` > `normal`) ; `unknown` (masquage) prime sur l'affichage pour respecter l'anonymat.
+
+### 9.9 Regroupement de zone (`alerts.services.detect_zone_clusters`)
+
+**Principes.** La détection est faite par **des règles explicables** lues dans `disease_rule`, jamais par une IA qui diagnostique. L'IA éventuelle reste secondaire et ne pose aucun diagnostic. Chaque alerte dit **pourquoi** elle existe (signalements comptés, période, effectif, seuil atteint). **Seul un vétérinaire habilité valide** (niveau 3). Un élevage **exposé n'est pas contaminé**.
+
+**1. Détection.** Appelée après chaque signalement retenu comme compatible et périodiquement :
+- compter, par couple (zone, espèce), les `health_report` compatibles dont `occurred_at` est dans les `cluster_window_days` derniers jours (zone = `center.zone_id` du centre signalant ; espèce = celle des unités de `health_report_subject` -> `tracked_unit.species_id`) ;
+- rapporter le total d'animaux touchés (`affected_count`) à l'**effectif connu** des centres concernés pour cette espèce (unités actives : 1 par animal, `lot.current_size` par lot). 5 cas sur 10 animaux n'ont pas le même sens que 5 cas sur 1 000 ;
+- seuil atteint si le nombre de signalements est `>= cluster_min_reports` **et**, quand `cluster_min_ratio` n'est pas NULL, le ratio est `>= cluster_min_ratio` ;
+- **effectif inconnu** (aucune unité enregistrée de cette espèce dans un centre concerné) : le ratio n'est pas calculable pour ce centre ; on applique le seul seuil `cluster_min_reports` et l'alerte porte `confidence = 'reduced'`, affichée au vétérinaire.
+
+**2. Création.** Si le seuil est atteint et qu'**aucune alerte de zone ouverte** n'existe pour (zone, espèce), dans une transaction : créer `alert` (`trigger_kind = 'zone_cluster'`, `level = 1`, `species_id`, `zone_id`, `focus_center_id` NULL, `confidence`), lier les signalements par `alert_report`, écrire `alert_event` `opened` (payload : nombre de signalements, ratio, seuils de la règle, version de la règle), fixer `escalation_due_at = opened_at + escalation_hours`. Si une alerte de zone est déjà ouverte : y ajouter les nouveaux signalements (`alert_report`).
+
+**3. Notification des vétérinaires.** Destinataires : les utilisateurs ayant un `membership` actif de rôle `veterinarian` sur la zone **ou une de ses zones parentes**, **et** une `habilitation` valide (`status = 'verified'`, date du jour entre `valid_from` et `valid_to`). Message neutre (`notification.message_code`), type de notification dédié (ex. `kind = 'zone_cluster_review'`). Écrire `alert_event` `vets_notified`.
+
+**4. Décision** (`alert_review`, avec `habilitation_id` valide vérifié par le service ; un vétérinaire sans habilitation valide est refusé) :
+- `confirm` -> niveau 3 (`validated_by`, `validated_at`, `habilitation_id`), `alert_event` `reviewed` puis `level_changed` -> `compute_exposures` en partant des centres signalants (section 9.6) -> notifications neutres aux exposés -> recalcul de `zone_stat`. `escalation_due_at` passe à NULL.
+- `dismiss` -> alerte fermée (`status = 'closed'`, `closed_at`) avec motif (`alert_review.note`), `alert_event` `reviewed` puis `closed` ; les signalements restent ré-évaluables.
+- `need_info` -> l'alerte reste ouverte, `alert_event` `reviewed`.
+
+**5. Relance.** Si aucune `alert_review` n'existe à `escalation_due_at` : `alert_event` `escalated` et nouvelle notification (autre vétérinaire habilité de la zone parente, ou autorité de la zone) ; `escalation_due_at` est reporté de `escalation_hours`.
+
+**6. Réouverture** (proposition, à valider par le chef de projet). Après un `dismiss`, seuls les signalements **postérieurs à la décision** comptent pour ce couple (zone, espèce), sinon les mêmes signalements redéclencheraient aussitôt l'alerte. Si le seuil est de nouveau atteint dans la fenêtre, l'alerte infirmée est rouverte (`status = 'open'`, `alert_event` `reopened`, nouveaux signalements ajoutés par `alert_report`, nouvelle `escalation_due_at`) plutôt que dupliquée.
+
+**Décision D11 à trancher par le chef de projet : désaccord entre vétérinaires.** Proposition par défaut : la **première décision** d'un vétérinaire habilité de la zone fait foi ; les décisions suivantes sont enregistrées (`alert_review`) sans changer l'état ; un désaccord (décisions différentes sur la même alerte) est signalé à l'autorité de la zone. Ne pas coder d'autre règle avant décision.
+
+**Valeurs de démonstration** : `cluster_window_days`, `cluster_min_reports`, `cluster_min_ratio` et `escalation_hours` sont expérimentales et **à faire valider par un vétérinaire**.
 
 ## 10. Données de départ (`manage.py seed`, idempotent)
 Chargées par migration de données ou commande, **jamais à la main** : `role` (breeder, field_agent, veterinarian, authority, trader), `species` (bovin, ovin, caprin, porcin, volaille avec `tracking_mode`), `symptom` et `disease` (liste courte, vocabulaire simple), `disease_rule` (version 1 par maladie ; valeurs **à faire valider par un vétérinaire**), au moins une `zone` de démonstration. Tout est marqué `is_simulated` quand c'est de la donnée de démonstration.
@@ -1060,6 +1135,7 @@ Chaque application livre au minimum des tests qui prouvent :
 - `identity` : une étiquette active ne peut être liée à deux unités ; remplacer une étiquette conserve l'historique ;
 - `traceability` : une unité ne peut pas être dans deux mouvements ouverts ; la double confirmation met à jour le centre courant ; le fractionnement d'un lot crée la bonne lignée ;
 - `alerts` : alerte niveau 3 refusée sans habilitation valide ; le calcul est rejouable (nouveau `run_id`) ; le cas négatif est enregistré ; la profondeur est respectée ;
+- `alerts`, regroupement de zone : un regroupement qui atteint le seuil déclenche une alerte `zone_cluster` ; un cas isolé ne déclenche aucune alerte ; des signalements d'espèces différentes ne forment pas de regroupement ; le ratio est rapporté à l'effectif connu (même nombre de cas : seuil atteint sur un petit effectif, pas sur un grand) ; effectif inconnu = `confidence = 'reduced'` ; seuls les vétérinaires habilités de la zone (zones parentes incluses) sont notifiés ; relance (`escalated`) à `escalation_due_at` sans réponse ; confirmation par un vétérinaire sans habilitation valide refusée ; alerte de zone sans `species_id` refusée par la base ; `alert_review` en ajout seul (UPDATE/DELETE refusés) ;
 - `sync` : rejouer deux fois la même opération = un seul effet ;
 - API : un éleveur exposé ne voit jamais l'identité de l'élevage d'origine.
 
