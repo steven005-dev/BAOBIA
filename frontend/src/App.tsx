@@ -1,17 +1,15 @@
-import { useEffect, useState } from 'react'
-import { getHealth } from './lib/api'
-import './App.css'
+import { RouterProvider } from 'react-router'
 
-function App() {
-  const [status, setStatus] = useState('Connexion en cours...')
+import { router } from '@/app/router'
+import { AuthProvider } from '@/auth/AuthProvider'
+import { ToastProvider } from '@/components/Toast'
 
-  useEffect(() => {
-    getHealth()
-      .then(() => setStatus('Backend connecté'))
-      .catch(() => setStatus('Backend injoignable'))
-  }, [])
-
-  return <main className="health-page"><h1>{status}</h1></main>
+export default function App() {
+  return (
+    <AuthProvider>
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
+    </AuthProvider>
+  )
 }
-
-export default App
