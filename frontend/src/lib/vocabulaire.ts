@@ -113,6 +113,18 @@ export const messages = {
   chargement: 'Chargement…',
   pageVide: 'Cet écran arrive bientôt.',
   pageIntrouvable: "Cette page n'existe pas.",
+  // À VALIDER : messages du module identity (élevages, animaux, scan).
+  lotAjoute: 'Lot ajouté.',
+  aucunElevage: 'Aucun élevage',
+  aucunElevageAide: 'Demandez à votre agent de terrain de créer votre élevage.',
+  aucunAnimal: 'Aucun animal',
+  aucunAnimalAide: 'Ajoutez votre premier animal avec son étiquette.',
+  etiquetteNonPosee: "Cette étiquette n'est posée sur aucun animal.",
+  etiquetteRemplacee: "Étiquette remplacée. Voici l'animal qui la portait.",
+  etiquettePerdue: 'Étiquette déclarée perdue.',
+  pasDansVosElevages: "Cet animal n'est pas dans vos élevages.",
+  visezEtiquette: "Visez le QR code de l'étiquette.",
+  cameraIndisponible: 'Caméra indisponible. Saisissez le code.',
 } as const
 
 /** Messages d'erreur du client API et de la connexion (À VALIDER, ton de la charte). */
@@ -142,10 +154,21 @@ export const champs = {
   espece: 'Espèce',
   choisir: 'Choisir…',
   quantite: 'Nombre',
+  // À VALIDER : champs du module identity.
+  nom: 'Nom',
+  ajouteLe: 'Ajouté le',
+  etape: 'Étape',
+  sur: 'sur',
 } as const
 
 /** Titres d'écran. */
 export const titres = {
   connexion: 'Connexion',
   composants: 'Composants (développement)',
+  // À VALIDER : titres du module identity.
+  ajouterAnimal: 'Ajouter un animal',
+  quelleEspece: 'Quelle espèce ?',
+  animalOuLot: 'Un animal ou un lot ?',
+  combienAnimaux: "Combien d'animaux dans le lot ?",
+  quelleEtiquette: 'Quelle étiquette ?',
 } as const
