@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+:root {
+  /* Marque et neutres */
+  --brand: #174A3B;
+  --brand-hover: #123D31;
+  --brand-light: #E8F0EC;
+  --background: #F7F8F5;
+  --surface: #FFFFFF;
+  --surface-secondary: #EEF1ED;
+  --foreground: #17231B;
+  --text-secondary: #59665D;
+  --border: #D5DDD6;
+  --focus: #175CD3;
+
+  /* 5 états sanitaires (communs application, carte et 3D) */
+  --health-normal: #287A45;
+  --health-normal-fg: #FFFFFF;
+  --health-normal-line: #1B5A33;
+  --health-watch: #F7DC6F;
+  --health-watch-fg: #302500;
+  --health-watch-line: #8A6A00;
+  --health-exposure: #E8740C;
+  --health-exposure-fg: #2B1600;
+  --health-exposure-line: #9A4A05;
+  --health-alert: #B42318;
+  --health-alert-fg: #FFFFFF;
+  --health-alert-line: #7F1A12;
+  --health-unknown: #667085;
+  --health-unknown-fg: #FFFFFF;
+  --health-unknown-line: #475467;
+
+  /* Fonctionnelles */
+  --success: #176B3A;
+  --success-bg: #EAF5ED;
+  --error: #9C2A56;
+  --error-bg: #FDEAF1;
+  --info: #175CD3;
+  --info-bg: #EAF2FC;
+  --warning: #8A4B08;
+  --warning-bg: #FFF4DF;
+
+  /* Typographie & Formes */
+  --font-main: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* Tactile mobile */
+  --touch-min: 48px;
+  --touch-primary: 60px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--background);
+  color: var(--foreground);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Bouton principal : 56 à 60 px de haut, icône et mot court */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 12px 24px;
+  background-color: var(--brand);
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 18px;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--brand-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Bouton secondaire */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 12px 20px;
+  background-color: var(--surface-secondary);
+  color: var(--foreground);
+  font-weight: 700;
+  font-size: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
