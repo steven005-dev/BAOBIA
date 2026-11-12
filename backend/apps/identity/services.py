@@ -12,6 +12,8 @@ Accès aux centres (utilisé par accounts.permissions.HasCenterAccess) :
 - create_center, add_center_member, grant_mandate
 - register_animal, register_lot, create_label_batch, bind_label
 - set_current_center (appelée par traceability à la double confirmation)
+Lecture (API) :
+- user_covers_zone, user_can_view_unit, active_label, scan_label, label_for_registration
 """
 
 import secrets
@@ -339,3 +341,96 @@ def bind_label(unit, label, bound_by, *, at=None):
     record_event("label.bind", actor_user=bound_by, entity_table="identity_support",
                  entity_id=support.id, details={"unit_id": str(unit.id)})
     return support
+
+
+# ---------------------------------------------------------------------------
+# Lecture : consultation d'une fiche et scan (utilisé par les vues de l'API)
+# ---------------------------------------------------------------------------
+
+# Rôles professionnels qui consultent une fiche dans leur périmètre géographique.
+PROFESSIONAL_ROLES = ("veterinarian", "authority")
+
+
+def _zone_and_ancestor_ids(zone_id):
+    """La zone et toutes ses zones parentes (la hiérarchie a au plus 7 niveaux)."""
+    from apps.geo.models import Zone  # lecture seule des identifiants de geo
+
+    ids, current = [], zone_id
+    while current and current not in ids and len(ids) < 8:
+        ids.append(current)
+        current = Zone.objects.filter(pk=current).values_list("parent_id", flat=True).first()
+    return ids
+
+
+def user_covers_zone(user, zone_id, roles=PROFESSIONAL_ROLES, at=None):
+    """Vrai si l'utilisateur a un rôle professionnel actif sur cette zone ou une zone parente.
+
+    Un rôle sans zone (membership.zone_id NULL) ne donne AUCUN périmètre géographique.
+    """
+    from apps.accounts.services import active_memberships
+
+    if not zone_id or not getattr(user, "is_authenticated", False):
+        return False
+    return active_memberships(user, at).filter(
+        role__code__in=roles, zone_id__in=_zone_and_ancestor_ids(zone_id)
+    ).exists()
+
+
+def user_can_view_unit(user, unit, at=None):
+    """Fiche complète visible par : les membres ou mandataires du centre courant, et les
+    vétérinaires ou autorités dont le périmètre couvre la zone de ce centre."""
+    center_id = unit.current_center_id
+    if not center_id:
+        return False
+    if user_can_access_center(user, center_id, at=at):
+        return True
+    zone_id = Center.objects.filter(pk=center_id).values_list("zone_id", flat=True).first()
+    return user_covers_zone(user, zone_id, at=at)
+
+
+def active_label(unit):
+    """Étiquette QR actuellement posée sur l'unité, ou None."""
+    support = (
+        IdentitySupport.objects.filter(unit=unit, support_type="qr_label", unbound_at__isnull=True)
+        .select_related("label")
+        .first()
+    )
+    return support.label if support else None
+
+
+def scan_label(code):
+    """Résout un code scanné ou saisi. Retourne (résultat, label, unit).
+
+    Résultats : "invalid" (format ou caractère de contrôle faux), "unknown" (aucune
+    étiquette), "not_bound" (étiquette vierge), "found", "replaced" (étiquette
+    désactivée : unit = l'unité qui la portait, pour renvoyer vers sa fiche),
+    "lost" (étiquette déclarée perdue).
+    Lecture seule : n'écrit pas d'identity_verification.
+    """
+    code = normalize_short_code(code)
+    if not is_valid_short_code(code):
+        return "invalid", None, None
+    label = Label.objects.filter(short_code=code).first()
+    if label is None:
+        return "unknown", None, None
+    support = (
+        IdentitySupport.objects.filter(label=label).select_related("unit").order_by("-bound_at").first()
+    )
+    if support is None:
+        return "not_bound", label, None
+    if support.unbound_at is None:
+        return "found", label, support.unit
+    return ("lost" if label.status == "lost" else "replaced"), label, support.unit
+
+
+def label_for_registration(code, center):
+    """Étiquette utilisable pour enregistrer une unité dans `center`, ou IdentityError."""
+    code = normalize_short_code(code)
+    if not is_valid_short_code(code):
+        raise IdentityError("Étiquette non reconnue. Essayez encore ou saisissez le code.")
+    label = Label.objects.filter(short_code=code).first()
+    if label is None:
+        raise IdentityError("Étiquette non reconnue. Essayez encore ou saisissez le code.")
+    if label.issued_to_center_id and label.issued_to_center_id != center.pk:
+        raise IdentityError("Cette étiquette a été remise à un autre élevage.")
+    return label
