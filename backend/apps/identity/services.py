@@ -351,28 +351,17 @@ def bind_label(unit, label, bound_by, *, at=None):
 PROFESSIONAL_ROLES = ("veterinarian", "authority")
 
 
-def _zone_and_ancestor_ids(zone_id):
-    """La zone et toutes ses zones parentes (la hiérarchie a au plus 7 niveaux)."""
-    from apps.geo.models import Zone  # lecture seule des identifiants de geo
-
-    ids, current = [], zone_id
-    while current and current not in ids and len(ids) < 8:
-        ids.append(current)
-        current = Zone.objects.filter(pk=current).values_list("parent_id", flat=True).first()
-    return ids
-
-
 def user_covers_zone(user, zone_id, roles=PROFESSIONAL_ROLES, at=None):
     """Vrai si l'utilisateur a un rôle professionnel actif sur cette zone ou une zone parente.
 
     Un rôle sans zone (membership.zone_id NULL) ne donne AUCUN périmètre géographique.
     """
-    from apps.accounts.services import active_memberships
+    from apps.accounts.services import active_memberships, zone_and_ancestor_ids
 
     if not zone_id or not getattr(user, "is_authenticated", False):
         return False
     return active_memberships(user, at).filter(
-        role__code__in=roles, zone_id__in=_zone_and_ancestor_ids(zone_id)
+        role__code__in=roles, zone_id__in=zone_and_ancestor_ids(zone_id)
     ).exists()
 
 
