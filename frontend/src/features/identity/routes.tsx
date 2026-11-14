@@ -7,6 +7,7 @@ import type { RouteObject } from 'react-router'
 
 import { AddUnitPage } from './AddUnitPage'
 import { AnimalsPage } from './AnimalsPage'
+import { ReplaceLabelPage } from './ReplaceLabelPage'
 import { ScanPage } from './ScanPage'
 import { UnitPage } from './UnitPage'
 
@@ -14,5 +15,6 @@ export const identityRoutes: RouteObject[] = [
   { path: 'centres', element: <AnimalsPage /> },
   { path: 'centres/:centerId/ajouter', element: <AddUnitPage /> },
   { path: 'centres/animaux/:unitId', element: <UnitPage /> },
+  { path: 'centres/animaux/:unitId/etiquette', element: <ReplaceLabelPage /> },
   { path: 'scanner', element: <ScanPage /> },
 ]

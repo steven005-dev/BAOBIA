@@ -67,6 +67,8 @@ export interface NewUnit {
   size?: number
 }
 
+export type ReplaceReason = 'lost' | 'damaged' | 'error'
+
 export const identityApi = {
   species: () => api.get<Species[]>('/species/'),
   centers: () => api.get<CenterItem[]>('/centers/'),
@@ -80,6 +82,14 @@ export const identityApi = {
    */
   addUnit: (id: string, unit: NewUnit) =>
     submit({ type: 'unit.register', path: '/units/', id, body: { id, ...unit } }),
+
+  /** Change l'étiquette. Rejouer le même changement est sans effet côté serveur. */
+  replaceLabel: (unitId: string, labelCode: string, reason: ReplaceReason) =>
+    submit({
+      type: 'unit.replace_label',
+      path: `/units/${unitId}/label/`,
+      body: { label_code: labelCode, reason },
+    }),
 }
 
 export { newUuid }

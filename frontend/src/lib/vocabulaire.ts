@@ -127,6 +127,7 @@ export const messages = {
   cameraIndisponible: 'Caméra indisponible. Saisissez le code.',
   // À VALIDER : messages reçus (Accueil).
   nouveauxMessages: 'Nouveaux messages',
+  etiquetteChangee: 'Étiquette changée.',
 } as const
 
 /**
@@ -174,6 +175,9 @@ export const champs = {
   ajouteLe: 'Ajouté le',
   etape: 'Étape',
   sur: 'sur',
+  etiquettePerdue: 'Perdue',
+  etiquetteAbimee: 'Abîmée',
+  mauvaiseEtiquette: 'Mauvaise étiquette',
 } as const
 
 /** Titres d'écran. */
@@ -186,4 +190,7 @@ export const titres = {
   animalOuLot: 'Un animal ou un lot ?',
   combienAnimaux: "Combien d'animaux dans le lot ?",
   quelleEtiquette: 'Quelle étiquette ?',
+  changerEtiquette: "Changer l'étiquette",
+  pourquoiChanger: "Pourquoi changer l'étiquette ?",
+  nouvelleEtiquette: 'Quelle est la nouvelle étiquette ?',
 } as const
