@@ -125,7 +125,22 @@ export const messages = {
   pasDansVosElevages: "Cet animal n'est pas dans vos élevages.",
   visezEtiquette: "Visez le QR code de l'étiquette.",
   cameraIndisponible: 'Caméra indisponible. Saisissez le code.',
+  // À VALIDER : messages reçus (Accueil).
+  nouveauxMessages: 'Nouveaux messages',
 } as const
+
+/**
+ * Textes des messages envoyés par le serveur (backend : notifications/services.py, MESSAGES).
+ * Le serveur n'envoie qu'un code : le texte est choisi ici. Jamais l'élevage d'origine.
+ */
+export const textesNotifications: Record<string, string> = {
+  'exposure.contact_possible': messages.contactPossibleEleveur,
+  'alert.validated': messages.alerteValidee,
+  // À VALIDER : messages aux vétérinaires et à l'autorité (alerte de zone).
+  'zone_cluster.review_requested': 'Plusieurs signalements dans votre zone. Votre avis est demandé.',
+  'zone_cluster.escalated': 'Rappel : des signalements attendent toujours un avis.',
+  'alert.review_disagreement': "Deux vétérinaires ne sont pas d'accord sur une alerte.",
+}
 
 /** Messages d'erreur du client API et de la connexion (À VALIDER, ton de la charte). */
 export const erreurs = {

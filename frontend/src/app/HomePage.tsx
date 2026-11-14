@@ -9,6 +9,7 @@ import { Navigate } from 'react-router'
 import { useAuth } from '@/auth/AuthProvider'
 import { BigChoiceTile } from '@/components/BigChoiceTile'
 import { Button } from '@/components/Button'
+import { UnreadMessages } from '@/features/notifications/UnreadMessages'
 import { mots } from '@/lib/vocabulaire'
 
 export function HomePage() {
@@ -18,6 +19,7 @@ export function HomePage() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-title font-bold text-foreground">{user?.full_name ?? mots.accueil}</h1>
+      <UnreadMessages />
       <div className="grid grid-cols-2 gap-3">
         <BigChoiceTile to="/centres" icon={CirclePlus} label={mots.ajouter} />
         <BigChoiceTile to="/mouvements" icon={ArrowLeftRight} label={mots.transferer} />
