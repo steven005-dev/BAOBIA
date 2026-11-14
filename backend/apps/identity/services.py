@@ -10,7 +10,7 @@ Accès aux centres (utilisé par accounts.permissions.HasCenterAccess) :
 - accessible_centers(user, at=None, scope=None), user_can_access_center(...)
 Écriture :
 - create_center, add_center_member, grant_mandate
-- register_animal, register_lot, create_label_batch, bind_label
+- register_animal, register_lot, create_label_batch, bind_label, replace_label
 - set_current_center (appelée par traceability à la double confirmation)
 Lecture (API) :
 - user_covers_zone, user_can_view_unit, active_label, scan_label, label_for_registration
@@ -423,3 +423,47 @@ def label_for_registration(code, center):
     if label.issued_to_center_id and label.issued_to_center_id != center.pk:
         raise IdentityError("Cette étiquette a été remise à un autre élevage.")
     return label
+
+
+# ---------------------------------------------------------------------------
+# Remplacer une étiquette (spec 9.4)
+# ---------------------------------------------------------------------------
+
+REPLACE_REASONS = ("lost", "damaged", "error")
+
+
+@transaction.atomic
+def replace_label(unit, new_label, replaced_by, *, reason, at=None):
+    """Retire l'étiquette QR active de l'unité et pose `new_label`, dans une transaction.
+
+    `reason` : "lost" (perdue : l'ancienne passe au statut "lost"), "damaged" (abîmée) ou
+    "error" (mauvaise étiquette posée) : l'ancienne passe à "deactivated".
+    L'identifiant de l'unité ne change jamais ; l'historique des supports est conservé.
+    Un scan de l'ancienne étiquette renvoie ensuite « étiquette remplacée » (scan_label).
+    Rejouer le même remplacement est sans effet (retourne le support actif).
+    """
+    if reason not in REPLACE_REASONS:
+        raise IdentityError("Raison inconnue.")
+    at = at or timezone.now()
+    unit = TrackedUnit.objects.select_for_update().get(pk=unit.pk)
+    old = (
+        IdentitySupport.objects.select_for_update()
+        .filter(unit=unit, support_type="qr_label", unbound_at__isnull=True)
+        .first()
+    )
+    if old is not None:
+        if old.label_id == new_label.pk:
+            return old  # déjà fait (envoi rejoué hors ligne) : sans effet
+        old.unbound_at = at
+        old.unbound_reason = reason
+        old.save(update_fields=["unbound_at", "unbound_reason"])
+        Label.objects.filter(pk=old.label_id).update(
+            status="lost" if reason == "lost" else "deactivated"
+        )
+    support = bind_label(unit, new_label, replaced_by, at=at)
+    record_event(
+        "label.replace", actor_user=replaced_by, entity_table="tracked_unit", entity_id=unit.pk,
+        details={"reason": reason, "old_label_id": str(old.label_id) if old else None,
+                 "new_label_id": str(new_label.pk)},
+    )
+    return support

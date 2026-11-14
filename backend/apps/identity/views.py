@@ -8,7 +8,7 @@ Messages : vocabulaire officiel de la charte (docs/BAOBIA_UI_GUIDELINES.md).
 from django.db.models import Sum
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -23,6 +23,7 @@ from .serializers import (
     CenterCreateSerializer,
     CenterDetailSerializer,
     CenterListItemSerializer,
+    LabelReplaceSerializer,
     ScanResultSerializer,
     UnitCreateSerializer,
     UnitListItemSerializer,
@@ -297,6 +298,37 @@ class UnitDetailView(APIView):
         unit = _unit_queryset().filter(pk=unit_id).first()
         if unit is None or not services.user_can_view_unit(request.user, unit):
             raise NotFound(UNIT_NOT_FOUND)
+        return Response(UnitSerializer(_unit_data(unit)).data)
+
+
+class UnitLabelView(APIView):
+    @extend_schema(
+        tags=[TAG_UNITS],
+        summary="Remplacer l'étiquette d'un animal ou d'un lot",
+        description=(
+            "Membres et mandataires (droit « declare ») de l'élevage où se trouve l'unité. "
+            "L'ancienne étiquette est retirée (perdue ou désactivée), la nouvelle posée, dans "
+            "une transaction ; l'historique est conservé. 404 si l'unité n'est pas visible."
+        ),
+        request=LabelReplaceSerializer,
+        responses={200: UnitSerializer, 400: ErrorSerializer, 403: ErrorSerializer,
+                   404: ErrorSerializer},
+    )
+    def post(self, request, unit_id):
+        unit = _unit_queryset().filter(pk=unit_id).first()
+        if unit is None or not services.user_can_view_unit(request.user, unit):
+            raise NotFound(UNIT_NOT_FOUND)
+        if not services.user_can_access_center(request.user, unit.current_center_id, scope="declare"):
+            raise PermissionDenied("Vous n'avez pas accès à cet élevage.")
+        serializer = LabelReplaceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            label = services.label_for_registration(data["label_code"], unit.current_center)
+            services.replace_label(unit, label, request.user, reason=data["reason"])
+        except services.IdentityError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+        unit = _unit_queryset().get(pk=unit.pk)
         return Response(UnitSerializer(_unit_data(unit)).data)
 
 

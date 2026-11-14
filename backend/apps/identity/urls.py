@@ -7,6 +7,7 @@ from .views import (
     ScanView,
     UnitCreateView,
     UnitDetailView,
+    UnitLabelView,
 )
 
 urlpatterns = [
@@ -15,5 +16,6 @@ urlpatterns = [
     path("centers/<uuid:center_id>/units/", CenterUnitsView.as_view(), name="center-units"),
     path("units/", UnitCreateView.as_view(), name="unit-create"),
     path("units/<uuid:unit_id>/", UnitDetailView.as_view(), name="unit-detail"),
+    path("units/<uuid:unit_id>/label/", UnitLabelView.as_view(), name="unit-label"),
     path("scan/<str:code>/", ScanView.as_view(), name="scan"),
 ]

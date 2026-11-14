@@ -146,3 +146,13 @@ class ScanResultSerializer(serializers.Serializer):
     )
     unit = UnitSerializer(allow_null=True)
     species = SpeciesRefSerializer()
+
+
+class LabelReplaceSerializer(serializers.Serializer):
+    label_code = serializers.CharField(
+        max_length=20, help_text="Code de la nouvelle étiquette (scanné ou saisi)."
+    )
+    reason = serializers.ChoiceField(
+        choices=("lost", "damaged", "error"),
+        help_text="lost = perdue ; damaged = abîmée ; error = mauvaise étiquette posée.",
+    )
