@@ -30,7 +30,33 @@ La simplicité : les interfaces sont pensées pour des utilisateurs peu lettrés
 - `docs/` : cahier des charges, fiche technique, charte graphique
 
 ## Installation
-Les instructions de lancement seront ajoutées après le lot 0.
+Windows + PowerShell, depuis la racine du dépôt. Prérequis : Git, Python 3.11+, Node 22+, Docker Desktop (ouvert).
+
+```powershell
+Copy-Item .env.example .env          # puis renseigner SEED_DEMO_PASSWORD (8 caractères ou plus, pas trop simple)
+docker compose up -d                 # PostgreSQL + PostGIS ; attendre « healthy » (docker compose ps)
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py seed --demo         # données simulées : élevages, animaux, étiquettes
+python manage.py runserver           # http://127.0.0.1:8000  (API : /api/docs/)
+```
+
+Dans un second terminal :
+
+```powershell
+cd frontend
+npm install
+npm run dev                          # http://localhost:5173
+```
+
+Comptes de démonstration (mot de passe = `SEED_DEMO_PASSWORD`) : éleveurs `0000000001` à `0000000003`, vétérinaire `0000000004`, agent de terrain `0000000005`, autorité `0000000006`.
+
+Base de démonstration ancienne (étiquettes refusées au scan) : `docker compose down -v`, puis `docker compose up -d`, `migrate` et `seed --demo` (efface les données locales).
+
+Toutes les commandes : `docs/commande.md`. Méthode de travail : `docs/work_method.md`.
 
 ## Règles de travail
 - Une branche par fonction : `feature/<module>-<sujet>`, jamais de commit direct sur `main`.
