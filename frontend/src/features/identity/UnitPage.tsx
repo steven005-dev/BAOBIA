@@ -53,6 +53,7 @@ export function UnitPage() {
         <h1 className="text-number font-bold tracking-wide text-foreground">
           {unit.label_code ? formatShortCode(unit.label_code) : unit.local_name ?? title}
         </h1>
+        {unit.label_code && <p className="text-body text-muted-foreground">{messages.codePourEtiquette}</p>}
       </div>
 
       <Card title={unit.species.label_fr} icon={speciesIcon(unit.species.code)}>

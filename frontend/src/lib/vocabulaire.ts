@@ -129,6 +129,7 @@ export const messages = {
   // À VALIDER : messages reçus (Accueil).
   nouveauxMessages: 'Nouveaux messages',
   etiquetteChangee: 'Étiquette changée.',
+  codePourEtiquette: "Code de l'étiquette : à écrire ou imprimer, puis poser sur l'animal.",
   elevageAjoute: 'Élevage ajouté.',
   etiquettesRemises: 'Étiquettes remises.',
   aucuneEtiquette: 'Aucune étiquette ajoutée.',
@@ -197,10 +198,8 @@ export const titres = {
   quelleEspece: 'Quelle espèce ?',
   animalOuLot: 'Un animal ou un lot ?',
   combienAnimaux: "Combien d'animaux dans le lot ?",
-  quelleEtiquette: 'Quelle étiquette ?',
   changerEtiquette: "Changer l'étiquette",
   pourquoiChanger: "Pourquoi changer l'étiquette ?",
-  nouvelleEtiquette: 'Quelle est la nouvelle étiquette ?',
   ajouterElevage: 'Ajouter un élevage',
   remettreEtiquettes: 'Remettre des étiquettes',
 } as const

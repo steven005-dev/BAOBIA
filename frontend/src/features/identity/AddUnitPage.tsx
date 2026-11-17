@@ -1,7 +1,9 @@
 /**
  * Ajouter un animal ou un lot (gabarit Formulaire en une action) : une question par écran.
- * Étapes : espèce -> animal ou lot (si l'espèce permet les deux) -> nombre (lot) -> étiquette.
- * L'identifiant est créé sur le téléphone une seule fois : un double envoi est sans effet.
+ * Étapes : espèce -> animal ou lot (si l'espèce permet les deux) -> nombre (lot).
+ * Le code de l'étiquette est CRÉÉ PAR LE TÉLÉPHONE (personne ne le saisit) ; la fiche
+ * l'affiche ensuite en grand pour faire l'étiquette physique.
+ * L'identifiant et le code sont créés une seule fois : un double envoi est sans effet.
  */
 
 import { ArrowLeft, ArrowRight, CirclePlus, PawPrint, Users } from 'lucide-react'
@@ -11,27 +13,23 @@ import { useNavigate, useParams } from 'react-router'
 import { Banner } from '@/components/Banner'
 import { Button } from '@/components/Button'
 import { ChoiceGrid } from '@/components/ChoiceGrid'
-import { CodeInput } from '@/components/CodeInput'
-import { Field } from '@/components/Field'
 import { Loader } from '@/components/Loader'
 import { NumberStepper } from '@/components/NumberStepper'
 import { useToast } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
-import { isValidShortCode, normalizeShortCode } from '@/lib/shortCode'
+import { generateShortCode } from '@/lib/shortCode'
 import { champs, erreurs, messages, mots, titres } from '@/lib/vocabulaire'
 
 import { identityApi, newUuid, type Species, type UnitKind } from './api'
-import { QrScanner } from './QrScanner'
 import { speciesIcon } from './speciesIcon'
 import { useResource } from './useResource'
 
-type Step = 'species' | 'kind' | 'size' | 'label'
+type Step = 'species' | 'kind' | 'size'
 
 function stepsFor(species: Species | undefined, kind: UnitKind): Step[] {
   const steps: Step[] = ['species']
   if (species?.tracking_mode === 'both') steps.push('kind')
   if (kind === 'lot') steps.push('size')
-  steps.push('label')
   return steps
 }
 
@@ -49,7 +47,7 @@ export function AddUnitPage() {
   const [speciesId, setSpeciesId] = useState<string | null>(null)
   const [kindChoice, setKindChoice] = useState<UnitKind | null>(null)
   const [size, setSize] = useState(1)
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(generateShortCode)
   const [stepIndex, setStepIndex] = useState(0)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -63,8 +61,7 @@ export function AddUnitPage() {
   const canContinue =
     (step === 'species' && !!chosen) ||
     step === 'kind' ||
-    (step === 'size' && size >= 1) ||
-    (step === 'label' && isValidShortCode(code))
+    (step === 'size' && size >= 1)
 
   const back = () => {
     setError(null)
@@ -76,14 +73,25 @@ export function AddUnitPage() {
     if (!chosen) return
     setSending(true)
     setError(null)
+    const unit = (labelCode: string) => ({
+      kind,
+      center_id: centerId,
+      species_id: chosen.id,
+      label_code: labelCode,
+      ...(kind === 'lot' ? { size } : {}),
+    })
     try {
-      await identityApi.addUnit(unitId, {
-        kind,
-        center_id: centerId,
-        species_id: chosen.id,
-        label_code: code,
-        ...(kind === 'lot' ? { size } : {}),
-      })
+      try {
+        await identityApi.addUnit(unitId, unit(code))
+      } catch (err) {
+        // Code déjà pris (doublon, en pratique impossible) : on en crée un autre et on réessaie
+        // une fois. Le même identifiant d'animal est gardé : rien n'a été créé au premier essai.
+        const codeTaken = err instanceof ApiError && err.kind === 'validation' && err.message.includes('déjà posée')
+        if (!codeTaken) throw err
+        const fresh = generateShortCode()
+        setCode(fresh)
+        await identityApi.addUnit(unitId, unit(fresh))
+      }
       toast.show(kind === 'lot' ? messages.lotAjoute : messages.animalAjoute, 'success')
       navigate(`/centres/animaux/${unitId}`, { replace: true })
     } catch (err) {
@@ -95,7 +103,7 @@ export function AddUnitPage() {
 
   const next = () => {
     if (!canContinue) {
-      setError(step === 'label' && code.length === 9 ? erreurs.codeIncorrect : messages.champManquant)
+      setError(messages.champManquant)
       return
     }
     setError(null)
@@ -105,8 +113,6 @@ export function AddUnitPage() {
 
   if (species.loading) return <Loader />
   if (species.error) return <Banner variant="error">{species.error.message}</Banner>
-
-  const codeError = code.length === 9 && !isValidShortCode(code) ? erreurs.codeIncorrect : null
 
   return (
     <div className="flex flex-col gap-6">
@@ -149,15 +155,6 @@ export function AddUnitPage() {
         <NumberStepper label={titres.combienAnimaux} value={size} onChange={setSize} min={1} max={10000} />
       )}
 
-      {step === 'label' && (
-        <div className="flex flex-col gap-4">
-          <h2 className="text-subtitle font-bold text-foreground">{titres.quelleEtiquette}</h2>
-          <QrScanner onCode={(value) => setCode(normalizeShortCode(value))} />
-          <Field label={champs.codeEtiquette} help={champs.codeEtiquetteAide} error={codeError}>
-            <CodeInput value={code} onValueChange={setCode} />
-          </Field>
-        </div>
-      )}
 
       {error && <Banner variant="error">{error}</Banner>}
 
