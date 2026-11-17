@@ -164,3 +164,18 @@
 dialog::backdrop {
   background: var(--backdrop);
 }
+
+/* Impression : seule l'étiquette de l'animal sort (composant LabelToPrint). */
+@media print {
+  @page { margin: 10mm; }
+  body * { visibility: hidden; }
+  .print-label, .print-label * { visibility: visible; }
+  .print-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 60mm;
+    max-width: none;
+    box-shadow: none;
+  }
+}

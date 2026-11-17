@@ -311,8 +311,9 @@ class UnitCreateView(APIView):
         tags=[TAG_UNITS],
         summary="Ajouter un animal ou un lot",
         description=(
-            "Enregistre l'unité dans l'élevage `center_id` et pose l'étiquette `label_code` "
-            "si elle est donnée. Si `id` existe déjà pour cet utilisateur, l'unité existante "
+            "Enregistre l'unité dans l'élevage `center_id` et pose l'étiquette `label_code`. "
+            "Le code est créé par le téléphone (8 caractères + 1 de contrôle) puis imprimé : "
+            "s'il n'existe pas encore, l'étiquette est créée. Si `id` existe déjà pour cet utilisateur, l'unité existante "
             "est renvoyée (200) : rejouer l'envoi hors ligne est sans effet."
         ),
         request=UnitCreateSerializer,
@@ -340,7 +341,7 @@ class UnitCreateView(APIView):
 
         try:
             label = (
-                services.label_for_registration(data["label_code"], center)
+                services.label_for_registration(data["label_code"], center, request.user)
                 if data.get("label_code") else None
             )
             common = {
@@ -406,7 +407,7 @@ class UnitLabelView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         try:
-            label = services.label_for_registration(data["label_code"], unit.current_center)
+            label = services.label_for_registration(data["label_code"], unit.current_center, request.user)
             services.replace_label(unit, label, request.user, reason=data["reason"])
         except services.IdentityError as exc:
             raise ValidationError({"detail": str(exc)}) from exc

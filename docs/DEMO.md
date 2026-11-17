@@ -12,7 +12,7 @@
 | 2 | Certificat HTTPS (caméra du téléphone) | dans `frontend/` : `npm run cert` |
 | 3 | Serveurs | `python manage.py runserver` (backend) ; `npm run dev:phone` (frontend) |
 | 4 | Téléphones | même Wi-Fi que le PC ; ouvrir `https://<IP-du-PC>:5173`, accepter l'avertissement une fois, autoriser la caméra |
-| 5 | Étiquettes | imprimer les QR codes de la section 3 (un QR = le code seul, 9 caractères), les coller sur des cartons |
+| 5 | Étiquettes du scan | imprimer les QR codes des animaux déjà étiquetés (section 3 ; un QR = le code seul, 9 caractères), les coller sur des cartons. Pour un animal ajouté en direct, son code s'affiche sur sa fiche |
 | 6 | Secours | vidéo du parcours et maquette 3D (Yéné) prêtes sur le PC, hors ligne |
 
 Le jour J, refaire seulement 3 et 4. **Ne pas relancer le `seed` en public** (il ne recrée rien si les données existent, mais inutile de prendre le risque).
@@ -37,9 +37,8 @@ Administration Django (équipe technique seulement) : `/admin/`, compte créé a
 | `KECT T2U8 V` · `MYLH HLPG V` · `82MR XN5S Y` · `E8AQ B29Z 6` | posées : animaux 1 à 4, Élevage A (3 bovins, 1 porc) |
 | `XT5A H86V 9` · `5ZGQ Y7M4 6` · `QGKQ U8G4 S` | posées : animaux 5 à 7, Élevage B (2 bovins, 1 chèvre) |
 | `ZSQE 4QYM G` | posée : animal 8, Élevage C (mouton) |
-| `5LRP C692 X` · `PVSL HTQU C` | **vierges, remises à l'Élevage A** → pour « Ajouter un animal » |
-| `T6NZ 3WVW Y` · `W2XK MS2M T` | vierges, remises à l'Élevage B |
-| `4J5U JEYE 9` · `AV42 4EEX Y` · `E5P6 AVA4 8` · `T5XL Z9HQ Q` | en stock → pour « Remettre des étiquettes » (agent) |
+
+Pour « Ajouter un animal », **aucun code à préparer** : le téléphone crée le code et la fiche l'affiche en grand.
 
 ## 4. Le parcours (≈ 7 minutes)
 
@@ -47,7 +46,7 @@ Administration Django (équipe technique seulement) : `/admin/`, compte créé a
 
 | # | Qui (téléphone) | Action | Ce qu'on montre | État |
 |---|---|---|---|---|
-| 1 | Éleveur 1 | Accueil → **Ajouter** → Bovin → étiquette `PVSL HTQU C` (caméra) → Ajouter | une question par écran, gros boutons, « Animal ajouté. », fiche avec le code en grand | ✅ |
+| 1 | Éleveur 1 | Accueil → **Ajouter** → Bovin → Ajouter | une question par écran, gros boutons, « Animal ajouté. » ; **le code de l'étiquette est créé automatiquement** ; la fiche montre l'étiquette (QR + code) et le bouton **Imprimer** | ✅ |
 | 2 | Éleveur 1 | **Scanner** l'étiquette `KECT T2U8 V` | « Animal retrouvé. », fiche ; le scan est enregistré (heure, position si autorisée) | ✅ |
 | 3 | Éleveur 3 | **Scanner** la même étiquette | vue réduite : l'espèce seulement, **aucun nom d'élevage** (confidentialité) | ✅ |
 | 4 | Éleveur 1 → Éleveur 2 | **Transférer** un animal, puis **Recevoir** et confirmer avec le code | double confirmation, l'animal change d'élevage | ⏳ Romuald |
@@ -56,7 +55,7 @@ Administration Django (équipe technique seulement) : `/admin/`, compte créé a
 | 7 | Éleveur exposé | Accueil : message « Un animal arrivé chez vous a peut-être été en contact avec un cas suspect. Appelez votre vétérinaire. » | message neutre, sans l'élevage d'origine | ✅ affichage prêt, ⏳ déclenchement par l'alerte |
 | 8 | Autorité | **Carte** : zones normal / à surveiller / contact possible / alerte / pas assez de données | couleur + icône + motif, aucun nom d'élevage | ⏳ Yéo |
 
-Bonus si le temps le permet : Agent de terrain → Accueil → **Étiquettes** → Élevage B → scanner `4J5U JEYE 9` → Envoyer (« Étiquettes remises. »).
+Bonus si le temps le permet : sur la fiche de l'animal ajouté à l'étape 1, **Changer l'étiquette** → « Abîmée » → un nouveau code est créé ; scanner l'ancien code renvoie « Étiquette remplacée » vers le même animal.
 
 **Second scénario (si demandé) : regroupement de zone.** Plusieurs signalements similaires dans une zone → les vétérinaires de la zone sont prévenus → l'un confirme ou infirme. Règles explicables, pas d'IA qui diagnostique. ⏳ Yéo.
 

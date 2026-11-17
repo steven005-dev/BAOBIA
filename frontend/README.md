@@ -30,6 +30,11 @@ Si le pare-feu Windows le demande, autoriser Node.js sur les réseaux privés.
 | `src/offline/` | `submit()` : point d'entrée unique de la file d'envoi hors ligne | Konan Romuald |
 | `src/features/<module>/` | Écrans et appels API d'un module, routes dans `routes.tsx` | Responsable du module |
 
+## Bibliothèques ajoutées au socle
+| Bibliothèque | Pourquoi | Licence | Accord |
+|---|---|---|---|
+| `qrcode` 1.5.4 | Dessiner le QR code de l'étiquette à imprimer (sur le téléphone, même hors ligne) | MIT | Chef de projet, 17/11/2026 |
+
 ## Règles
 - Tous les textes viennent de `src/lib/vocabulaire.ts` (un mot par sens ; nouveaux mots marqués « À VALIDER »).
 - Aucune couleur ni taille écrite à la main : variables du thème (`src/styles/globals.css`).
