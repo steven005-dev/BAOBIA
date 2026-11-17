@@ -79,7 +79,11 @@ class MovementCreateSerializer(serializers.Serializer):
         default="transfer",
     )
     from_center_id = serializers.UUIDField()
-    to_center_id = serializers.UUIDField(required=False, allow_null=True)
+    to_center_id = serializers.UUIDField(
+        required=False,
+        allow_null=True,
+        help_text="Obligatoire pour un transfert ; facultatif pour une vente ou un abattage hors BAOBIA.",
+    )
     to_party_note = serializers.CharField(max_length=160, required=False, allow_blank=True)
     occurred_at = serializers.DateTimeField(required=False)
     items = MovementItemInputSerializer(many=True, allow_empty=False)
@@ -93,6 +97,11 @@ class MovementCreateSerializer(serializers.Serializer):
                 {"to_center_id": "L'élevage de destination doit être différent de l'élevage de départ."}
             )
 
+        if attrs.get("movement_type", "transfer") == "transfer" and not to_id:
+            raise serializers.ValidationError(
+                {"to_center_id": "Un transfert doit avoir un élevage destinataire enregistré."}
+            )
+
         # Vérifier l'existence de from_center
         if not Center.objects.filter(id=from_id).exists():
             raise serializers.ValidationError({"from_center_id": "Élevage de départ introuvable."})
@@ -101,3 +110,29 @@ class MovementCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError({"to_center_id": "Élevage destinataire introuvable."})
 
         return attrs
+
+
+class MovementConfirmSerializer(serializers.Serializer):
+    """Confirmation de réception (MV-04/05/07), soumise par le destinataire."""
+
+    id = serializers.UUIDField(required=False, default=uuid.uuid4)
+    center_id = serializers.UUIDField()
+    code = serializers.RegexField(r"^\d{6}$", write_only=True)
+
+
+class DestinationShareCreateSerializer(serializers.Serializer):
+    center_id = serializers.UUIDField()
+
+
+class DestinationShareResolveSerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=512, trim_whitespace=True)
+
+
+class DestinationShareResultSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    expires_in_days = serializers.IntegerField()
+
+
+class ResolvedDestinationSerializer(serializers.Serializer):
+    center_id = serializers.UUIDField()
+    center_name = serializers.CharField()

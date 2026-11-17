@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import secrets
 import uuid
 from datetime import timedelta
@@ -9,13 +10,17 @@ from django.utils import timezone
 
 from apps.audit.services import record_event
 from apps.identity.models import TrackedUnit
+from apps.identity.services import set_current_center
 from apps.traceability.exceptions import (
+    InvalidConfirmationCodeError,
     InvalidMovementDataError,
+    MovementNotReceivableError,
     UnitAlreadyLockedError,
     UnitNotAtOriginCenterError,
 )
 from apps.traceability.models import (
     Movement,
+    MovementConfirmation,
     MovementConfirmationCode,
     MovementItem,
     MovementStatusEvent,
@@ -144,6 +149,17 @@ def declare_movement(
             is_simulated=is_simulated,
         )
 
+        # MV-04 : la déclaration enregistrée par l'éleveur vaut confirmation de l'expéditeur.
+        MovementConfirmation.objects.create(
+            movement=movement,
+            side="sender",
+            decision="confirm",
+            occurred_at=now,
+            created_by=created_by,
+            device=device,
+            is_simulated=is_simulated,
+        )
+
         # (7) Générer le code de confirmation
         plain_code, code_hash = generate_confirmation_code()
         MovementConfirmationCode.objects.create(
@@ -168,3 +184,87 @@ def declare_movement(
         )
 
     return movement, plain_code
+
+
+def confirm_movement_receipt(
+    *,
+    movement_id,
+    receiver_center_id,
+    code: str,
+    created_by,
+    confirmation_id=None,
+    occurred_at=None,
+    device=None,
+):
+    """Confirme la réception et déplace les unités dans une même transaction (MV-04/05)."""
+    error = None
+    now = occurred_at or timezone.now()
+
+    with transaction.atomic():
+        movement = Movement.objects.select_for_update().filter(pk=movement_id).first()
+        if movement is None:
+            raise MovementNotReceivableError("Mouvement introuvable.")
+        if not movement.to_center_id or str(movement.to_center_id) != str(receiver_center_id):
+            raise MovementNotReceivableError("Ce mouvement n'est pas destiné à cet élevage.")
+
+        existing = movement.confirmations.filter(side="receiver", decision="confirm").first()
+        if existing:
+            return movement
+
+        confirmation_code = movement.confirmation_codes.select_for_update().order_by("-expires_at").first()
+        if confirmation_code is None:
+            raise InvalidConfirmationCodeError("Code de confirmation introuvable.")
+        if confirmation_code.used_at or confirmation_code.expires_at <= now:
+            raise InvalidConfirmationCodeError("Ce code a expiré ou a déjà été utilisé.")
+        if confirmation_code.attempts >= 5:
+            raise InvalidConfirmationCodeError("Trop d'essais. Demandez de l'aide.")
+
+        expected_hash = hashlib.sha256(code.encode("utf-8")).hexdigest()
+        if not hmac.compare_digest(confirmation_code.code_hash, expected_hash):
+            confirmation_code.attempts += 1
+            confirmation_code.save(update_fields=["attempts"])
+            error = "Code incorrect. Vérifiez le code et réessayez."
+        else:
+            confirmation_code.used_at = now
+            confirmation_code.save(update_fields=["used_at"])
+            MovementConfirmation.objects.create(
+                id=confirmation_id,
+                movement=movement,
+                side="receiver",
+                decision="confirm",
+                occurred_at=now,
+                created_by=created_by,
+                device=device,
+                is_simulated=movement.is_simulated,
+            )
+            for item in movement.items.select_related("unit"):
+                item.quantity_received = item.quantity_sent
+                item.save(update_fields=["quantity_received"])
+                set_current_center(item.unit, movement.to_center)
+
+            UnitOpenMovement.objects.filter(movement=movement).delete()
+            movement.status = "confirmed"
+            movement.received_at = timezone.now()
+            movement.save(update_fields=["status", "received_at"])
+            MovementStatusEvent.objects.create(
+                movement=movement,
+                status="confirmed",
+                reason="Réception confirmée par le destinataire",
+                occurred_at=now,
+                created_by=created_by,
+                device=device,
+                is_simulated=movement.is_simulated,
+            )
+            record_event(
+                action="movement.confirm_receipt",
+                actor_user=created_by,
+                entity_table="movement",
+                entity_id=movement.id,
+                details={"to_center_id": str(movement.to_center_id)},
+                device=device,
+            )
+
+    # Lever après le commit afin de conserver le compteur d'essais erronés.
+    if error:
+        raise InvalidConfirmationCodeError(error)
+    return movement

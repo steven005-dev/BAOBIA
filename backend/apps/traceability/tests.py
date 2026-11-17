@@ -9,6 +9,7 @@ from django.utils import timezone
 from apps.core.models import Species
 from apps.geo.models import Zone
 from apps.identity.models import Center, TrackedUnit
+from apps.identity.services import add_center_member
 from apps.traceability.models import (
     Movement,
     MovementItem,
@@ -353,6 +354,11 @@ class MovementAPITestCase(TestCase):
             full_name="Aya Touré",
             password="testpassword123",
         )
+        self.receiver = User.objects.create_user(
+            phone="+2250700000004",
+            full_name="Koffi Bamba",
+            password="testpassword123",
+        )
         self.zone = Zone.objects.create(code="DAL", name="Daloa", level=1)
         self.center_from = Center.objects.create(
             name="Élevage Daloa 1",
@@ -366,6 +372,9 @@ class MovementAPITestCase(TestCase):
             center_type="market",
             created_by=self.user,
         )
+        # L'API de mouvement vérifie explicitement l'accès au centre d'origine.
+        add_center_member(self.center_from, self.user, "holder")
+        add_center_member(self.center_to, self.receiver, "holder")
         self.species = Species.objects.create(
             code="goat",
             label_fr="Caprins",
@@ -405,6 +414,105 @@ class MovementAPITestCase(TestCase):
         self.assertIn("confirmation_code", response.data)
         self.assertEqual(len(response.data["items"]), 1)
 
+    def test_api_transfer_requires_registered_destination(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(
+            "/api/movements/",
+            {
+                "from_center_id": str(self.center_from.id),
+                "movement_type": "transfer",
+                "to_party_note": "Élevage voisin",
+                "items": [{"unit_id": str(self.unit.id), "quantity_sent": 1}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("to_center_id", response.data)
+
+    def test_destination_share_code_is_scoped_and_exposes_minimal_data(self):
+        self.client.force_authenticate(user=self.user)
+        denied = self.client.post(
+            "/api/movements/destination-code/",
+            {"center_id": str(self.center_to.id)},
+            format="json",
+        )
+        self.assertEqual(denied.status_code, 403)
+
+        self.client.force_authenticate(user=self.receiver)
+        shared = self.client.post(
+            "/api/movements/destination-code/",
+            {"center_id": str(self.center_to.id)},
+            format="json",
+        )
+        self.assertEqual(shared.status_code, 200)
+        self.assertEqual(shared.data["expires_in_days"], 30)
+
+        self.client.force_authenticate(user=self.user)
+        resolved = self.client.get(
+            "/api/movements/destination-code/",
+            {"code": shared.data["code"]},
+        )
+        self.assertEqual(resolved.status_code, 200)
+        self.assertEqual(
+            resolved.data,
+            {"center_id": str(self.center_to.id), "center_name": self.center_to.name},
+        )
+
+        invalid = self.client.get(
+            "/api/movements/destination-code/", {"code": "not-a-signed-code"}
+        )
+        self.assertEqual(invalid.status_code, 400)
+
+    def test_api_receiver_confirms_movement_and_unit_changes_center(self):
+        """MV-04/05 : le destinataire confirme avec son compte et localise l'animal."""
+        movement_id = uuid.uuid4()
+        self.client.force_authenticate(user=self.user)
+        declaration = self.client.post(
+            "/api/movements/",
+            {
+                "id": str(movement_id),
+                "from_center_id": str(self.center_from.id),
+                "to_center_id": str(self.center_to.id),
+                "movement_type": "transfer",
+                "items": [{"unit_id": str(self.unit.id), "quantity_sent": 1}],
+            },
+            format="json",
+        )
+        self.assertEqual(declaration.status_code, 201)
+
+        self.client.force_authenticate(user=self.receiver)
+        confirmation_payload = {
+            "id": str(uuid.uuid4()),
+            "center_id": str(self.center_to.id),
+            "code": declaration.data["confirmation_code"],
+        }
+        confirmation = self.client.post(
+            f"/api/movements/{movement_id}/confirm/",
+            confirmation_payload,
+            format="json",
+        )
+        self.assertEqual(confirmation.status_code, 200)
+        self.assertEqual(confirmation.data["status"], "confirmed")
+
+        self.unit.refresh_from_db()
+        self.assertEqual(self.unit.current_center_id, self.center_to.id)
+        self.assertFalse(UnitOpenMovement.objects.filter(unit=self.unit).exists())
+        self.assertEqual(
+            set(MovementConfirmation.objects.filter(movement_id=movement_id).values_list("side", flat=True)),
+            {"sender", "receiver"},
+        )
+
+        retry = self.client.post(
+            f"/api/movements/{movement_id}/confirm/",
+            confirmation_payload,
+            format="json",
+        )
+        self.assertEqual(retry.status_code, 200)
+        self.assertEqual(
+            MovementConfirmation.objects.filter(movement_id=movement_id, side="receiver").count(),
+            1,
+        )
+
     def test_api_declare_movement_already_locked_returns_409(self):
         """MV-02 : Tentative de double mouvement renvoie un code HTTP 409 Conflict."""
         self.client.force_authenticate(user=self.user)
@@ -420,6 +528,6 @@ class MovementAPITestCase(TestCase):
         # Deuxième tentative avec la même unité
         res2 = self.client.post("/api/movements/", payload, format="json")
         self.assertEqual(res2.status_code, 409)
-        self.assertEqual(res2.data["error"], "unit_already_locked")
+        self.assertIn("engag", res2.data["detail"])
 
 

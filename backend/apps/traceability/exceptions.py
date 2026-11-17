@@ -16,3 +16,13 @@ class UnitNotAtOriginCenterError(TraceabilityError):
 class InvalidMovementDataError(TraceabilityError):
     """Levée lorsque les données fournies pour le mouvement sont invalides."""
     pass
+
+
+class InvalidConfirmationCodeError(TraceabilityError):
+    """Levée lorsque le code de réception est invalide, expiré ou déjà utilisé."""
+    pass
+
+
+class MovementNotReceivableError(TraceabilityError):
+    """Levée lorsque le mouvement ne peut pas être reçu par cet élevage."""
+    pass
