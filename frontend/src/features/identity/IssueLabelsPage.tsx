@@ -62,8 +62,13 @@ export function IssueLabelsPage() {
     setSending(true)
     setError(null)
     try {
-      await identityApi.issueLabels(target, codes)
-      toast.show(messages.etiquettesRemises, 'success')
+      const result = await identityApi.issueLabels(target, codes)
+      if (result.status === 'check') {
+        setError(result.error ?? erreurs.saisie)
+        return
+      }
+      toast.show(result.status === 'sent' ? messages.etiquettesRemises : messages.gardeSurTelephone,
+                 result.status === 'sent' ? 'success' : 'info')
       setCodes([])
     } catch (err) {
       setError(err instanceof ApiError ? err.message : erreurs.serveur)

@@ -18,6 +18,7 @@ import { generateShortCode } from '@/lib/shortCode'
 import { champs, erreurs, messages, mots, titres } from '@/lib/vocabulaire'
 
 import { identityApi, type ReplaceReason } from './api'
+import { LabelToPrint } from './LabelToPrint'
 
 export function ReplaceLabelPage() {
   const { unitId = '' } = useParams()
@@ -27,6 +28,7 @@ export function ReplaceLabelPage() {
   const [code] = useState(generateShortCode)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [queued, setQueued] = useState(false)
 
   const send = async () => {
     if (!reason) {
@@ -36,14 +38,35 @@ export function ReplaceLabelPage() {
     setSending(true)
     setError(null)
     try {
-      await identityApi.replaceLabel(unitId, code, reason)
-      toast.show(messages.etiquetteChangee, 'success')
-      navigate(`/centres/animaux/${unitId}`, { replace: true })
+      const result = await identityApi.replaceLabel(unitId, code, reason)
+      if (result.status === 'sent') {
+        toast.show(messages.etiquetteChangee, 'success')
+        navigate(`/centres/animaux/${unitId}`, { replace: true })
+      } else if (result.status === 'check') {
+        setError(result.error ?? erreurs.saisie)
+      } else {
+        setQueued(true)
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : erreurs.serveur)
     } finally {
       setSending(false)
     }
+  }
+
+  if (queued) {
+    return (
+      <div className="flex flex-col gap-6">
+        <h1 className="text-title font-bold text-foreground">{titres.changerEtiquette}</h1>
+        <Banner variant="info" title={messages.enAttente}>
+          {messages.gardeSurTelephone} {messages.etiquetteDejaImprimable}
+        </Banner>
+        <LabelToPrint code={code} species="" />
+        <Button variant="secondary" icon={ArrowLeft} onClick={() => navigate(-1)}>
+          {mots.retour}
+        </Button>
+      </div>
+    )
   }
 
   return (

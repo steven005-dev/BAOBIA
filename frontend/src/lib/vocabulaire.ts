@@ -130,6 +130,8 @@ export const messages = {
   // À VALIDER : messages reçus (Accueil).
   nouveauxMessages: 'Nouveaux messages',
   etiquetteChangee: 'Étiquette changée.',
+  gardeSurTelephone: "Pas de réponse du réseau : c'est gardé sur ce téléphone et partira tout seul.",
+  etiquetteDejaImprimable: "Vous pouvez déjà imprimer l'étiquette.",
   codePourEtiquette: "Imprimez cette étiquette et posez-la sur l'animal.",
   elevageAjoute: 'Élevage ajouté.',
   etiquettesRemises: 'Étiquettes remises.',
