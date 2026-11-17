@@ -1,7 +1,7 @@
 # BAOBIA : le projet, son contexte et son architecture
 
 > Document d'entrée pour toute personne (ou tout agent IA) qui rejoint le projet. À lire **avant** les autres documents.
-> Version 1.1 - 12 novembre 2026 (ajout du regroupement de zone). Prototype présenté à SELAB 2026 (Abidjan), présentation prévue vers le 20 novembre 2026 (règles détaillées du concours non confirmées).
+> Version 1.2 - 17 novembre 2026 (code d'étiquette créé par le téléphone ; 1.1 : regroupement de zone). Prototype présenté à SELAB 2026 (Abidjan), présentation prévue vers le 20 novembre 2026 (règles détaillées du concours non confirmées).
 
 ---
 
@@ -66,7 +66,7 @@ BAOBIA ne prétend pas résoudre toute la santé animale : il rend **retrouvable
 
 ## 6. Parcours de démonstration (ce qu'on protège avant tout)
 
-1. Un éleveur **enregistre un animal** et lui pose une étiquette.
+1. Un éleveur **enregistre un animal** : le système crée le code de son étiquette, qu'on écrit ou imprime et qu'on pose sur l'animal.
 2. Il le **transfère** à un autre élevage avec **double confirmation**.
 3. Un éleveur **signale un cas** (symptômes cochés, photo).
 4. Un vétérinaire habilité **valide** ; l'**alerte** apparaît avec la liste des élevages exposés, **le chemin expliqué**, et **le cas négatif** (pourquoi tel élevage est écarté).
@@ -87,7 +87,7 @@ BAOBIA ne prétend pas résoudre toute la santé animale : il rend **retrouvable
 |---|---|
 | **Centre** | Un lieu d'élevage, de marché ou d'abattoir. Un détenteur responsable, éventuellement d'autres membres. |
 | **Unité suivie** | Ce que l'on suit : soit un **animal** individuel, soit un **lot** (volaille, petits ruminants en groupe). |
-| **Étiquette / code court** | Étiquette physique pré-numérotée. Son QR contient un code de 9 caractères (dont 1 de contrôle, sans 0/O/1/I). |
+| **Étiquette / code court** | Étiquette physique posée sur l'animal. Son code de 9 caractères (dont 1 de contrôle, sans 0/O/1/I) est **créé automatiquement** quand on ajoute l'animal, puis écrit ou imprimé sur l'étiquette avec son QR. Personne ne le saisit. |
 | **Mouvement** | Déplacement d'unités d'un centre à un autre, déclaré puis confirmé par les deux côtés. |
 | **Rapprochement** | Comparaison de ce qui a été envoyé et reçu ; les écarts sont enregistrés. |
 | **Signalement** | Un éleveur ou agent déclare un cas suspect. |
@@ -232,6 +232,7 @@ Le fichier `.github/CODEOWNERS` applique ces responsabilités. Méthode de trava
 | Connexion par numéro de téléphone | Public cible. |
 | UUID créés côté appareil | Hors ligne sans collision. |
 | Règles sanitaires en table versionnée | Les changer ne demande pas de redéploiement. |
+| Code d'étiquette créé par le téléphone à l'ajout de l'animal | Aucune saisie (moins d'erreurs), marche hors ligne, pas de stock d'étiquettes pré-imprimées à gérer. |
 | Regroupement par règles explicables, IA secondaire | Chaque alerte doit dire pourquoi elle existe ; l'IA ne pose aucun diagnostic et seul un vétérinaire habilité valide. |
 | Aucune valeur légale | Prototype ; évite toute confusion avec un document officiel. |
 | Simplicité d'interface avant tout | Utilisateurs peu lettrés. |
