@@ -16,6 +16,7 @@ import { formatShortCode } from '@/lib/shortCode'
 import { champs, messages, mots, titres } from '@/lib/vocabulaire'
 
 import { identityApi } from './api'
+import { LabelToPrint } from './LabelToPrint'
 import { speciesIcon } from './speciesIcon'
 import { useResource } from './useResource'
 
@@ -53,8 +54,14 @@ export function UnitPage() {
         <h1 className="text-number font-bold tracking-wide text-foreground">
           {unit.label_code ? formatShortCode(unit.label_code) : unit.local_name ?? title}
         </h1>
-        {unit.label_code && <p className="text-body text-muted-foreground">{messages.codePourEtiquette}</p>}
       </div>
+
+      {unit.label_code && (
+        <section className="flex flex-col gap-3" aria-label={mots.etiquette}>
+          <p className="text-body text-muted-foreground">{messages.codePourEtiquette}</p>
+          <LabelToPrint code={unit.label_code} species={unit.species.label_fr} />
+        </section>
+      )}
 
       <Card title={unit.species.label_fr} icon={speciesIcon(unit.species.code)}>
         <dl className="flex flex-col gap-4">

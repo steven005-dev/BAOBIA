@@ -59,6 +59,7 @@ export const mots = {
   quitter: 'Quitter',
   continuer: 'Continuer',
   etiquettes: 'Étiquettes', // À VALIDER (pluriel d'« Étiquette »)
+  imprimer: 'Imprimer', // À VALIDER : imprimer l'étiquette d'un animal
   signalements: 'Signalements', // charte, section 7 (navigation vétérinaire)
   // À VALIDER : absents de la charte.
   seConnecter: 'Se connecter',
@@ -129,7 +130,7 @@ export const messages = {
   // À VALIDER : messages reçus (Accueil).
   nouveauxMessages: 'Nouveaux messages',
   etiquetteChangee: 'Étiquette changée.',
-  codePourEtiquette: "Code de l'étiquette : à écrire ou imprimer, puis poser sur l'animal.",
+  codePourEtiquette: "Imprimez cette étiquette et posez-la sur l'animal.",
   elevageAjoute: 'Élevage ajouté.',
   etiquettesRemises: 'Étiquettes remises.',
   aucuneEtiquette: 'Aucune étiquette ajoutée.',
