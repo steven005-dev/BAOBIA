@@ -9,6 +9,10 @@ Fonctions de lecture :
 - user_has_role(user, role_code, at=None) -> bool
 - get_valid_habilitation(user, at=None, kinds=...) -> Habilitation | None
 - user_has_valid_habilitation(user, at=None, kinds=...) -> bool
+- zone_and_ancestor_ids(zone_id) -> list[uuid]
+- users_with_role_in_zone(role_code, zone_id, at=None, include_ancestors=True) -> list[User]
+- vets_for_zone(zone_id, at=None, include_ancestors=True) -> list[User] (habilitation valide)
+- authorities_for_zone(zone_id, at=None, include_ancestors=True) -> list[User]
 
 Fonctions d'écriture (journalisées dans audit_log) :
 - grant_role, verify_habilitation, create_mandate
@@ -264,3 +268,55 @@ def logout(user, raw_refresh):
     token.blacklist()
     record_event("auth.logout", actor_user=user, entity_id=user.pk)
     return True
+
+
+# ---------------------------------------------------------------------------
+# Destinataires par zone (alertes de zone, notifications)
+# ---------------------------------------------------------------------------
+
+MAX_ZONE_DEPTH = 7  # zone.level va de 0 (pays) à 6
+
+
+def zone_and_ancestor_ids(zone_id):
+    """La zone puis ses zones parentes, de la plus petite au pays (lecture des ids de geo)."""
+    from apps.geo.models import Zone
+
+    ids, current = [], zone_id
+    while current and current not in ids and len(ids) <= MAX_ZONE_DEPTH:
+        ids.append(current)
+        current = Zone.objects.filter(pk=current).values_list("parent_id", flat=True).first()
+    return ids
+
+
+def users_with_role_in_zone(role_code, zone_id, at=None, *, include_ancestors=True):
+    """Utilisateurs actifs ayant le rôle `role_code` actif sur la zone (et, par défaut,
+    sur une de ses zones parentes). Un rôle sans zone ne compte pas : pas de périmètre."""
+    if not zone_id:
+        return []
+    zones = zone_and_ancestor_ids(zone_id) if include_ancestors else [zone_id]
+    at = _as_datetime(at)
+    user_ids = (
+        Membership.objects.filter(role__code=role_code, zone_id__in=zones, starts_at__lte=at)
+        .filter(Q(ends_at__isnull=True) | Q(ends_at__gt=at))
+        .values_list("user_id", flat=True)
+    )
+    return list(get_user_model().objects.filter(pk__in=user_ids, is_active=True).order_by("full_name"))
+
+
+def vets_for_zone(zone_id, at=None, *, include_ancestors=True):
+    """Vétérinaires à prévenir pour une zone : rôle "veterinarian" actif sur la zone
+    (ou une zone parente) ET habilitation valide à la date `at`.
+
+    Relance vers le niveau au-dessus : appeler avec l'id de la zone parente.
+    Exemple : vets_for_zone(alert.zone_id) puis vets_for_zone(zone.parent_id).
+    """
+    return [
+        user for user in users_with_role_in_zone("veterinarian", zone_id, at,
+                                                 include_ancestors=include_ancestors)
+        if user_has_valid_habilitation(user, at)
+    ]
+
+
+def authorities_for_zone(zone_id, at=None, *, include_ancestors=True):
+    """Autorités dont le périmètre couvre la zone (dernier recours d'une relance)."""
+    return users_with_role_in_zone("authority", zone_id, at, include_ancestors=include_ancestors)

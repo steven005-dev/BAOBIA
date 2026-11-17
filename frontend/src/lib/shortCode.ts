@@ -37,3 +37,18 @@ export function isValidShortCode(code: string): boolean {
   }
   return sum % n === 0
 }
+
+/**
+ * Crée un nouveau code d'étiquette sur le téléphone (aléatoire, sans réseau) :
+ * 8 caractères tirés au hasard + le caractère de contrôle. Le serveur vérifie qu'il est
+ * unique ; plus de mille milliards de combinaisons, un doublon est en pratique impossible.
+ */
+export function generateShortCode(): string {
+  const random = new Uint8Array(SHORT_CODE_LENGTH - 1)
+  crypto.getRandomValues(random)
+  const body = [...random].map((byte) => SHORT_CODE_ALPHABET[byte % SHORT_CODE_ALPHABET.length]).join('')
+  for (const check of SHORT_CODE_ALPHABET) {
+    if (isValidShortCode(body + check)) return body + check
+  }
+  throw new Error('Caractère de contrôle introuvable.') // impossible : un des 32 convient toujours
+}

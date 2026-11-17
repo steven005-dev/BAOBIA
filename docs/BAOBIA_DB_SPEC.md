@@ -1,6 +1,6 @@
 # BAOBIA : spécification de la base de données (source de vérité pour les agents)
 
-> **Version 1.2 - 12 novembre 2026. Ce fichier fait foi.** Il décrit les 56 tables de la base, leurs contraintes et la façon de les coder avec Django.
+> **Version 1.3 - 17 novembre 2026. Ce fichier fait foi.** Il décrit les 56 tables de la base, leurs contraintes et la façon de les coder avec Django.
 > Tout agent (ou personne) qui écrit des modèles, des migrations, des services ou des API **doit s'y conformer**. En cas de doute ou de conflit avec du code existant : **ne pas improviser, signaler**.
 > Document complémentaire pour les humains : `BAOBIA_MCD_MLD.pdf` (schémas MCD).
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changements |
 |---|---|---|
+| 1.3 | 17 novembre 2026 | Étiquettes : le code est **créé par le téléphone** à l'enregistrement (ou au remplacement), puis écrit ou imprimé sur l'étiquette ; plus de saisie ni de stock pré-imprimé obligatoire. Aucun changement de table ni de colonne (sections 6, 9.4, 9.10, 12). |
 | 1.2 | 12 novembre 2026 | Regroupement de zone : colonnes `cluster_*` et `escalation_hours` dans `disease_rule` ; `trigger_kind`, `species_id`, `confidence`, `escalation_due_at` dans `alert` (`focus_center_id` devient NULL pour une alerte de zone) ; nouvelle table `alert_review` (56 tables) ; nouveaux types d'`alert_event` ; section 9.9 ; décision D11 à trancher. |
 | 1.1 | 9 novembre 2026 | Version de référence (55 tables). |
 
@@ -414,7 +415,7 @@ SOUS-TYPE collectif (volaille, petits ruminants en groupe).
 
 #### `label_batch`  ->  `LabelBatch`  (UUIDModel)
 
-Lot d'impression d'étiquettes numérotées.
+Lot d'étiquettes. En P1, chaque étiquette est créée à l'enregistrement de l'animal : un lot d'une étiquette (note « Étiquette créée à l'enregistrement »). Un lot de plusieurs étiquettes reste possible pour imprimer à l'avance (P2).
 
 | Colonne | Type | Contraintes | Remarque |
 |---|---|---|---|
@@ -426,7 +427,7 @@ Lot d'impression d'étiquettes numérotées.
 
 #### `label`  ->  `Label`  (UUIDModel)
 
-Une étiquette physique pré-numérotée. Le QR contient uniquement short_code.
+Le code d'une étiquette physique. Il est **créé par le téléphone** quand on ajoute l'animal (ou remplace son étiquette), puis écrit ou imprimé sur l'étiquette : personne ne le saisit (section 9.10). Le QR contient uniquement short_code.
 
 | Colonne | Type | Contraintes | Remarque |
 |---|---|---|---|
@@ -435,7 +436,7 @@ Une étiquette physique pré-numérotée. Le QR contient uniquement short_code.
 | `short_code` | `char(9)` | NOT NULL, UNIQUE, CHECK ~ '^[2-9A-HJ-NP-Z]{9}$' | 8 caractères lisibles + 1 caractère de contrôle (calculé par l'application) ; sans 0, O, 1, I |
 | `kind` | `varchar(10)` | NOT NULL DEFAULT 'qr', CHECK IN ('qr','ear_tag','other') |  |
 | `status` | `varchar(12)` | NOT NULL DEFAULT 'printed', CHECK IN ('printed','issued','active','deactivated','lost') |  |
-| `issued_to_center_id` | `uuid` | FK center NULL | centre à qui elle a été remise |
+| `issued_to_center_id` | `uuid` | FK center NULL | élevage de l'unité étiquetée (ou à qui une étiquette imprimée à l'avance a été remise) |
 
 #### `identity_support`  ->  `IdentitySupport`  (UUIDModel)
 
@@ -1054,7 +1055,7 @@ Expéditeur puis destinataire confirment (`movement_confirmation`, une par côt�
 Mouvement d'une partie d'un lot (ex. 10 poules sur 40) : à la confirmation, le service crée un **nouveau** `tracked_unit` (kind `lot`, `origin_unit_id` = lot d'origine) dans le centre destinataire, renseigne `movement_item.received_unit_id`, diminue `current_size` du lot d'origine et écrit un `status_event` `size_change`. Si tout le lot part : `received_unit_id` = la même unité.
 
 ### 9.4 Remplacer une étiquette
-Dans une transaction : `identity_support.unbound_at` + `unbound_reason` sur l'ancien support, `label.status = 'deactivated'` ; nouveau support lié à la nouvelle étiquette. L'identifiant de l'unité ne change jamais. Un scan d'une étiquette désactivée affiche « étiquette remplacée » et renvoie vers l'unité.
+Dans une transaction : `identity_support.unbound_at` + `unbound_reason` sur l'ancien support, `label.status = 'deactivated'` (`'lost'` si l'étiquette est perdue) ; nouveau support lié à la nouvelle étiquette, dont le code est créé par le téléphone (section 9.10). Rejouer le même remplacement est sans effet. L'identifiant de l'unité ne change jamais. Un scan d'une étiquette désactivée affiche « étiquette remplacée » et renvoie vers l'unité.
 
 ### 9.5 Signalement et alerte
 Une alerte a **deux déclencheurs** (`alert.trigger_kind`) :
@@ -1118,6 +1119,11 @@ Quand plusieurs situations s'appliquent à une zone, l'état le plus grave l'emp
 
 **Valeurs de démonstration** : `cluster_window_days`, `cluster_min_reports`, `cluster_min_ratio` et `escalation_hours` sont expérimentales et **à faire valider par un vétérinaire**.
 
+### 9.10 Créer le code d'une étiquette (`identity.services.label_for_registration`)
+- **Qui crée le code :** le téléphone, au moment d'« Ajouter » un animal ou un lot, ou de « Changer l'étiquette » : 8 caractères tirés au hasard dans l'alphabet sans 0, O, 1, I, plus le caractère de contrôle (même algorithme que le serveur). Cela marche hors ligne ; personne ne saisit de code.
+- **Ce que fait le serveur :** il vérifie le format et le caractère de contrôle. Si le code n'existe pas, il crée l'étiquette (`label_batch` d'une étiquette, `label.status = 'issued'`, `issued_to_center_id` = élevage de l'unité), la pose sur l'unité et l'écrit dans `audit_log` (`label.generate`), dans la même transaction que l'enregistrement. Un code déjà posé sur une autre unité est refusé : le téléphone en crée un autre et réessaie une fois (doublon en pratique impossible : plus de mille milliards de combinaisons).
+- **Ensuite :** la fiche affiche le code en grand, à écrire ou imprimer (QR + code lisible) sur l'étiquette physique posée sur l'animal. Le QR ne contient que le code.
+
 ## 10. Données de départ (`manage.py seed`, idempotent)
 Chargées par migration de données ou commande, **jamais à la main** : `role` (breeder, field_agent, veterinarian, authority, trader), `species` (bovin, ovin, caprin, porcin, volaille avec `tracking_mode`), `symptom` et `disease` (liste courte, vocabulaire simple), `disease_rule` (version 1 par maladie ; valeurs **à faire valider par un vétérinaire**), au moins une `zone` de démonstration. Tout est marqué `is_simulated` quand c'est de la donnée de démonstration.
 
@@ -1132,7 +1138,7 @@ Chargées par migration de données ou commande, **jamais à la main** : `role` 
 Chaque application livre au minimum des tests qui prouvent :
 - création d'un enregistrement valide ; refus d'un enregistrement qui viole chaque `CHECK` et chaque `UNIQUE` de ses tables (y compris les cas avec NULL) ;
 - pour les événements : tentative de `UPDATE` et de `DELETE` (ORM **et** SQL brut) = erreur ;
-- `identity` : une étiquette active ne peut être liée à deux unités ; remplacer une étiquette conserve l'historique ;
+- `identity` : une étiquette active ne peut être liée à deux unités ; remplacer une étiquette conserve l'historique ; un code nouveau crée l'étiquette et la pose ; un code mal formé ne crée rien ;
 - `traceability` : une unité ne peut pas être dans deux mouvements ouverts ; la double confirmation met à jour le centre courant ; le fractionnement d'un lot crée la bonne lignée ;
 - `alerts` : alerte niveau 3 refusée sans habilitation valide ; le calcul est rejouable (nouveau `run_id`) ; le cas négatif est enregistré ; la profondeur est respectée ;
 - `alerts`, regroupement de zone : un regroupement qui atteint le seuil déclenche une alerte `zone_cluster` ; un cas isolé ne déclenche aucune alerte ; des signalements d'espèces différentes ne forment pas de regroupement ; le ratio est rapporté à l'effectif connu (même nombre de cas : seuil atteint sur un petit effectif, pas sur un grand) ; effectif inconnu = `confidence = 'reduced'` ; seuls les vétérinaires habilités de la zone (zones parentes incluses) sont notifiés ; relance (`escalated`) à `escalation_due_at` sans réponse ; confirmation par un vétérinaire sans habilitation valide refusée ; alerte de zone sans `species_id` refusée par la base ; `alert_review` en ajout seul (UPDATE/DELETE refusés) ;

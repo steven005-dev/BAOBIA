@@ -4,12 +4,17 @@
  * Exemple : { path: 'mouvements/recevoir', element: <ReceptionPage /> }
  */
 
-import { ArrowLeftRight } from 'lucide-react'
 import type { RouteObject } from 'react-router'
 
-import { ModulePlaceholder } from '@/app/ModulePlaceholder'
-import { mots } from '@/lib/vocabulaire'
+import { DeclareMovementForm } from './DeclareMovementForm'
+import { ConfirmMovementReceiptPage } from './ConfirmMovementReceiptPage'
+import { ShareDestinationCodePage } from './ShareDestinationCodePage'
+import { installMovementQueue } from '@/features/offline/queue'
+
+installMovementQueue()
 
 export const movementsRoutes: RouteObject[] = [
-  { path: 'mouvements', element: <ModulePlaceholder title={mots.mouvements} icon={ArrowLeftRight} /> },
+  { path: 'mouvements', element: <DeclareMovementForm /> },
+  { path: 'mouvements/recevoir', element: <ConfirmMovementReceiptPage /> },
+  { path: 'mouvements/partager', element: <ShareDestinationCodePage /> },
 ]

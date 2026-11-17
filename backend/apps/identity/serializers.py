@@ -74,7 +74,8 @@ class UnitCreateSerializer(serializers.Serializer):
     local_name = serializers.CharField(max_length=60, required=False, allow_blank=True)
     label_code = serializers.CharField(
         max_length=20, required=False, allow_blank=True,
-        help_text="Code de l'étiquette à poser (scanné ou saisi, espaces et tirets acceptés).",
+        help_text="Code de l'étiquette, créé par le téléphone (8 caractères + 1 de contrôle) ; "
+                  "l'étiquette est créée si le code est nouveau.",
     )
     # Animal
     sex = serializers.ChoiceField(choices=SEXES, default="unknown")
@@ -146,3 +147,62 @@ class ScanResultSerializer(serializers.Serializer):
     )
     unit = UnitSerializer(allow_null=True)
     species = SpeciesRefSerializer()
+
+
+class LabelReplaceSerializer(serializers.Serializer):
+    label_code = serializers.CharField(
+        max_length=20, help_text="Code de la nouvelle étiquette, créé par le téléphone ; créée si nouvelle."
+    )
+    reason = serializers.ChoiceField(
+        choices=("lost", "damaged", "error"),
+        help_text="lost = perdue ; damaged = abîmée ; error = mauvaise étiquette posée.",
+    )
+
+
+class VerificationCreateSerializer(serializers.Serializer):
+    id = serializers.UUIDField(required=False, help_text="UUID créé sur le téléphone : rejouer = sans effet.")
+    label_code = serializers.CharField(max_length=20, help_text="Code lu ou saisi.")
+    method = serializers.ChoiceField(choices=("scan", "manual_code"), default="scan")
+    occurred_at = serializers.DateTimeField(help_text="Heure du scan sur le téléphone.")
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True,
+                                        min_value=-90, max_value=90)
+    longitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True,
+                                         min_value=-180, max_value=180)
+    accuracy_m = serializers.DecimalField(max_digits=7, decimal_places=1, required=False, allow_null=True,
+                                          min_value=0)
+
+
+class VerificationSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    result = serializers.ChoiceField(choices=("confirmed", "mismatch", "unreadable"))
+    occurred_at = serializers.DateTimeField()
+
+
+class ZoneItemSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    level = serializers.IntegerField(help_text="0 = pays, 1 = région, 2 = département...")
+    parent_id = serializers.UUIDField(allow_null=True)
+
+
+class LabelIssueSerializer(serializers.Serializer):
+    codes = serializers.ListField(
+        child=serializers.CharField(max_length=20), min_length=1, max_length=200,
+        help_text="Codes des étiquettes vierges remises à l'élevage (scannés ou saisis).",
+    )
+
+
+class LabelIssuedSerializer(serializers.Serializer):
+    issued = serializers.IntegerField()
+    codes = serializers.ListField(child=serializers.CharField())
+
+
+class LabelBatchCreateSerializer(serializers.Serializer):
+    quantity = serializers.IntegerField(min_value=1, max_value=500)
+    note = serializers.CharField(max_length=160, required=False, allow_blank=True)
+
+
+class LabelBatchSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    quantity = serializers.IntegerField()
+    codes = serializers.ListField(child=serializers.CharField(), help_text="Codes à imprimer.")

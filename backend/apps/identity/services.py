@@ -10,8 +10,9 @@ Accès aux centres (utilisé par accounts.permissions.HasCenterAccess) :
 - accessible_centers(user, at=None, scope=None), user_can_access_center(...)
 Écriture :
 - create_center, add_center_member, grant_mandate
-- register_animal, register_lot, create_label_batch, bind_label
+- register_animal, register_lot, create_label_batch, bind_label, replace_label
 - set_current_center (appelée par traceability à la double confirmation)
+- record_verification (contrôle d'identité à un scan)
 Lecture (API) :
 - user_covers_zone, user_can_view_unit, active_label, scan_label, label_for_registration
 """
@@ -31,6 +32,7 @@ from .models import (
     CenterMember,
     CenterSpecies,
     IdentitySupport,
+    IdentityVerification,
     Label,
     LabelBatch,
     Lot,
@@ -351,28 +353,17 @@ def bind_label(unit, label, bound_by, *, at=None):
 PROFESSIONAL_ROLES = ("veterinarian", "authority")
 
 
-def _zone_and_ancestor_ids(zone_id):
-    """La zone et toutes ses zones parentes (la hiérarchie a au plus 7 niveaux)."""
-    from apps.geo.models import Zone  # lecture seule des identifiants de geo
-
-    ids, current = [], zone_id
-    while current and current not in ids and len(ids) < 8:
-        ids.append(current)
-        current = Zone.objects.filter(pk=current).values_list("parent_id", flat=True).first()
-    return ids
-
-
 def user_covers_zone(user, zone_id, roles=PROFESSIONAL_ROLES, at=None):
     """Vrai si l'utilisateur a un rôle professionnel actif sur cette zone ou une zone parente.
 
     Un rôle sans zone (membership.zone_id NULL) ne donne AUCUN périmètre géographique.
     """
-    from apps.accounts.services import active_memberships
+    from apps.accounts.services import active_memberships, zone_and_ancestor_ids
 
     if not zone_id or not getattr(user, "is_authenticated", False):
         return False
     return active_memberships(user, at).filter(
-        role__code__in=roles, zone_id__in=_zone_and_ancestor_ids(zone_id)
+        role__code__in=roles, zone_id__in=zone_and_ancestor_ids(zone_id)
     ).exists()
 
 
@@ -423,14 +414,120 @@ def scan_label(code):
     return ("lost" if label.status == "lost" else "replaced"), label, support.unit
 
 
-def label_for_registration(code, center):
-    """Étiquette utilisable pour enregistrer une unité dans `center`, ou IdentityError."""
+def label_for_registration(code, center, created_by):
+    """Étiquette à poser sur une unité de `center`, ou IdentityError.
+
+    Le code est CRÉÉ PAR LE TÉLÉPHONE au moment de l'ajout (8 caractères + 1 de contrôle),
+    puis imprimé sur l'étiquette physique : personne ne le saisit. Si le code n'existe pas
+    encore, l'étiquette est créée ici (lot d'une étiquette, remise à `center`).
+    Un code déjà existant (étiquette pré-imprimée) reste accepté s'il n'est pas remis à un
+    autre élevage ; s'il est déjà posé sur un autre animal, bind_label le refusera.
+    """
     code = normalize_short_code(code)
     if not is_valid_short_code(code):
         raise IdentityError("Étiquette non reconnue. Essayez encore ou saisissez le code.")
     label = Label.objects.filter(short_code=code).first()
     if label is None:
-        raise IdentityError("Étiquette non reconnue. Essayez encore ou saisissez le code.")
+        batch = LabelBatch.objects.create(
+            quantity=1, created_by=created_by, note="Étiquette créée à l'enregistrement"
+        )
+        label = Label.objects.create(
+            batch=batch, short_code=code, status="issued", issued_to_center=center
+        )
+        record_event("label.generate", actor_user=created_by, entity_table="label",
+                     entity_id=label.pk, details={"center_id": str(center.pk)})
+        return label
     if label.issued_to_center_id and label.issued_to_center_id != center.pk:
         raise IdentityError("Cette étiquette a été remise à un autre élevage.")
     return label
+
+
+# ---------------------------------------------------------------------------
+# Remplacer une étiquette (spec 9.4)
+# ---------------------------------------------------------------------------
+
+REPLACE_REASONS = ("lost", "damaged", "error")
+
+
+@transaction.atomic
+def replace_label(unit, new_label, replaced_by, *, reason, at=None):
+    """Retire l'étiquette QR active de l'unité et pose `new_label`, dans une transaction.
+
+    `reason` : "lost" (perdue : l'ancienne passe au statut "lost"), "damaged" (abîmée) ou
+    "error" (mauvaise étiquette posée) : l'ancienne passe à "deactivated".
+    L'identifiant de l'unité ne change jamais ; l'historique des supports est conservé.
+    Un scan de l'ancienne étiquette renvoie ensuite « étiquette remplacée » (scan_label).
+    Rejouer le même remplacement est sans effet (retourne le support actif).
+    """
+    if reason not in REPLACE_REASONS:
+        raise IdentityError("Raison inconnue.")
+    at = at or timezone.now()
+    unit = TrackedUnit.objects.select_for_update().get(pk=unit.pk)
+    old = (
+        IdentitySupport.objects.select_for_update()
+        .filter(unit=unit, support_type="qr_label", unbound_at__isnull=True)
+        .first()
+    )
+    if old is not None:
+        if old.label_id == new_label.pk:
+            return old  # déjà fait (envoi rejoué hors ligne) : sans effet
+        old.unbound_at = at
+        old.unbound_reason = reason
+        old.save(update_fields=["unbound_at", "unbound_reason"])
+        Label.objects.filter(pk=old.label_id).update(
+            status="lost" if reason == "lost" else "deactivated"
+        )
+    support = bind_label(unit, new_label, replaced_by, at=at)
+    record_event(
+        "label.replace", actor_user=replaced_by, entity_table="tracked_unit", entity_id=unit.pk,
+        details={"reason": reason, "old_label_id": str(old.label_id) if old else None,
+                 "new_label_id": str(new_label.pk)},
+    )
+    return support
+
+
+# ---------------------------------------------------------------------------
+# Vérification d'identité à un scan (identity_verification, ajout seul)
+# ---------------------------------------------------------------------------
+
+VERIFICATION_METHODS = ("scan", "manual_code")
+
+
+def record_verification(unit, label_code, verified_by, *, method="scan", occurred_at,
+                        verification_id=None, latitude=None, longitude=None,
+                        accuracy_m=None, device=None):
+    """Enregistre le contrôle d'identité d'une unité au moment d'un scan.
+
+    Le résultat est calculé ici (jamais fourni par le téléphone) : "confirmed" si le code
+    est l'étiquette active de l'unité, "mismatch" sinon (étiquette remplacée, perdue,
+    posée sur un autre animal), "unreadable" si le code est mal formé.
+    La position n'est gardée QUE si le téléphone l'a donnée à cet instant (règle absolue 8).
+    Idempotent avec `verification_id` (UUID créé sur le téléphone).
+    """
+    if method not in VERIFICATION_METHODS:
+        raise IdentityError("Méthode inconnue.")
+    if verification_id:
+        existing = IdentityVerification.objects.filter(pk=verification_id).first()
+        if existing is not None:
+            if existing.created_by_id != verified_by.pk:
+                raise IdentityError("Cet identifiant est déjà utilisé.")
+            return existing
+    code = normalize_short_code(label_code)
+    label = Label.objects.filter(short_code=code).first() if is_valid_short_code(code) else None
+    if label is None:
+        result = "unreadable"
+    elif IdentitySupport.objects.filter(unit=unit, label=label, unbound_at__isnull=True).exists():
+        result = "confirmed"
+    else:
+        result = "mismatch"
+    has_position = latitude is not None and longitude is not None
+    kwargs = {"id": verification_id} if verification_id else {}
+    return IdentityVerification.objects.create(
+        unit=unit, label=label, method=method, result=result,
+        occurred_at=occurred_at, created_by=verified_by, device=device,
+        latitude=latitude if has_position else None,
+        longitude=longitude if has_position else None,
+        position_accuracy_m=accuracy_m if has_position else None,
+        position_source="gps" if has_position else "none",
+        **kwargs,
+    )

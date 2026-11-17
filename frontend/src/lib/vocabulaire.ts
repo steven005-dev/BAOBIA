@@ -58,6 +58,8 @@ export const mots = {
   profil: 'Profil',
   quitter: 'Quitter',
   continuer: 'Continuer',
+  etiquettes: 'Étiquettes', // À VALIDER (pluriel d'« Étiquette »)
+  imprimer: 'Imprimer', // À VALIDER : imprimer l'étiquette d'un animal
   signalements: 'Signalements', // charte, section 7 (navigation vétérinaire)
   // À VALIDER : absents de la charte.
   seConnecter: 'Se connecter',
@@ -113,7 +115,42 @@ export const messages = {
   chargement: 'Chargement…',
   pageVide: 'Cet écran arrive bientôt.',
   pageIntrouvable: "Cette page n'existe pas.",
+  // À VALIDER : messages du module identity (élevages, animaux, scan).
+  lotAjoute: 'Lot ajouté.',
+  aucunElevage: 'Aucun élevage',
+  aucunElevageAide: 'Demandez à votre agent de terrain de créer votre élevage.',
+  aucunAnimal: 'Aucun animal',
+  aucunAnimalAide: 'Ajoutez votre premier animal avec son étiquette.',
+  etiquetteNonPosee: "Cette étiquette n'est posée sur aucun animal.",
+  etiquetteRemplacee: "Étiquette remplacée. Voici l'animal qui la portait.",
+  etiquettePerdue: 'Étiquette déclarée perdue.',
+  pasDansVosElevages: "Cet animal n'est pas dans vos élevages.",
+  visezEtiquette: "Visez le QR code de l'étiquette.",
+  cameraIndisponible: 'Caméra indisponible. Saisissez le code.',
+  // À VALIDER : messages reçus (Accueil).
+  nouveauxMessages: 'Nouveaux messages',
+  etiquetteChangee: 'Étiquette changée.',
+  gardeSurTelephone: "Pas de réponse du réseau : c'est gardé sur ce téléphone et partira tout seul.",
+  etiquetteDejaImprimable: "Vous pouvez déjà imprimer l'étiquette.",
+  codePourEtiquette: "Imprimez cette étiquette et posez-la sur l'animal.",
+  elevageAjoute: 'Élevage ajouté.',
+  etiquettesRemises: 'Étiquettes remises.',
+  aucuneEtiquette: 'Aucune étiquette ajoutée.',
+  etiquetteDejaDansLaListe: 'Cette étiquette est déjà dans la liste.',
 } as const
+
+/**
+ * Textes des messages envoyés par le serveur (backend : notifications/services.py, MESSAGES).
+ * Le serveur n'envoie qu'un code : le texte est choisi ici. Jamais l'élevage d'origine.
+ */
+export const textesNotifications: Record<string, string> = {
+  'exposure.contact_possible': messages.contactPossibleEleveur,
+  'alert.validated': messages.alerteValidee,
+  // À VALIDER : messages aux vétérinaires et à l'autorité (alerte de zone).
+  'zone_cluster.review_requested': 'Plusieurs signalements dans votre zone. Votre avis est demandé.',
+  'zone_cluster.escalated': 'Rappel : des signalements attendent toujours un avis.',
+  'alert.review_disagreement': "Deux vétérinaires ne sont pas d'accord sur une alerte.",
+}
 
 /** Messages d'erreur du client API et de la connexion (À VALIDER, ton de la charte). */
 export const erreurs = {
@@ -142,10 +179,30 @@ export const champs = {
   espece: 'Espèce',
   choisir: 'Choisir…',
   quantite: 'Nombre',
+  // À VALIDER : champs du module identity.
+  nom: 'Nom',
+  ajouteLe: 'Ajouté le',
+  etape: 'Étape',
+  sur: 'sur',
+  etiquettePerdue: 'Perdue',
+  etiquetteAbimee: 'Abîmée',
+  mauvaiseEtiquette: 'Mauvaise étiquette',
+  nomElevage: "Nom de l'élevage",
+  zone: 'Zone',
+  especesElevees: 'Espèces élevées',
 } as const
 
 /** Titres d'écran. */
 export const titres = {
   connexion: 'Connexion',
   composants: 'Composants (développement)',
+  // À VALIDER : titres du module identity.
+  ajouterAnimal: 'Ajouter un animal',
+  quelleEspece: 'Quelle espèce ?',
+  animalOuLot: 'Un animal ou un lot ?',
+  combienAnimaux: "Combien d'animaux dans le lot ?",
+  changerEtiquette: "Changer l'étiquette",
+  pourquoiChanger: "Pourquoi changer l'étiquette ?",
+  ajouterElevage: 'Ajouter un élevage',
+  remettreEtiquettes: 'Remettre des étiquettes',
 } as const

@@ -1,75 +1,47 @@
-# React + TypeScript + Vite
+# BAOBIA : application (frontend)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite + TypeScript, Tailwind CSS v4, composants maison sur la charte (`docs/BAOBIA_UI_GUIDELINES.md`).
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+## Lancer
+```powershell
+npm install
+npm run dev      # http://localhost:5173 ; /api est relayé vers Django (127.0.0.1:8000)
+npm run lint     # règles de la charte comprises (couleurs, tailles, mots interdits)
+npm run build
 ```
+En développement, `/composants` montre tous les composants partagés.
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+## Installation et hors connexion
+Le build de production inclut un manifeste et un service worker. Après la première ouverture en ligne, l'app shell et ses ressources sont disponibles hors connexion ; les réponses `/api/` ne sont jamais mises en cache. Les déclarations terrain restent dans la file Dexie et sont envoyées au retour du réseau.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Pour installer l'application, ouvrir le build servi en HTTPS (ou `localhost`) dans un navigateur compatible et choisir « Installer l'application » / « Ajouter à l'écran d'accueil ». Le service worker n'est actif qu'en production ; `npm run dev` sert uniquement au développement.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+## Tester sur un téléphone (caméra = HTTPS obligatoire)
+```powershell
+npm run cert        # une fois : certificat local dans .certs/ (30 jours, jamais sur GitHub)
+npm run dev:phone   # HTTPS, visible sur le Wi-Fi ; Django doit tourner sur ce PC
 ```
+Sur le téléphone, même Wi-Fi : `https://<adresse-IP-du-PC>:5173` (adresse affichée par Vite).
+Premier accès : avertissement de sécurité, « Paramètres avancés » puis « Continuer ».
+Si le pare-feu Windows le demande, autoriser Node.js sur les réseaux privés.
+`npm run dev` reste en HTTP (http://localhost:5173) pour travailler sur le PC.
+
+## Où mettre quoi
+| Dossier | Contenu | Responsable |
+|---|---|---|
+| `src/app/` | Routeur, mise en page, Accueil, navigation par profil | Chef de projet |
+| `src/components/` | Composants partagés de la charte | Chef de projet |
+| `src/lib/` | Client API, vocabulaire officiel, codes courts, états sanitaires | Chef de projet |
+| `src/offline/` | `submit()` : point d'entrée unique de la file d'envoi hors ligne | Konan Romuald |
+| `src/features/<module>/` | Écrans et appels API d'un module, routes dans `routes.tsx` | Responsable du module |
+
+## Bibliothèques ajoutées au socle
+| Bibliothèque | Pourquoi | Licence | Accord |
+|---|---|---|---|
+| `qrcode` 1.5.4 | Dessiner le QR code de l'étiquette à imprimer (sur le téléphone, même hors ligne) | MIT | Chef de projet, 17/11/2026 |
+
+## Règles
+- Tous les textes viennent de `src/lib/vocabulaire.ts` (un mot par sens ; nouveaux mots marqués « À VALIDER »).
+- Aucune couleur ni taille écrite à la main : variables du thème (`src/styles/globals.css`).
+- Lectures : `api.get(...)`. Écritures terrain : `submit(...)` de `@/offline`, avec un UUID créé sur le téléphone.
+- Un élevage exposé est « Contact possible », jamais « contaminé ».
