@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, Copy, QrCode, Share2 } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
+import QRCode from 'qrcode'
 import { useNavigate } from 'react-router'
 
 import { Banner } from '@/components/Banner'
@@ -26,6 +26,27 @@ export function ShareDestinationCodePage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [qrImage, setQrImage] = useState<{ code: string; dataUrl: string } | null>(null)
+
+  useEffect(() => {
+    if (!share) return
+    let active = true
+    void QRCode.toString(`BAOBIA-CENTER:${share.code}`, {
+      type: 'svg',
+      errorCorrectionLevel: 'M',
+      margin: 2,
+    }).then(
+      (svg) => active && setQrImage({
+        code: share.code,
+        dataUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+      }),
+      () => active && setError('Le QR code n’a pas pu être créé. Vous pouvez transmettre le code écrit.'),
+    )
+    return () => {
+      active = false
+    }
+  }, [share])
+  const qrDataUrl = qrImage && qrImage.code === share?.code ? qrImage.dataUrl : ''
 
   if (centersResource.loading) return <Loader />
   if (centersResource.error) return <Banner variant="error">{centersResource.error.message}</Banner>
@@ -37,6 +58,7 @@ export function ShareDestinationCodePage() {
     if (!center) return
     setError(null)
     setCopied(false)
+    setQrImage(null)
     setLoading(true)
     try {
       setShare(await movementApi.shareDestinationCode(center.id))
@@ -78,6 +100,7 @@ export function ShareDestinationCodePage() {
             onChange={(event) => {
               setCenterId(event.target.value)
               setShare(null)
+              setQrImage(null)
             }}
             options={centers.map((item) => ({ value: item.id, label: item.name }))}
           />
@@ -92,13 +115,15 @@ export function ShareDestinationCodePage() {
       </Button>
       {share && (
         <div className="flex flex-col items-center gap-4 rounded-xl border-2 border-border bg-surface p-5 text-center">
-          <QRCodeSVG
-            value={`BAOBIA-CENTER:${share.code}`}
-            size={220}
-            level="M"
-            title={`QR de partage de ${center?.name ?? 'l’élevage'}`}
-            className="max-w-full"
-          />
+          {qrDataUrl && (
+            <img
+              src={qrDataUrl}
+              width={220}
+              height={220}
+              alt={`QR de partage de ${center?.name ?? 'l’élevage'}`}
+              className="max-w-full"
+            />
+          )}
           <Field label="Code de partage" help={`Valable ${share.expires_in_days} jours.`}>
             <textarea
               aria-label="Code de partage"
