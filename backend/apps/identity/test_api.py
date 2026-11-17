@@ -16,7 +16,7 @@ from apps.accounts.tests.helpers import (
 from apps.audit.models import AuditLog
 from apps.geo.models import Zone
 from apps.identity import services
-from apps.identity.models import IdentitySupport, Label, TrackedUnit
+from apps.identity.models import IdentitySupport, IdentityVerification, Label, TrackedUnit
 
 
 class ApiTestCase(TestCase):
@@ -243,3 +243,188 @@ class SpeciesApiTests(ApiTestCase):
         resp = self.as_user(self.breeder).get("/api/species/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual({s["code"] for s in resp.json()}, {"cattle", "poultry"})
+
+
+class LabelReplaceApiTests(ApiTestCase):
+    def setUp(self):
+        super().setUp()
+        self.unit = services.register_animal(species=self.cattle, center=self.center,
+                                             created_by=self.breeder, label=self.labels[0])
+        self.url = f"/api/units/{self.unit.id}/label/"
+
+    def test_replace_lost_label_keeps_history(self):
+        resp = self.as_user(self.breeder).post(
+            self.url, {"label_code": self.labels[1].short_code, "reason": "lost"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json()["label_code"], self.labels[1].short_code)
+        self.assertEqual(resp.json()["id"], str(self.unit.id))
+        self.assertEqual(Label.objects.get(pk=self.labels[0].pk).status, "lost")
+        self.assertEqual(IdentitySupport.objects.filter(unit=self.unit).count(), 2)
+        self.assertTrue(AuditLog.objects.filter(action="label.replace", entity_id=self.unit.id).exists())
+        # L'ancienne étiquette est signalée perdue, la nouvelle retrouve l'animal.
+        old = self.client.get(f"/api/scan/{self.labels[0].short_code}/").json()
+        self.assertEqual((old["result"], old["unit"]["id"]), ("lost", str(self.unit.id)))
+        new = self.client.get(f"/api/scan/{self.labels[1].short_code}/").json()
+        self.assertEqual(new["result"], "found")
+
+    def test_damaged_label_is_deactivated_and_scan_says_replaced(self):
+        self.as_user(self.breeder).post(
+            self.url, {"label_code": self.labels[1].short_code, "reason": "damaged"}, format="json"
+        )
+        self.assertEqual(Label.objects.get(pk=self.labels[0].pk).status, "deactivated")
+        self.assertEqual(self.client.get(f"/api/scan/{self.labels[0].short_code}/").json()["result"], "replaced")
+
+    def test_label_used_elsewhere_rolls_back(self):
+        services.register_animal(species=self.cattle, center=self.center, created_by=self.breeder,
+                                 label=self.labels[1])
+        resp = self.as_user(self.breeder).post(
+            self.url, {"label_code": self.labels[1].short_code, "reason": "damaged"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(Label.objects.get(pk=self.labels[0].pk).status, "active")
+        self.assertTrue(IdentitySupport.objects.filter(label=self.labels[0], unbound_at__isnull=True).exists())
+
+    def test_replay_is_without_effect(self):
+        body = {"label_code": self.labels[1].short_code, "reason": "damaged"}
+        self.assertEqual(self.as_user(self.breeder).post(self.url, body, format="json").status_code, 200)
+        self.assertEqual(self.client.post(self.url, body, format="json").status_code, 200)
+        self.assertEqual(IdentitySupport.objects.filter(unit=self.unit).count(), 2)
+        self.assertEqual(AuditLog.objects.filter(action="label.replace", entity_id=self.unit.id).count(), 1)
+
+    def test_rights(self):
+        body = {"label_code": self.labels[1].short_code, "reason": "lost"}
+        self.assertEqual(self.as_user(self.stranger).post(self.url, body, format="json").status_code, 404)
+        vet = make_user("+2250000000107", "Vétérinaire zone")
+        give_role(vet, "veterinarian", zone=self.zone)
+        self.assertEqual(self.as_user(vet).post(self.url, body, format="json").status_code, 403)
+
+
+class VerificationApiTests(ApiTestCase):
+    def setUp(self):
+        super().setUp()
+        self.unit = services.register_animal(species=self.cattle, center=self.center,
+                                             created_by=self.breeder, label=self.labels[0])
+        self.url = f"/api/units/{self.unit.id}/verifications/"
+
+    def body(self, **extra):
+        return {"label_code": self.labels[0].short_code, "occurred_at": "2026-11-17T09:00:00Z", **extra}
+
+    def test_confirmed_with_position_and_replay(self):
+        vid = str(uuid.uuid4())
+        body = self.body(id=vid, latitude="5.360000", longitude="-4.008000", accuracy_m="12.0")
+        resp = self.as_user(self.breeder).post(self.url, body, format="json")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()["result"], "confirmed")
+        v = IdentityVerification.objects.get(pk=vid)
+        self.assertEqual((v.position_source, str(v.latitude)), ("gps", "5.360000"))
+        self.assertEqual(self.client.post(self.url, body, format="json").status_code, 200)
+        self.assertEqual(IdentityVerification.objects.count(), 1)
+
+    def test_result_is_computed_by_server(self):
+        resp = self.as_user(self.breeder).post(
+            self.url, self.body(label_code=self.labels[1].short_code, result="confirmed"), format="json"
+        )
+        self.assertEqual(resp.json()["result"], "mismatch")
+        v = IdentityVerification.objects.get(pk=resp.json()["id"])
+        self.assertEqual(v.position_source, "none")
+        self.assertIsNone(v.latitude)
+
+    def test_not_visible_and_immutable(self):
+        self.assertEqual(self.as_user(self.stranger).post(self.url, self.body(), format="json").status_code, 404)
+        resp = self.as_user(self.breeder).post(self.url, self.body(), format="json")
+        v = IdentityVerification.objects.get(pk=resp.json()["id"])
+        with self.assertRaises(RuntimeError):
+            v.save()
+
+
+class ZonesAndLabelsApiTests(ApiTestCase):
+    def setUp(self):
+        super().setUp()
+        self.agent = make_user("+2250000000108", "Agent")
+        give_role(self.agent, "field_agent")
+
+    def test_zones_for_center_creation(self):
+        resp = self.as_user(self.breeder).get("/api/centers/zones/")
+        self.assertEqual(resp.status_code, 200)
+        names = [z["name"] for z in resp.json()]
+        self.assertIn("Dép test", names)
+        dep = next(z for z in resp.json() if z["name"] == "Dép test")
+        self.assertEqual(dep["parent_id"], str(self.region.id))
+
+    def test_agent_issues_labels_all_or_nothing(self):
+        url = f"/api/centers/{self.center.id}/labels/"
+        codes = [self.labels[0].short_code, self.labels[1].short_code.lower()]
+        resp = self.as_user(self.agent).post(url, {"codes": codes}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json()["issued"], 2)
+        self.assertEqual(Label.objects.get(pk=self.labels[0].pk).issued_to_center_id, self.center.id)
+        # Déjà remises : refusé, et la troisième n'est pas remise non plus.
+        again = self.client.post(url, {"codes": [self.labels[0].short_code, self.labels[2].short_code]},
+                                 format="json")
+        self.assertEqual(again.status_code, 400)
+        self.assertEqual(Label.objects.get(pk=self.labels[2].pk).status, "printed")
+
+    def test_issue_refuses_unknown_code_and_breeders(self):
+        url = f"/api/centers/{self.center.id}/labels/"
+        resp = self.as_user(self.agent).post(url, {"codes": [services.random_short_code()]}, format="json")
+        self.assertEqual(resp.status_code, 400)
+        body = {"codes": [self.labels[0].short_code]}
+        self.assertEqual(self.as_user(self.breeder).post(url, body, format="json").status_code, 403)
+
+    def test_batch_for_printing(self):
+        resp = self.as_user(self.agent).post("/api/label-batches/", {"quantity": 5}, format="json")
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(len(resp.json()["codes"]), 5)
+        self.assertTrue(all(services.is_valid_short_code(c) for c in resp.json()["codes"]))
+        self.assertEqual(self.as_user(self.breeder).post("/api/label-batches/", {"quantity": 5},
+                                                         format="json").status_code, 403)
+
+
+class GeneratedLabelApiTests(ApiTestCase):
+    """Le téléphone crée le code à l'ajout : l'étiquette n'existe pas encore en base."""
+
+    def test_new_code_creates_and_binds_label(self):
+        code = services.random_short_code()
+        resp = self.as_user(self.breeder).post("/api/units/", {
+            "kind": "animal", "center_id": str(self.center.id), "species_id": str(self.cattle.id),
+            "label_code": code,
+        }, format="json")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()["label_code"], code)
+        label = Label.objects.get(short_code=code)
+        self.assertEqual((label.status, label.issued_to_center_id), ("active", self.center.id))
+        self.assertTrue(AuditLog.objects.filter(action="label.generate", entity_id=label.id).exists())
+        scan = self.client.get(f"/api/scan/{code}/").json()
+        self.assertEqual((scan["result"], scan["unit"]["id"]), ("found", resp.json()["id"]))
+
+    def test_invalid_generated_code_creates_nothing(self):
+        code = services.random_short_code()
+        wrong = code[:-1] + ("2" if code[-1] != "2" else "3")
+        resp = self.as_user(self.breeder).post("/api/units/", {
+            "kind": "animal", "center_id": str(self.center.id), "species_id": str(self.cattle.id),
+            "label_code": wrong,
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(Label.objects.filter(short_code=wrong).exists())
+        self.assertEqual(TrackedUnit.objects.count(), 0)
+
+    def test_replace_with_new_generated_code(self):
+        unit = services.register_animal(species=self.cattle, center=self.center,
+                                        created_by=self.breeder, label=self.labels[0])
+        code = services.random_short_code()
+        resp = self.as_user(self.breeder).post(
+            f"/api/units/{unit.id}/label/", {"label_code": code, "reason": "damaged"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json()["label_code"], code)
+        self.assertEqual(self.client.get(f"/api/scan/{self.labels[0].short_code}/").json()["result"], "replaced")
+
+    def test_code_already_on_another_animal_is_refused(self):
+        services.register_animal(species=self.cattle, center=self.center, created_by=self.breeder,
+                                 label=self.labels[0])
+        resp = self.as_user(self.breeder).post("/api/units/", {
+            "kind": "animal", "center_id": str(self.center.id), "species_id": str(self.cattle.id),
+            "label_code": self.labels[0].short_code,
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)

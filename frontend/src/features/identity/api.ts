@@ -67,12 +67,57 @@ export interface NewUnit {
   size?: number
 }
 
+export type ReplaceReason = 'lost' | 'damaged' | 'error'
+
+export interface Zone {
+  id: string
+  name: string
+  level: number
+  parent_id: string | null
+}
+
+export interface NewCenter {
+  name: string
+  zone_id: string
+  species_ids: string[]
+}
+
+export interface Position {
+  latitude: number
+  longitude: number
+  accuracy_m: number
+}
+
 export const identityApi = {
   species: () => api.get<Species[]>('/species/'),
   centers: () => api.get<CenterItem[]>('/centers/'),
   centerUnits: (centerId: string) => api.get<UnitItem[]>(`/centers/${centerId}/units/`),
   unit: (unitId: string) => api.get<Unit>(`/units/${unitId}/`),
   scan: (code: string) => api.get<ScanResult>(`/scan/${encodeURIComponent(code)}/`),
+  zones: () => api.get<Zone[]>('/centers/zones/'),
+
+  /** Ajoute un élevage ; l'utilisateur en devient le détenteur. Rejouable (même id). */
+  addCenter: (id: string, center: NewCenter) =>
+    submit({ type: 'center.create', path: '/centers/', id, body: { id, center_type: 'farm', ...center } }),
+
+  /** Garde la trace d'un scan réussi (le résultat est calculé par le serveur). */
+  recordVerification: (unitId: string, labelCode: string, method: 'scan' | 'manual_code',
+                       position: Position | null) => {
+    const id = newUuid()
+    return submit({
+      type: 'unit.verify',
+      path: `/units/${unitId}/verifications/`,
+      id,
+      body: {
+        id, label_code: labelCode, method, occurred_at: new Date().toISOString(),
+        ...(position ?? {}),
+      },
+    })
+  },
+
+  /** Agent de terrain : remet des étiquettes vierges à un élevage (tout ou rien). */
+  issueLabels: (centerId: string, codes: string[]) =>
+    submit({ type: 'label.issue', path: `/centers/${centerId}/labels/`, body: { codes } }),
 
   /**
    * Ajoute un animal ou un lot. `id` est créé une fois par formulaire : renvoyer le même
@@ -80,6 +125,14 @@ export const identityApi = {
    */
   addUnit: (id: string, unit: NewUnit) =>
     submit({ type: 'unit.register', path: '/units/', id, body: { id, ...unit } }),
+
+  /** Change l'étiquette. Rejouer le même changement est sans effet côté serveur. */
+  replaceLabel: (unitId: string, labelCode: string, reason: ReplaceReason) =>
+    submit({
+      type: 'unit.replace_label',
+      path: `/units/${unitId}/label/`,
+      body: { label_code: labelCode, reason },
+    }),
 }
 
 export { newUuid }

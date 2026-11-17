@@ -4,7 +4,7 @@
  * L'état sanitaire s'affichera quand le module santé le fournira.
  */
 
-import { ArrowLeft, ArrowLeftRight, PawPrint } from 'lucide-react'
+import { ArrowLeft, ArrowLeftRight, PawPrint, QrCode } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router'
 
 import { Banner } from '@/components/Banner'
@@ -13,9 +13,10 @@ import { Card } from '@/components/Card'
 import { EmptyState } from '@/components/EmptyState'
 import { Loader } from '@/components/Loader'
 import { formatShortCode } from '@/lib/shortCode'
-import { champs, messages, mots } from '@/lib/vocabulaire'
+import { champs, messages, mots, titres } from '@/lib/vocabulaire'
 
 import { identityApi } from './api'
+import { LabelToPrint } from './LabelToPrint'
 import { speciesIcon } from './speciesIcon'
 import { useResource } from './useResource'
 
@@ -55,6 +56,13 @@ export function UnitPage() {
         </h1>
       </div>
 
+      {unit.label_code && (
+        <section className="flex flex-col gap-3" aria-label={mots.etiquette}>
+          <p className="text-body text-muted-foreground">{messages.codePourEtiquette}</p>
+          <LabelToPrint code={unit.label_code} species={unit.species.label_fr} />
+        </section>
+      )}
+
       <Card title={unit.species.label_fr} icon={speciesIcon(unit.species.code)}>
         <dl className="flex flex-col gap-4">
           <Row label={champs.nom} value={unit.local_name} />
@@ -65,9 +73,14 @@ export function UnitPage() {
         </dl>
       </Card>
 
-      <Button icon={ArrowLeftRight} onClick={() => navigate('/mouvements')}>
-        {mots.transferer}
-      </Button>
+      <div className="flex flex-col gap-3">
+        <Button icon={ArrowLeftRight} onClick={() => navigate('/mouvements')}>
+          {mots.transferer}
+        </Button>
+        <Button variant="secondary" icon={QrCode} onClick={() => navigate(`/centres/animaux/${unit.id}/etiquette`)}>
+          {titres.changerEtiquette}
+        </Button>
+      </div>
     </div>
   )
 }

@@ -58,6 +58,8 @@ export const mots = {
   profil: 'Profil',
   quitter: 'Quitter',
   continuer: 'Continuer',
+  etiquettes: 'Étiquettes', // À VALIDER (pluriel d'« Étiquette »)
+  imprimer: 'Imprimer', // À VALIDER : imprimer l'étiquette d'un animal
   signalements: 'Signalements', // charte, section 7 (navigation vétérinaire)
   // À VALIDER : absents de la charte.
   seConnecter: 'Se connecter',
@@ -127,6 +129,12 @@ export const messages = {
   cameraIndisponible: 'Caméra indisponible. Saisissez le code.',
   // À VALIDER : messages reçus (Accueil).
   nouveauxMessages: 'Nouveaux messages',
+  etiquetteChangee: 'Étiquette changée.',
+  codePourEtiquette: "Imprimez cette étiquette et posez-la sur l'animal.",
+  elevageAjoute: 'Élevage ajouté.',
+  etiquettesRemises: 'Étiquettes remises.',
+  aucuneEtiquette: 'Aucune étiquette ajoutée.',
+  etiquetteDejaDansLaListe: 'Cette étiquette est déjà dans la liste.',
 } as const
 
 /**
@@ -174,6 +182,12 @@ export const champs = {
   ajouteLe: 'Ajouté le',
   etape: 'Étape',
   sur: 'sur',
+  etiquettePerdue: 'Perdue',
+  etiquetteAbimee: 'Abîmée',
+  mauvaiseEtiquette: 'Mauvaise étiquette',
+  nomElevage: "Nom de l'élevage",
+  zone: 'Zone',
+  especesElevees: 'Espèces élevées',
 } as const
 
 /** Titres d'écran. */
@@ -185,5 +199,8 @@ export const titres = {
   quelleEspece: 'Quelle espèce ?',
   animalOuLot: 'Un animal ou un lot ?',
   combienAnimaux: "Combien d'animaux dans le lot ?",
-  quelleEtiquette: 'Quelle étiquette ?',
+  changerEtiquette: "Changer l'étiquette",
+  pourquoiChanger: "Pourquoi changer l'étiquette ?",
+  ajouterElevage: 'Ajouter un élevage',
+  remettreEtiquettes: 'Remettre des étiquettes',
 } as const
