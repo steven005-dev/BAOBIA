@@ -66,9 +66,14 @@ export function AddCenterPage() {
     setSending(true)
     setError(null)
     try {
-      await identityApi.addCenter(centerId, { name: name.trim(), zone_id: zoneId, species_ids: speciesIds })
-      toast.show(messages.elevageAjoute, 'success')
-      navigate(`/centres?elevage=${centerId}`, { replace: true })
+      const result = await identityApi.addCenter(centerId, { name: name.trim(), zone_id: zoneId, species_ids: speciesIds })
+      if (result.status === 'check') {
+        setError(result.error ?? erreurs.saisie)
+        return
+      }
+      toast.show(result.status === 'sent' ? messages.elevageAjoute : messages.gardeSurTelephone,
+                 result.status === 'sent' ? 'success' : 'info')
+      navigate(result.status === 'sent' ? `/centres?elevage=${centerId}` : '/centres', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : erreurs.serveur)
     } finally {

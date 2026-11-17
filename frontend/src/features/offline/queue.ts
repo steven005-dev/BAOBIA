@@ -92,6 +92,17 @@ const dexieQueue: OfflineQueue = {
     return { id, status: 'pending' }
   },
   pendingCount: () => currentPendingCount,
+  // Utilisé par submitAndWait (src/offline) : écrans qui affichent la réponse ou l'erreur.
+  watch(id, listener) {
+    return subscribeOperation(id, (operation) => {
+      if (!operation) return
+      listener({
+        status: operation.status === 'sending' ? 'pending' : operation.status,
+        response: operation.response,
+        error: operation.last_error,
+      })
+    })
+  },
   subscribe(listener) {
     countListeners.add(listener)
     return () => countListeners.delete(listener)

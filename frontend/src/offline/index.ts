@@ -36,8 +36,17 @@ export interface SubmitResult {
   response?: unknown
 }
 
+/** État d'une opération suivie (`watch`). `error` : message du serveur si refusée. */
+export interface OperationState {
+  status: OperationStatus
+  response?: unknown
+  error?: string
+}
+
 export interface OfflineQueue {
   submit(operation: Operation): Promise<SubmitResult>
+  /** Suit une opération jusqu'à son envoi ou son refus ; retourne la fonction d'arrêt. */
+  watch?(id: string, listener: (state: OperationState) => void): () => void
   /** Nombre d'opérations pas encore confirmées par le serveur. */
   pendingCount(): number
   /** Prévient quand le nombre change ; retourne la fonction de désabonnement. */
@@ -67,6 +76,46 @@ export function setOfflineQueue(next: OfflineQueue): void {
 
 export function submit(operation: Operation): Promise<SubmitResult> {
   return queue.submit(operation)
+}
+
+/** Résultat de submitAndWait : envoyé, refusé (« check », avec `error`) ou encore en attente. */
+export interface WaitResult {
+  id: string
+  status: OperationStatus
+  response?: unknown
+  error?: string
+}
+
+/**
+ * Pour un écran qui a besoin de la réponse (afficher la fiche créée, une erreur de saisie) :
+ * écrit dans la file comme submit(), puis attend jusqu'à `timeoutMs` la réponse du serveur.
+ * - "sent"    : le serveur a accepté (`response`) ;
+ * - "check"   : le serveur a refusé (`error`, message lisible) ;
+ * - "pending" : pas de réponse à temps (hors ligne, réseau lent) : l'opération reste
+ *               gardée sur le téléphone et partira toute seule ; l'écran l'annonce.
+ * Avec la file directe (sans file persistante), une erreur du serveur est levée (ApiError).
+ */
+export async function submitAndWait(operation: Operation, timeoutMs = 8000): Promise<WaitResult> {
+  const result = await queue.submit(operation)
+  const watch = queue.watch?.bind(queue)
+  if (result.status !== 'pending' || !watch) return result
+  return new Promise<WaitResult>((resolve) => {
+    // `stopper.fn` est posé après watch() ; le listener peut répondre avant (déjà envoyé).
+    const stopper: { fn?: () => void } = {}
+    let done = false
+    const finish = (state: WaitResult) => {
+      if (done) return
+      done = true
+      clearTimeout(timer)
+      stopper.fn?.()
+      resolve(state)
+    }
+    const timer = setTimeout(() => finish({ id: result.id, status: 'pending' }), timeoutMs)
+    stopper.fn = watch(result.id, (state) => {
+      if (state.status !== 'pending') finish({ id: result.id, ...state })
+    })
+    if (done) stopper.fn()
+  })
 }
 
 export function getPendingCount(): number {

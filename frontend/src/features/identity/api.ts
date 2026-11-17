@@ -5,7 +5,8 @@
 
 import { api } from '@/lib/api'
 import { newUuid } from '@/lib/uuid'
-import { submit } from '@/offline'
+import { ApiError } from '@/lib/api'
+import { submit, submitAndWait, type Operation, type WaitResult } from '@/offline'
 
 export type TrackingMode = 'animal' | 'lot' | 'both'
 export type UnitKind = 'animal' | 'lot'
@@ -88,6 +89,21 @@ export interface Position {
   accuracy_m: number
 }
 
+/**
+ * Envoie et attend la réponse (voir submitAndWait). Une erreur de saisie levée par la file
+ * directe devient un résultat « check » : les écrans n'ont qu'un seul cas à traiter.
+ */
+async function send(operation: Operation): Promise<WaitResult> {
+  try {
+    return await submitAndWait(operation)
+  } catch (err) {
+    if (err instanceof ApiError && (err.kind === 'validation' || err.kind === 'forbidden' || err.kind === 'not_found')) {
+      return { id: operation.id ?? '', status: 'check', error: err.message }
+    }
+    throw err
+  }
+}
+
 export const identityApi = {
   species: () => api.get<Species[]>('/species/'),
   centers: () => api.get<CenterItem[]>('/centers/'),
@@ -98,7 +114,7 @@ export const identityApi = {
 
   /** Ajoute un élevage ; l'utilisateur en devient le détenteur. Rejouable (même id). */
   addCenter: (id: string, center: NewCenter) =>
-    submit({ type: 'center.create', path: '/centers/', id, body: { id, center_type: 'farm', ...center } }),
+    send({ type: 'center.create', path: '/centers/', id, body: { id, center_type: 'farm', ...center } }),
 
   /** Garde la trace d'un scan réussi (le résultat est calculé par le serveur). */
   recordVerification: (unitId: string, labelCode: string, method: 'scan' | 'manual_code',
@@ -117,18 +133,18 @@ export const identityApi = {
 
   /** Agent de terrain : remet des étiquettes vierges à un élevage (tout ou rien). */
   issueLabels: (centerId: string, codes: string[]) =>
-    submit({ type: 'label.issue', path: `/centers/${centerId}/labels/`, body: { codes } }),
+    send({ type: 'label.issue', path: `/centers/${centerId}/labels/`, body: { codes } }),
 
   /**
    * Ajoute un animal ou un lot. `id` est créé une fois par formulaire : renvoyer le même
    * (double appui, réseau qui coupe) est sans effet côté serveur.
    */
   addUnit: (id: string, unit: NewUnit) =>
-    submit({ type: 'unit.register', path: '/units/', id, body: { id, ...unit } }),
+    send({ type: 'unit.register', path: '/units/', id, body: { id, ...unit } }),
 
   /** Change l'étiquette. Rejouer le même changement est sans effet côté serveur. */
   replaceLabel: (unitId: string, labelCode: string, reason: ReplaceReason) =>
-    submit({
+    send({
       type: 'unit.replace_label',
       path: `/units/${unitId}/label/`,
       body: { label_code: labelCode, reason },
