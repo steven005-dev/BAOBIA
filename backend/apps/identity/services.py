@@ -12,6 +12,7 @@ Accès aux centres (utilisé par accounts.permissions.HasCenterAccess) :
 - create_center, add_center_member, grant_mandate
 - register_animal, register_lot, create_label_batch, bind_label, replace_label
 - set_current_center (appelée par traceability à la double confirmation)
+- record_verification (contrôle d'identité à un scan)
 Lecture (API) :
 - user_covers_zone, user_can_view_unit, active_label, scan_label, label_for_registration
 """
@@ -31,6 +32,7 @@ from .models import (
     CenterMember,
     CenterSpecies,
     IdentitySupport,
+    IdentityVerification,
     Label,
     LabelBatch,
     Lot,
@@ -467,3 +469,50 @@ def replace_label(unit, new_label, replaced_by, *, reason, at=None):
                  "new_label_id": str(new_label.pk)},
     )
     return support
+
+
+# ---------------------------------------------------------------------------
+# Vérification d'identité à un scan (identity_verification, ajout seul)
+# ---------------------------------------------------------------------------
+
+VERIFICATION_METHODS = ("scan", "manual_code")
+
+
+def record_verification(unit, label_code, verified_by, *, method="scan", occurred_at,
+                        verification_id=None, latitude=None, longitude=None,
+                        accuracy_m=None, device=None):
+    """Enregistre le contrôle d'identité d'une unité au moment d'un scan.
+
+    Le résultat est calculé ici (jamais fourni par le téléphone) : "confirmed" si le code
+    est l'étiquette active de l'unité, "mismatch" sinon (étiquette remplacée, perdue,
+    posée sur un autre animal), "unreadable" si le code est mal formé.
+    La position n'est gardée QUE si le téléphone l'a donnée à cet instant (règle absolue 8).
+    Idempotent avec `verification_id` (UUID créé sur le téléphone).
+    """
+    if method not in VERIFICATION_METHODS:
+        raise IdentityError("Méthode inconnue.")
+    if verification_id:
+        existing = IdentityVerification.objects.filter(pk=verification_id).first()
+        if existing is not None:
+            if existing.created_by_id != verified_by.pk:
+                raise IdentityError("Cet identifiant est déjà utilisé.")
+            return existing
+    code = normalize_short_code(label_code)
+    label = Label.objects.filter(short_code=code).first() if is_valid_short_code(code) else None
+    if label is None:
+        result = "unreadable"
+    elif IdentitySupport.objects.filter(unit=unit, label=label, unbound_at__isnull=True).exists():
+        result = "confirmed"
+    else:
+        result = "mismatch"
+    has_position = latitude is not None and longitude is not None
+    kwargs = {"id": verification_id} if verification_id else {}
+    return IdentityVerification.objects.create(
+        unit=unit, label=label, method=method, result=result,
+        occurred_at=occurred_at, created_by=verified_by, device=device,
+        latitude=latitude if has_position else None,
+        longitude=longitude if has_position else None,
+        position_accuracy_m=accuracy_m if has_position else None,
+        position_source="gps" if has_position else "none",
+        **kwargs,
+    )

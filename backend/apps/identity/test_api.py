@@ -16,7 +16,7 @@ from apps.accounts.tests.helpers import (
 from apps.audit.models import AuditLog
 from apps.geo.models import Zone
 from apps.identity import services
-from apps.identity.models import IdentitySupport, Label, TrackedUnit
+from apps.identity.models import IdentitySupport, IdentityVerification, Label, TrackedUnit
 
 
 class ApiTestCase(TestCase):
@@ -298,3 +298,84 @@ class LabelReplaceApiTests(ApiTestCase):
         vet = make_user("+2250000000107", "Vétérinaire zone")
         give_role(vet, "veterinarian", zone=self.zone)
         self.assertEqual(self.as_user(vet).post(self.url, body, format="json").status_code, 403)
+
+
+class VerificationApiTests(ApiTestCase):
+    def setUp(self):
+        super().setUp()
+        self.unit = services.register_animal(species=self.cattle, center=self.center,
+                                             created_by=self.breeder, label=self.labels[0])
+        self.url = f"/api/units/{self.unit.id}/verifications/"
+
+    def body(self, **extra):
+        return {"label_code": self.labels[0].short_code, "occurred_at": "2026-11-17T09:00:00Z", **extra}
+
+    def test_confirmed_with_position_and_replay(self):
+        vid = str(uuid.uuid4())
+        body = self.body(id=vid, latitude="5.360000", longitude="-4.008000", accuracy_m="12.0")
+        resp = self.as_user(self.breeder).post(self.url, body, format="json")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()["result"], "confirmed")
+        v = IdentityVerification.objects.get(pk=vid)
+        self.assertEqual((v.position_source, str(v.latitude)), ("gps", "5.360000"))
+        self.assertEqual(self.client.post(self.url, body, format="json").status_code, 200)
+        self.assertEqual(IdentityVerification.objects.count(), 1)
+
+    def test_result_is_computed_by_server(self):
+        resp = self.as_user(self.breeder).post(
+            self.url, self.body(label_code=self.labels[1].short_code, result="confirmed"), format="json"
+        )
+        self.assertEqual(resp.json()["result"], "mismatch")
+        v = IdentityVerification.objects.get(pk=resp.json()["id"])
+        self.assertEqual(v.position_source, "none")
+        self.assertIsNone(v.latitude)
+
+    def test_not_visible_and_immutable(self):
+        self.assertEqual(self.as_user(self.stranger).post(self.url, self.body(), format="json").status_code, 404)
+        resp = self.as_user(self.breeder).post(self.url, self.body(), format="json")
+        v = IdentityVerification.objects.get(pk=resp.json()["id"])
+        with self.assertRaises(RuntimeError):
+            v.save()
+
+
+class ZonesAndLabelsApiTests(ApiTestCase):
+    def setUp(self):
+        super().setUp()
+        self.agent = make_user("+2250000000108", "Agent")
+        give_role(self.agent, "field_agent")
+
+    def test_zones_for_center_creation(self):
+        resp = self.as_user(self.breeder).get("/api/centers/zones/")
+        self.assertEqual(resp.status_code, 200)
+        names = [z["name"] for z in resp.json()]
+        self.assertIn("Dép test", names)
+        dep = next(z for z in resp.json() if z["name"] == "Dép test")
+        self.assertEqual(dep["parent_id"], str(self.region.id))
+
+    def test_agent_issues_labels_all_or_nothing(self):
+        url = f"/api/centers/{self.center.id}/labels/"
+        codes = [self.labels[0].short_code, self.labels[1].short_code.lower()]
+        resp = self.as_user(self.agent).post(url, {"codes": codes}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json()["issued"], 2)
+        self.assertEqual(Label.objects.get(pk=self.labels[0].pk).issued_to_center_id, self.center.id)
+        # Déjà remises : refusé, et la troisième n'est pas remise non plus.
+        again = self.client.post(url, {"codes": [self.labels[0].short_code, self.labels[2].short_code]},
+                                 format="json")
+        self.assertEqual(again.status_code, 400)
+        self.assertEqual(Label.objects.get(pk=self.labels[2].pk).status, "printed")
+
+    def test_issue_refuses_unknown_code_and_breeders(self):
+        url = f"/api/centers/{self.center.id}/labels/"
+        resp = self.as_user(self.agent).post(url, {"codes": [services.random_short_code()]}, format="json")
+        self.assertEqual(resp.status_code, 400)
+        body = {"codes": [self.labels[0].short_code]}
+        self.assertEqual(self.as_user(self.breeder).post(url, body, format="json").status_code, 403)
+
+    def test_batch_for_printing(self):
+        resp = self.as_user(self.agent).post("/api/label-batches/", {"quantity": 5}, format="json")
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(len(resp.json()["codes"]), 5)
+        self.assertTrue(all(services.is_valid_short_code(c) for c in resp.json()["codes"]))
+        self.assertEqual(self.as_user(self.breeder).post("/api/label-batches/", {"quantity": 5},
+                                                         format="json").status_code, 403)
