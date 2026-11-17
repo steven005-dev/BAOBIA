@@ -19,7 +19,7 @@ npm run dev:phone   # HTTPS, visible sur le Wi-Fi ; Django doit tourner sur ce P
 Sur le téléphone, même Wi-Fi : `https://<adresse-IP-du-PC>:5173` (adresse affichée par Vite).
 Premier accès : avertissement de sécurité, « Paramètres avancés » puis « Continuer ».
 Si le pare-feu Windows le demande, autoriser Node.js sur les réseaux privés.
-Tant que `.certs/` existe, `npm run dev` est aussi en HTTPS ; supprimer le dossier pour revenir en HTTP.
+`npm run dev` reste en HTTP (http://localhost:5173) pour travailler sur le PC.
 
 ## Où mettre quoi
 | Dossier | Contenu | Responsable |
