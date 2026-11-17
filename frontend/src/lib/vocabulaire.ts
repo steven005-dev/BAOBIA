@@ -58,6 +58,7 @@ export const mots = {
   profil: 'Profil',
   quitter: 'Quitter',
   continuer: 'Continuer',
+  etiquettes: 'Étiquettes', // À VALIDER (pluriel d'« Étiquette »)
   signalements: 'Signalements', // charte, section 7 (navigation vétérinaire)
   // À VALIDER : absents de la charte.
   seConnecter: 'Se connecter',
@@ -128,6 +129,10 @@ export const messages = {
   // À VALIDER : messages reçus (Accueil).
   nouveauxMessages: 'Nouveaux messages',
   etiquetteChangee: 'Étiquette changée.',
+  elevageAjoute: 'Élevage ajouté.',
+  etiquettesRemises: 'Étiquettes remises.',
+  aucuneEtiquette: 'Aucune étiquette ajoutée.',
+  etiquetteDejaDansLaListe: 'Cette étiquette est déjà dans la liste.',
 } as const
 
 /**
@@ -178,6 +183,9 @@ export const champs = {
   etiquettePerdue: 'Perdue',
   etiquetteAbimee: 'Abîmée',
   mauvaiseEtiquette: 'Mauvaise étiquette',
+  nomElevage: "Nom de l'élevage",
+  zone: 'Zone',
+  especesElevees: 'Espèces élevées',
 } as const
 
 /** Titres d'écran. */
@@ -193,4 +201,6 @@ export const titres = {
   changerEtiquette: "Changer l'étiquette",
   pourquoiChanger: "Pourquoi changer l'étiquette ?",
   nouvelleEtiquette: 'Quelle est la nouvelle étiquette ?',
+  ajouterElevage: 'Ajouter un élevage',
+  remettreEtiquettes: 'Remettre des étiquettes',
 } as const

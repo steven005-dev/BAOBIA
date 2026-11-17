@@ -19,6 +19,7 @@ import { formatShortCode, isValidShortCode, normalizeShortCode } from '@/lib/sho
 import { champs, erreurs, messages, mots } from '@/lib/vocabulaire'
 
 import { identityApi, type ScanResult } from './api'
+import { currentPosition } from './position'
 import { QrScanner } from './QrScanner'
 import { speciesIcon } from './speciesIcon'
 
@@ -36,7 +37,7 @@ export function ScanPage() {
   const [error, setError] = useState<string | null>(null)
   const [reduced, setReduced] = useState<ScanResult | null>(null)
 
-  const lookup = async (raw: string) => {
+  const lookup = async (raw: string, method: 'scan' | 'manual_code') => {
     const value = normalizeShortCode(raw)
     setCode(value)
     setReduced(null)
@@ -49,6 +50,11 @@ export function ScanPage() {
     try {
       const result = await identityApi.scan(value)
       if (result.full_access && result.unit) {
+        const unitId = result.unit.id
+        // Trace du contrôle, sans bloquer l'écran (la position peut prendre quelques secondes).
+        void currentPosition()
+          .then((position) => identityApi.recordVerification(unitId, value, method, position))
+          .catch(() => {})
         toast.show(RESULT_MESSAGES[result.result], result.result === 'found' ? 'success' : 'warning')
         navigate(`/centres/animaux/${result.unit.id}`)
       } else {
@@ -69,13 +75,13 @@ export function ScanPage() {
     <div className="flex flex-col gap-6">
       <h1 className="text-title font-bold text-foreground">{mots.scanner}</h1>
 
-      <QrScanner onCode={(value) => void lookup(value)} />
+      <QrScanner onCode={(value) => void lookup(value, 'scan')} />
 
       <form
         className="flex flex-col gap-3"
         onSubmit={(e) => {
           e.preventDefault()
-          void lookup(code)
+          void lookup(code, 'manual_code')
         }}
       >
         <Field label={champs.codeEtiquette} help={champs.codeEtiquetteAide} error={codeError}>
