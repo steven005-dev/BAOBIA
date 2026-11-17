@@ -414,14 +414,29 @@ def scan_label(code):
     return ("lost" if label.status == "lost" else "replaced"), label, support.unit
 
 
-def label_for_registration(code, center):
-    """Étiquette utilisable pour enregistrer une unité dans `center`, ou IdentityError."""
+def label_for_registration(code, center, created_by):
+    """Étiquette à poser sur une unité de `center`, ou IdentityError.
+
+    Le code est CRÉÉ PAR LE TÉLÉPHONE au moment de l'ajout (8 caractères + 1 de contrôle),
+    puis imprimé sur l'étiquette physique : personne ne le saisit. Si le code n'existe pas
+    encore, l'étiquette est créée ici (lot d'une étiquette, remise à `center`).
+    Un code déjà existant (étiquette pré-imprimée) reste accepté s'il n'est pas remis à un
+    autre élevage ; s'il est déjà posé sur un autre animal, bind_label le refusera.
+    """
     code = normalize_short_code(code)
     if not is_valid_short_code(code):
         raise IdentityError("Étiquette non reconnue. Essayez encore ou saisissez le code.")
     label = Label.objects.filter(short_code=code).first()
     if label is None:
-        raise IdentityError("Étiquette non reconnue. Essayez encore ou saisissez le code.")
+        batch = LabelBatch.objects.create(
+            quantity=1, created_by=created_by, note="Étiquette créée à l'enregistrement"
+        )
+        label = Label.objects.create(
+            batch=batch, short_code=code, status="issued", issued_to_center=center
+        )
+        record_event("label.generate", actor_user=created_by, entity_table="label",
+                     entity_id=label.pk, details={"center_id": str(center.pk)})
+        return label
     if label.issued_to_center_id and label.issued_to_center_id != center.pk:
         raise IdentityError("Cette étiquette a été remise à un autre élevage.")
     return label

@@ -379,3 +379,52 @@ class ZonesAndLabelsApiTests(ApiTestCase):
         self.assertTrue(all(services.is_valid_short_code(c) for c in resp.json()["codes"]))
         self.assertEqual(self.as_user(self.breeder).post("/api/label-batches/", {"quantity": 5},
                                                          format="json").status_code, 403)
+
+
+class GeneratedLabelApiTests(ApiTestCase):
+    """Le téléphone crée le code à l'ajout : l'étiquette n'existe pas encore en base."""
+
+    def test_new_code_creates_and_binds_label(self):
+        code = services.random_short_code()
+        resp = self.as_user(self.breeder).post("/api/units/", {
+            "kind": "animal", "center_id": str(self.center.id), "species_id": str(self.cattle.id),
+            "label_code": code,
+        }, format="json")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()["label_code"], code)
+        label = Label.objects.get(short_code=code)
+        self.assertEqual((label.status, label.issued_to_center_id), ("active", self.center.id))
+        self.assertTrue(AuditLog.objects.filter(action="label.generate", entity_id=label.id).exists())
+        scan = self.client.get(f"/api/scan/{code}/").json()
+        self.assertEqual((scan["result"], scan["unit"]["id"]), ("found", resp.json()["id"]))
+
+    def test_invalid_generated_code_creates_nothing(self):
+        code = services.random_short_code()
+        wrong = code[:-1] + ("2" if code[-1] != "2" else "3")
+        resp = self.as_user(self.breeder).post("/api/units/", {
+            "kind": "animal", "center_id": str(self.center.id), "species_id": str(self.cattle.id),
+            "label_code": wrong,
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(Label.objects.filter(short_code=wrong).exists())
+        self.assertEqual(TrackedUnit.objects.count(), 0)
+
+    def test_replace_with_new_generated_code(self):
+        unit = services.register_animal(species=self.cattle, center=self.center,
+                                        created_by=self.breeder, label=self.labels[0])
+        code = services.random_short_code()
+        resp = self.as_user(self.breeder).post(
+            f"/api/units/{unit.id}/label/", {"label_code": code, "reason": "damaged"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json()["label_code"], code)
+        self.assertEqual(self.client.get(f"/api/scan/{self.labels[0].short_code}/").json()["result"], "replaced")
+
+    def test_code_already_on_another_animal_is_refused(self):
+        services.register_animal(species=self.cattle, center=self.center, created_by=self.breeder,
+                                 label=self.labels[0])
+        resp = self.as_user(self.breeder).post("/api/units/", {
+            "kind": "animal", "center_id": str(self.center.id), "species_id": str(self.cattle.id),
+            "label_code": self.labels[0].short_code,
+        }, format="json")
+        self.assertEqual(resp.status_code, 400)

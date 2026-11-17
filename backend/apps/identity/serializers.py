@@ -74,7 +74,8 @@ class UnitCreateSerializer(serializers.Serializer):
     local_name = serializers.CharField(max_length=60, required=False, allow_blank=True)
     label_code = serializers.CharField(
         max_length=20, required=False, allow_blank=True,
-        help_text="Code de l'étiquette à poser (scanné ou saisi, espaces et tirets acceptés).",
+        help_text="Code de l'étiquette, créé par le téléphone (8 caractères + 1 de contrôle) ; "
+                  "l'étiquette est créée si le code est nouveau.",
     )
     # Animal
     sex = serializers.ChoiceField(choices=SEXES, default="unknown")
@@ -150,7 +151,7 @@ class ScanResultSerializer(serializers.Serializer):
 
 class LabelReplaceSerializer(serializers.Serializer):
     label_code = serializers.CharField(
-        max_length=20, help_text="Code de la nouvelle étiquette (scanné ou saisi)."
+        max_length=20, help_text="Code de la nouvelle étiquette, créé par le téléphone ; créée si nouvelle."
     )
     reason = serializers.ChoiceField(
         choices=("lost", "damaged", "error"),
