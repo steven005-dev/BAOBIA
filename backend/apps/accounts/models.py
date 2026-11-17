@@ -2,6 +2,7 @@ import uuid
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.core.models import StateModel, UUIDModel
@@ -10,9 +11,17 @@ from .validators import normalize_phone, validate_phone
 
 
 class UserManager(BaseUserManager):
+    def get_by_natural_key(self, phone):
+        # Connexion : "07 07 07 07 07" retrouve le compte "+2250707070707".
+        try:
+            phone = normalize_phone(phone)
+        except ValidationError:
+            pass
+        return super().get_by_natural_key(phone)
+
     def create_user(self, phone, password=None, **extra_fields):
         if not phone:
-            raise ValueError("The phone number is required.")
+            raise ValueError("Le numéro de téléphone est obligatoire.")
         user = self.model(phone=normalize_phone(phone), **extra_fields)
         user.set_password(password)
         user.save(using=self._db)

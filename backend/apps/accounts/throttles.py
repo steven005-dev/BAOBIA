@@ -1,33 +1,39 @@
+"""Limitation des essais de connexion (anti force brute).
+
+Deux limites indépendantes, toutes deux comptées à chaque essai :
+- par numéro de téléphone (normalisé : "07 07..." et "+225 07..." comptent ensemble) ;
+- par adresse IP (plus large : plusieurs éleveurs partagent souvent la même IP mobile).
+Taux réglés dans settings : DEFAULT_THROTTLE_RATES["login_phone"] et ["login_ip"].
+"""
+
+from django.core.exceptions import ValidationError
+from rest_framework.settings import api_settings
 from rest_framework.throttling import SimpleRateThrottle
 
+from .validators import normalize_phone
 
-class LoginIPThrottle(SimpleRateThrottle):
-    scope = "login"
+
+class _SettingsRateThrottle(SimpleRateThrottle):
+    def get_rate(self):
+        # Lu à chaque requête (DRF le fige sinon au premier import).
+        return api_settings.DEFAULT_THROTTLE_RATES[self.scope]
+
+
+class LoginIPThrottle(_SettingsRateThrottle):
+    scope = "login_ip"
 
     def get_cache_key(self, request, view):
-        return f"auth-login-ip:{self.get_ident(request)}"
+        return self.cache_format % {"scope": self.scope, "ident": self.get_ident(request)}
 
 
-class LoginPhoneThrottle(SimpleRateThrottle):
-    scope = "login"
+class LoginPhoneThrottle(_SettingsRateThrottle):
+    scope = "login_phone"
 
     def get_cache_key(self, request, view):
-        phone = str(request.data.get("phone", "")).strip().lower()
-        return f"auth-login-phone:{phone}"
-
-
-class LoginAttemptThrottle:
-    """Apply both independent limits to each login attempt."""
-
-    def __init__(self):
-        self.throttles = (LoginIPThrottle(), LoginPhoneThrottle())
-
-    def allow_request(self, request, view):
-        allowed = True
-        for throttle in self.throttles:
-            allowed = throttle.allow_request(request, view) and allowed
-        return allowed
-
-    def wait(self):
-        waits = [throttle.wait() for throttle in self.throttles if throttle.wait() is not None]
-        return max(waits) if waits else None
+        data = request.data if hasattr(request.data, "get") else {}
+        raw = str(data.get("phone", ""))[:40]
+        try:
+            ident = normalize_phone(raw)
+        except ValidationError:
+            ident = "".join(raw.split()).lower()
+        return self.cache_format % {"scope": self.scope, "ident": ident or "empty"}

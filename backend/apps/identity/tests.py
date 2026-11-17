@@ -94,3 +94,53 @@ class IdentityConstraintTests(TestCase):
             )
         with connection.cursor() as cursor, self.assertRaises(Exception):
             cursor.execute("DELETE FROM identity_verification WHERE id = %s", [event.id])
+
+
+class IdentityServicesTests(TestCase):
+    """Fonctions publiques de identity.services."""
+
+    def setUp(self):
+        from apps.identity import services
+
+        self.services = services
+        self.user = User.objects.create_user("+2250102030407", "Baobia-test-2026", full_name="Test")
+        self.zone = Zone.objects.create(level=0, code="CI-S", name="Zone")
+        self.cattle = Species.objects.create(code="cattle", label_fr="Bovin", tracking_mode="animal")
+        self.poultry = Species.objects.create(code="poultry", label_fr="Volaille", tracking_mode="lot")
+        self.center = services.create_center(
+            name="Élevage", zone=self.zone, center_type="farm", created_by=self.user, holder=self.user
+        )
+
+    def test_check_char_detects_typos_and_swaps(self):
+        code = self.services.make_short_code("23456789")
+        self.assertTrue(self.services.is_valid_short_code(code))
+        self.assertTrue(self.services.is_valid_short_code(f" {code[:4]}-{code[4:].lower()} "))
+        alphabet = self.services.SHORT_CODE_ALPHABET
+        for i in range(9):  # toute faute sur un seul caractère est détectée
+            for char in alphabet:
+                if char != code[i]:
+                    self.assertFalse(self.services.is_valid_short_code(code[:i] + char + code[i + 1:]))
+        self.assertFalse(self.services.is_valid_short_code("23456789O"))  # O interdit
+
+    def test_label_batch_and_binding(self):
+        batch = self.services.create_label_batch(quantity=3, created_by=self.user)
+        labels = list(Label.objects.filter(batch=batch))
+        self.assertEqual(len(labels), 3)
+        self.assertTrue(all(self.services.is_valid_short_code(l.short_code) for l in labels))
+        unit = self.services.register_animal(
+            species=self.cattle, center=self.center, created_by=self.user, label=labels[0]
+        )
+        labels[0].refresh_from_db()
+        self.assertEqual(labels[0].status, "active")
+        self.assertEqual(unit.current_center, self.center)
+        other = self.services.register_animal(species=self.cattle, center=self.center, created_by=self.user)
+        with self.assertRaises(self.services.IdentityError):
+            self.services.bind_label(other, labels[0], self.user)  # déjà posée
+        with self.assertRaises(self.services.IdentityError):
+            self.services.bind_label(unit, labels[1], self.user)  # l'animal a déjà une étiquette
+
+    def test_species_tracking_mode_is_enforced(self):
+        with self.assertRaises(self.services.IdentityError):
+            self.services.register_animal(species=self.poultry, center=self.center, created_by=self.user)
+        lot = self.services.register_lot(species=self.poultry, center=self.center, size=30, created_by=self.user)
+        self.assertEqual(lot.lot.current_size, 30)

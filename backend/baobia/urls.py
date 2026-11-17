@@ -23,7 +23,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/health/', HealthView.as_view(), name='health'),
     path('api/auth/', include('apps.accounts.urls')),
+    path('api/', include('apps.core.urls')),
+    path('api/', include('apps.identity.urls')),
     path('api/', include('apps.traceability.urls')),
+    path('api/notifications/', include('apps.notifications.urls')),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 ]
