@@ -11,6 +11,11 @@ npm run build
 ```
 En développement, `/composants` montre tous les composants partagés.
 
+## Installation et hors connexion
+Le build de production inclut un manifeste et un service worker. Après la première ouverture en ligne, l'app shell et ses ressources sont disponibles hors connexion ; les réponses `/api/` ne sont jamais mises en cache. Les déclarations terrain restent dans la file Dexie et sont envoyées au retour du réseau.
+
+Pour installer l'application, ouvrir le build servi en HTTPS (ou `localhost`) dans un navigateur compatible et choisir « Installer l'application » / « Ajouter à l'écran d'accueil ». Le service worker n'est actif qu'en production ; `npm run dev` sert uniquement au développement.
+
 ## Tester sur un téléphone (caméra = HTTPS obligatoire)
 ```powershell
 npm run cert        # une fois : certificat local dans .certs/ (30 jours, jamais sur GitHub)

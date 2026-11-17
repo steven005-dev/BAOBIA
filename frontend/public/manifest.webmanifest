@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "BAOBIA — Traçabilité du bétail",
+  "short_name": "BAOBIA",
+  "description": "Identifier et tracer les animaux, même hors connexion.",
+  "lang": "fr-CI",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F7F8F5",
+  "theme_color": "#174A3B",
+  "icons": [
+    {
+      "src": "/baobia-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,9 +1,6 @@
 /**
- * POINT D'EXTENSION de la file d'envoi hors ligne (responsable : Konan Romuald).
- *
- * Aujourd'hui : pas de file. submit() envoie directement au serveur et pendingCount
- * reste à 0. Les écrans terrain appellent DÉJÀ submit() : quand la vraie file
- * existera, il suffira de remplacer `directQueue` par elle, sans toucher aux écrans.
+ * Point d'entrée partagé par les écrans terrain pour la file d'envoi hors ligne.
+ * Le module movements installe l'implémentation Dexie au chargement de ses routes.
  *
  * Contrat attendu de la future file (charte, section 10) :
  * - écrire d'abord en local, puis envoyer ; l'écran ne dépend jamais de la réponse ;
@@ -47,7 +44,7 @@ export interface OfflineQueue {
   subscribe(listener: () => void): () => void
 }
 
-/** Implémentation provisoire : envoi direct, aucune mise en file. */
+/** File directe de secours tant qu'aucune file persistante n'est installée. */
 const directQueue: OfflineQueue = {
   async submit(operation) {
     const id = operation.id ?? newUuid()
@@ -63,7 +60,7 @@ const directQueue: OfflineQueue = {
 
 let queue: OfflineQueue = directQueue
 
-/** Pour Romuald : brancher la vraie file ici (une seule ligne à changer à l'usage). */
+/** Permet aux modules terrain d'installer leur file persistante. */
 export function setOfflineQueue(next: OfflineQueue): void {
   queue = next
 }

@@ -23,5 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# Playwright
+test-results/
+playwright-report/
+
 # Certificat HTTPS local (npm run cert)
 .certs/

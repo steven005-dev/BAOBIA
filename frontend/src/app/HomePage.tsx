@@ -23,7 +23,7 @@ export function HomePage() {
       <div className="grid grid-cols-2 gap-3">
         <BigChoiceTile to="/centres" icon={CirclePlus} label={mots.ajouter} />
         <BigChoiceTile to="/mouvements" icon={ArrowLeftRight} label={mots.transferer} />
-        <BigChoiceTile to="/mouvements" icon={PackageCheck} label={mots.recevoir} />
+        <BigChoiceTile to="/mouvements/recevoir" icon={PackageCheck} label={mots.recevoir} />
         <BigChoiceTile to="/sante" icon={Flag} label={mots.signaler} />
         {hasRole('field_agent') && <BigChoiceTile to="/etiquettes" icon={QrCode} label={mots.etiquettes} />}
       </div>
