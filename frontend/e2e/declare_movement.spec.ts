@@ -63,7 +63,7 @@ test.describe('Déclaration de mouvement (MV-01, TR-05)', () => {
     await page.getByRole('button', { name: 'Confirmer' }).click()
 
     await expect(page.getByText(/associé aux animaux reçus/i)).toBeVisible({ timeout: 10_000 })
-    await page.goto(`/centres/animaux/${sourceUnits[0].id}`)
+    await page.goto(`/centres/animaux/${sourceUnits[0].id}`, { waitUntil: 'domcontentloaded' })
     await expect(page.getByText('Élevage B (simulé)', { exact: true })).toBeVisible()
     await senderContext.close()
   })

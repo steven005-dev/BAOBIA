@@ -414,6 +414,26 @@ class MovementAPITestCase(TestCase):
         self.assertIn("confirmation_code", response.data)
         self.assertEqual(len(response.data["items"]), 1)
 
+    def test_api_movement_inherits_demo_flag_from_demo_user(self):
+        self.user.is_simulated = True
+        self.user.save(update_fields=["is_simulated"])
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(
+            "/api/movements/",
+            {
+                "from_center_id": str(self.center_from.id),
+                "to_center_id": str(self.center_to.id),
+                "movement_type": "transfer",
+                "items": [{"unit_id": str(self.unit.id), "quantity_sent": 1}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.data["is_simulated"])
+        movement = Movement.objects.get(pk=response.data["id"])
+        self.assertTrue(movement.status_events.get(status="declared").is_simulated)
+        self.assertTrue(movement.confirmations.get(side="sender").is_simulated)
+
     def test_api_transfer_requires_registered_destination(self):
         self.client.force_authenticate(user=self.user)
         response = self.client.post(

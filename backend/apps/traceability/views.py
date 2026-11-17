@@ -150,6 +150,7 @@ class MovementListCreateView(APIView):
                 created_by=request.user,
                 occurred_at=data.get("occurred_at"),
                 to_party_note=data.get("to_party_note"),
+                is_simulated=request.user.is_simulated,
             )
         except UnitAlreadyLockedError as error:
             return Response(
