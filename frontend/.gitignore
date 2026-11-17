@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Certificat HTTPS local (npm run cert)
+.certs/

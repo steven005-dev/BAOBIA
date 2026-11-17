@@ -11,6 +11,16 @@ npm run build
 ```
 En développement, `/composants` montre tous les composants partagés.
 
+## Tester sur un téléphone (caméra = HTTPS obligatoire)
+```powershell
+npm run cert        # une fois : certificat local dans .certs/ (30 jours, jamais sur GitHub)
+npm run dev:phone   # HTTPS, visible sur le Wi-Fi ; Django doit tourner sur ce PC
+```
+Sur le téléphone, même Wi-Fi : `https://<adresse-IP-du-PC>:5173` (adresse affichée par Vite).
+Premier accès : avertissement de sécurité, « Paramètres avancés » puis « Continuer ».
+Si le pare-feu Windows le demande, autoriser Node.js sur les réseaux privés.
+Tant que `.certs/` existe, `npm run dev` est aussi en HTTPS ; supprimer le dossier pour revenir en HTTP.
+
 ## Où mettre quoi
 | Dossier | Contenu | Responsable |
 |---|---|---|
