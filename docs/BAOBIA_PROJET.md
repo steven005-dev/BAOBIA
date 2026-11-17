@@ -204,7 +204,7 @@ Ensuite, dans les deux cas : le moteur parcourt le graphe des mouvements selon l
 | **Yéo** | `health`, `alerts`, `geo` ; côté React : santé, alertes, carte ; moteur d'exposition. |
 | **Yéné** | Maquette 3D de présentation (dépôt séparé `baobia-demo3d`). |
 
-Le fichier `.github/CODEOWNERS` applique ces responsabilités. Méthode de travail : voir `TRAVAIL_EQUIPE.md` (un seul dépôt, petites demandes de fusion, jamais de commit direct sur `main`, relecture circulaire).
+Le fichier `.github/CODEOWNERS` applique ces responsabilités. Méthode de travail : voir `work_method.md` (un seul dépôt, petites demandes de fusion, jamais de commit direct sur `main`, relecture circulaire).
 
 ## 12. Où trouver quoi
 
@@ -216,11 +216,11 @@ Le fichier `.github/CODEOWNERS` applique ces responsabilités. Méthode de trava
 | La base de données : tables, contraintes, règles de code | **`BAOBIA_DB_SPEC.md`** (source de vérité) et `BAOBIA_MCD_MLD.pdf` |
 | L'interface : couleurs, composants, vocabulaire | `BAOBIA_UI_GUIDELINES.md` et la charte graphique (PDF) |
 | Les commandes (Git, Django, npm) | `GUIDE_COMMANDES.md` |
-| Comment on travaille ensemble | `TRAVAIL_EQUIPE.md` |
+| Comment on travaille ensemble | `work_method.md` |
 | Démarrer comme développeur | Guide de démarrage développeur (PDF) |
 | La maquette 3D | Dossier maquette 3D (PDF) |
 
-**Ordre de lecture conseillé pour un nouveau développeur :** ce fichier -> `GUIDE_COMMANDES.md` -> `TRAVAIL_EQUIPE.md` -> `BAOBIA_DB_SPEC.md` (ses applications) -> la charte si on touche à l'interface.
+**Ordre de lecture conseillé pour un nouveau développeur :** ce fichier -> `GUIDE_COMMANDES.md` -> `work_method.md` -> `BAOBIA_DB_SPEC.md` (ses applications) -> la charte si on touche à l'interface.
 
 ## 13. Décisions déjà prises (ne pas rediscuter sans raison)
 

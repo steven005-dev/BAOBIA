@@ -6,6 +6,7 @@
 import { CirclePlus, PawPrint, Warehouse } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router'
 
+import { useAuth } from '@/auth/AuthProvider'
 import { AnimalCard } from '@/components/AnimalCard'
 import { Banner } from '@/components/Banner'
 import { Button } from '@/components/Button'
@@ -13,13 +14,15 @@ import { EmptyState } from '@/components/EmptyState'
 import { Field } from '@/components/Field'
 import { Loader } from '@/components/Loader'
 import { Select } from '@/components/Select'
-import { messages, mots } from '@/lib/vocabulaire'
+import { messages, mots, titres } from '@/lib/vocabulaire'
 
 import { identityApi } from './api'
 import { useResource } from './useResource'
 
 export function AnimalsPage() {
   const navigate = useNavigate()
+  const { hasRole } = useAuth()
+  const canAddCenter = hasRole('breeder') || hasRole('trader')
   const [params, setParams] = useSearchParams()
   const centers = useResource(identityApi.centers, 'centres')
 
@@ -38,7 +41,18 @@ export function AnimalsPage() {
       {centers.loading && <Loader />}
       {centers.error && <Banner variant="error">{centers.error.message}</Banner>}
       {centers.data && list.length === 0 && (
-        <EmptyState icon={Warehouse} title={messages.aucunElevage} text={messages.aucunElevageAide} />
+        <EmptyState
+          icon={Warehouse}
+          title={messages.aucunElevage}
+          text={canAddCenter ? undefined : messages.aucunElevageAide}
+          action={
+            canAddCenter ? (
+              <Button icon={CirclePlus} onClick={() => navigate('/centres/nouveau')}>
+                {titres.ajouterElevage}
+              </Button>
+            ) : undefined
+          }
+        />
       )}
 
       {center && (
@@ -78,6 +92,11 @@ export function AnimalsPage() {
                 </li>
               ))}
             </ul>
+          )}
+          {canAddCenter && (
+            <Button variant="ghost" icon={Warehouse} onClick={() => navigate('/centres/nouveau')}>
+              {titres.ajouterElevage}
+            </Button>
           )}
         </>
       )}

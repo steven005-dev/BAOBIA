@@ -8,7 +8,7 @@ Messages : vocabulaire officiel de la charte (docs/BAOBIA_UI_GUIDELINES.md).
 from django.db.models import Sum
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -18,15 +18,23 @@ from apps.core.models import Species
 from apps.geo.models import Zone
 
 from . import services
-from .models import Center, CenterSpecies, IdentitySupport, TrackedUnit
+from .models import Center, CenterSpecies, IdentitySupport, IdentityVerification, Label, TrackedUnit
 from .serializers import (
     CenterCreateSerializer,
     CenterDetailSerializer,
     CenterListItemSerializer,
+    LabelBatchCreateSerializer,
+    LabelBatchSerializer,
+    LabelIssueSerializer,
+    LabelIssuedSerializer,
+    LabelReplaceSerializer,
     ScanResultSerializer,
     UnitCreateSerializer,
     UnitListItemSerializer,
     UnitSerializer,
+    VerificationCreateSerializer,
+    VerificationSerializer,
+    ZoneItemSerializer,
 )
 
 TAG_CENTERS = "Élevages"
@@ -218,6 +226,81 @@ class CenterUnitsView(APIView):
         ], many=True).data)
 
 
+class ZoneListView(APIView):
+    @extend_schema(
+        tags=[TAG_CENTERS],
+        summary="Zones (pour choisir la zone d'un élevage)",
+        description="Lecture seule des zones de geo, du pays aux plus petites.",
+        responses={200: ZoneItemSerializer(many=True)},
+    )
+    def get(self, request):
+        zones = Zone.objects.order_by("level", "name").values("id", "name", "level", "parent_id")
+        return Response(ZoneItemSerializer(list(zones), many=True).data)
+
+
+LABEL_ROLES = ("field_agent", "authority")
+
+
+class CenterLabelsView(APIView):
+    permission_classes = [HasRole(*LABEL_ROLES)]
+
+    @extend_schema(
+        tags=[TAG_CENTERS],
+        summary="Remettre des étiquettes vierges à un élevage",
+        description=(
+            "Agent de terrain ou autorité. Chaque code doit être une étiquette imprimée, pas "
+            "encore remise. Tout ou rien : si un code est refusé, aucune étiquette n'est remise."
+        ),
+        request=LabelIssueSerializer,
+        responses={200: LabelIssuedSerializer, 400: ErrorSerializer, 403: ErrorSerializer,
+                   404: ErrorSerializer},
+    )
+    def post(self, request, center_id):
+        center = Center.objects.filter(pk=center_id, status="active").first()
+        if center is None:
+            raise NotFound("Élevage introuvable.")
+        serializer = LabelIssueSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        codes = []
+        for raw in serializer.validated_data["codes"]:
+            code = services.normalize_short_code(raw)
+            if not services.is_valid_short_code(code):
+                raise ValidationError({"detail": f"{LABEL_NOT_RECOGNIZED} ({code})"})
+            if code not in codes:
+                codes.append(code)
+        labels = list(Label.objects.filter(short_code__in=codes))
+        if len(labels) != len(codes):
+            unknown = sorted(set(codes) - {label.short_code for label in labels})
+            raise ValidationError({"detail": f"{LABEL_NOT_RECOGNIZED} ({', '.join(unknown)})"})
+        try:
+            services.issue_labels(labels, center, issued_by=request.user)
+        except services.IdentityError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+        return Response({"issued": len(labels), "codes": codes})
+
+
+class LabelBatchView(APIView):
+    permission_classes = [HasRole(*LABEL_ROLES)]
+
+    @extend_schema(
+        tags=[TAG_CENTERS],
+        summary="Créer un lot d'étiquettes à imprimer",
+        description="Agent de terrain ou autorité. Renvoie les codes (avec caractère de contrôle) à imprimer.",
+        request=LabelBatchCreateSerializer,
+        responses={201: LabelBatchSerializer, 400: ErrorSerializer, 403: ErrorSerializer},
+    )
+    def post(self, request):
+        serializer = LabelBatchCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        batch = services.create_label_batch(
+            quantity=data["quantity"], created_by=request.user, note=data.get("note") or None
+        )
+        codes = list(Label.objects.filter(batch=batch).order_by("short_code").values_list("short_code", flat=True))
+        return Response({"id": batch.id, "quantity": batch.quantity, "codes": codes},
+                        status=status.HTTP_201_CREATED)
+
+
 # --------------------------------------------------------------------------- Unités
 
 class UnitCreateView(APIView):
@@ -298,6 +381,74 @@ class UnitDetailView(APIView):
         if unit is None or not services.user_can_view_unit(request.user, unit):
             raise NotFound(UNIT_NOT_FOUND)
         return Response(UnitSerializer(_unit_data(unit)).data)
+
+
+class UnitLabelView(APIView):
+    @extend_schema(
+        tags=[TAG_UNITS],
+        summary="Remplacer l'étiquette d'un animal ou d'un lot",
+        description=(
+            "Membres et mandataires (droit « declare ») de l'élevage où se trouve l'unité. "
+            "L'ancienne étiquette est retirée (perdue ou désactivée), la nouvelle posée, dans "
+            "une transaction ; l'historique est conservé. 404 si l'unité n'est pas visible."
+        ),
+        request=LabelReplaceSerializer,
+        responses={200: UnitSerializer, 400: ErrorSerializer, 403: ErrorSerializer,
+                   404: ErrorSerializer},
+    )
+    def post(self, request, unit_id):
+        unit = _unit_queryset().filter(pk=unit_id).first()
+        if unit is None or not services.user_can_view_unit(request.user, unit):
+            raise NotFound(UNIT_NOT_FOUND)
+        if not services.user_can_access_center(request.user, unit.current_center_id, scope="declare"):
+            raise PermissionDenied("Vous n'avez pas accès à cet élevage.")
+        serializer = LabelReplaceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            label = services.label_for_registration(data["label_code"], unit.current_center)
+            services.replace_label(unit, label, request.user, reason=data["reason"])
+        except services.IdentityError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+        unit = _unit_queryset().get(pk=unit.pk)
+        return Response(UnitSerializer(_unit_data(unit)).data)
+
+
+class UnitVerificationView(APIView):
+    @extend_schema(
+        tags=[TAG_UNITS],
+        summary="Enregistrer le contrôle d'identité d'un scan",
+        description=(
+            "Appelé par l'application après un scan réussi. Le résultat (confirmed, mismatch, "
+            "unreadable) est calculé par le serveur. Position gardée seulement si le téléphone "
+            "la donne à cet instant. Rejouer le même `id` est sans effet. 404 si l'unité "
+            "n'est pas visible."
+        ),
+        request=VerificationCreateSerializer,
+        responses={201: VerificationSerializer, 200: VerificationSerializer, 400: ErrorSerializer,
+                   404: ErrorSerializer, 409: ErrorSerializer},
+    )
+    def post(self, request, unit_id):
+        unit = _unit_queryset().filter(pk=unit_id).first()
+        if unit is None or not services.user_can_view_unit(request.user, unit):
+            raise NotFound(UNIT_NOT_FOUND)
+        serializer = VerificationCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        replay = "id" in data and IdentityVerification.objects.filter(pk=data["id"]).exists()
+        try:
+            verification = services.record_verification(
+                unit, data["label_code"], request.user, method=data["method"],
+                occurred_at=data["occurred_at"], verification_id=data.get("id"),
+                latitude=data.get("latitude"), longitude=data.get("longitude"),
+                accuracy_m=data.get("accuracy_m"),
+            )
+        except services.IdentityError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response(
+            VerificationSerializer(verification).data,
+            status=status.HTTP_200_OK if replay else status.HTTP_201_CREATED,
+        )
 
 
 # --------------------------------------------------------------------------- Scan
