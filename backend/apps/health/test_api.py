@@ -187,6 +187,14 @@ class ReportReviewTests(HealthApiTestCase):
         super().setUp()
         self.report_id = self.submit().json()["id"]
         self.url = f"/api/health-reports/{self.report_id}/review/"
+        # Règle de test (valeurs simulées) : sans règle, aucune alerte ne peut être validée.
+        from apps.alerts.models import DiseaseRule
+
+        DiseaseRule.objects.create(
+            disease=self.fmd, version=1, lookback_days=21, lookforward_days=0, max_depth=2,
+            valid_from=timezone.localdate() - timezone.timedelta(days=30),
+            approved_by=self.vet,
+        )
 
     def review(self, user, **body):
         return self.as_user(user).post(self.url, body, format="json")
@@ -221,6 +229,14 @@ class ReportReviewTests(HealthApiTestCase):
 
     def test_dismiss_requires_a_reason(self):
         self.assertEqual(self.review(self.vet, decision="dismiss").status_code, 400)
+
+    def test_validation_without_rule_is_refused(self):
+        from apps.alerts.models import DiseaseRule
+
+        DiseaseRule.objects.all().delete()
+        resp = self.review(self.vet, decision="validate_level3", disease_code="fmd")
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(HealthReportReview.objects.exists())
 
     def test_validation_requires_a_disease(self):
         self.assertEqual(self.review(self.vet, decision="validate_level3").status_code, 400)
