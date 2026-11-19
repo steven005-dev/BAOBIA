@@ -117,6 +117,32 @@ class ReportSubmitTests(HealthApiTestCase):
         self.assertEqual(resp.status_code, 409)
         self.assertEqual(HealthReport.objects.get().affected_count, 2)
 
+    def test_any_changed_field_on_replay_is_a_conflict(self):
+        changes = {
+            "occurred_at": (timezone.now() - timezone.timedelta(days=1)).isoformat(),
+            "note": "Autre note",
+            "latitude": "5.100000", "longitude": "-4.100000", "position_source": "manual",
+            "symptom_codes": [],
+            "subjects": [{"unit_id": str(self.unit.id), "condition": "dead"}],
+            "self_severity": "low",
+        }
+        for field, value in changes.items():
+            with self.subTest(field=field):
+                body = self.body(latitude="5.300000", longitude="-4.000000",
+                                 position_source="gps")
+                first = self.as_user(self.breeder).post("/api/health-reports/", body,
+                                                        format="json")
+                self.assertEqual(first.status_code, 201)
+                same = self.as_user(self.breeder).post("/api/health-reports/", body,
+                                                       format="json")
+                self.assertEqual(same.status_code, 200)
+                body[field] = value
+                if field == "latitude":
+                    body["longitude"] = changes["longitude"]
+                resp = self.as_user(self.breeder).post("/api/health-reports/", body,
+                                                       format="json")
+                self.assertEqual(resp.status_code, 409, resp.content)
+
     def test_other_breeder_cannot_report_for_my_farm(self):
         resp = self.submit(user=self.stranger, subjects=[])
         self.assertEqual(resp.status_code, 403)

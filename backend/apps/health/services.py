@@ -13,6 +13,8 @@ Droits de lecture :
 - can_submit_for_center, visible_reports, can_review_report
 """
 
+from decimal import Decimal
+
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -171,12 +173,23 @@ def can_review_report(user, report):
 # ---------------------------------------------------------------------------
 
 
+def _decimal_or_none(value):
+    return None if value is None else Decimal(str(value))
+
+
 def _same_report(report, *, user, center, report_kind, affected_count, self_severity,
-                 symptom_codes, subjects):
+                 occurred_at, note, latitude, longitude, position_accuracy_m,
+                 position_source, symptom_codes, subjects):
+    """Vrai si le signalement existant a EXACTEMENT le même contenu que l'envoi rejoué
+    (auteur, élevage, champs, position, symptômes, animaux et leur état)."""
     existing_symptoms = set(report.symptoms.values_list("code", flat=True))
     existing_subjects = {
-        (str(unit_id), condition)
-        for unit_id, condition in report.subjects.values_list("unit_id", "condition")
+        (str(unit_id), condition, notes or None)
+        for unit_id, condition, notes in report.subjects.values_list(
+            "unit_id", "condition", "notes")
+    }
+    requested_subjects = {
+        (str(s["unit_id"]), s["condition"], s.get("notes") or None) for s in subjects
     }
     return (
         report.created_by_id == user.pk
@@ -184,8 +197,14 @@ def _same_report(report, *, user, center, report_kind, affected_count, self_seve
         and report.report_kind == report_kind
         and report.affected_count == affected_count
         and report.self_severity == self_severity
+        and report.occurred_at == occurred_at
+        and (report.note or None) == (note or None)
+        and _decimal_or_none(report.latitude) == _decimal_or_none(latitude)
+        and _decimal_or_none(report.longitude) == _decimal_or_none(longitude)
+        and _decimal_or_none(report.position_accuracy_m) == _decimal_or_none(position_accuracy_m)
+        and report.position_source == position_source
         and existing_symptoms == set(symptom_codes)
-        and existing_subjects == {(str(s["unit_id"]), s["condition"]) for s in subjects}
+        and existing_subjects == requested_subjects
     )
 
 
@@ -207,7 +226,10 @@ def submit_report(
     subjects = list(subjects)
     comparable = dict(user=user, center=center, report_kind=report_kind,
                       affected_count=affected_count, self_severity=self_severity,
-                      symptom_codes=symptom_codes, subjects=subjects)
+                      occurred_at=occurred_at, note=note, latitude=latitude,
+                      longitude=longitude, position_accuracy_m=position_accuracy_m,
+                      position_source=position_source, symptom_codes=symptom_codes,
+                      subjects=subjects)
 
     existing = HealthReport.objects.filter(pk=report_id).first()
     if existing is not None:
