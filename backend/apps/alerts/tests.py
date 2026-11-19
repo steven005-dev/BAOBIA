@@ -127,6 +127,18 @@ class ExposureEngineTests(AlertScenarioMixin, TestCase):
         self.assertEqual(self.exposure_map(Alert.objects.get())["Élevage E"],
                          ("excluded_negative", 1))
 
+    def test_disputed_movement_counts_with_reduced_confidence(self):
+        Movement.objects.filter(from_center=self.centers["A"],
+                                to_center=self.centers["B"]).update(status="disputed")
+        self.validate(self.report_at_a())
+        alert = Alert.objects.get()
+        self.assertEqual(self.exposure_map(alert)["Élevage B"], ("exposed", 1))
+        self.assertEqual(alert.confidence, "reduced")
+
+    def test_confirmed_movements_keep_normal_confidence(self):
+        self.validate(self.report_at_a())
+        self.assertEqual(Alert.objects.get().confidence, "normal")
+
     def test_departure_before_exposure_does_not_propagate(self):
         # B a envoyé vers E AVANT de recevoir l'animal de A : E n'est pas exposé par B.
         Movement.objects.filter(from_center=self.centers["C"]).update(occurred_at=self.now)
