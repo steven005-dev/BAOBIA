@@ -21,6 +21,7 @@ import { generateShortCode } from '@/lib/shortCode'
 import { champs, erreurs, messages, mots, titres } from '@/lib/vocabulaire'
 
 import { identityApi, newUuid, type Species, type UnitKind } from './api'
+import { LabelToPrint } from './LabelToPrint'
 import { speciesIcon } from './speciesIcon'
 import { useResource } from './useResource'
 
@@ -51,6 +52,7 @@ export function AddUnitPage() {
   const [stepIndex, setStepIndex] = useState(0)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [queued, setQueued] = useState(false)
 
   const chosen = species.data?.find((s) => s.id === speciesId)
   const kind = kindChoice ?? defaultKind(chosen)
@@ -81,19 +83,22 @@ export function AddUnitPage() {
       ...(kind === 'lot' ? { size } : {}),
     })
     try {
-      try {
-        await identityApi.addUnit(unitId, unit(code))
-      } catch (err) {
+      let result = await identityApi.addUnit(unitId, unit(code))
+      if (result.status === 'check' && result.error?.includes('déjà posée')) {
         // Code déjà pris (doublon, en pratique impossible) : on en crée un autre et on réessaie
         // une fois. Le même identifiant d'animal est gardé : rien n'a été créé au premier essai.
-        const codeTaken = err instanceof ApiError && err.kind === 'validation' && err.message.includes('déjà posée')
-        if (!codeTaken) throw err
         const fresh = generateShortCode()
         setCode(fresh)
-        await identityApi.addUnit(unitId, unit(fresh))
+        result = await identityApi.addUnit(unitId, unit(fresh))
       }
-      toast.show(kind === 'lot' ? messages.lotAjoute : messages.animalAjoute, 'success')
-      navigate(`/centres/animaux/${unitId}`, { replace: true })
+      if (result.status === 'sent') {
+        toast.show(kind === 'lot' ? messages.lotAjoute : messages.animalAjoute, 'success')
+        navigate(`/centres/animaux/${unitId}`, { replace: true })
+      } else if (result.status === 'check') {
+        setError(result.error ?? erreurs.saisie)
+      } else {
+        setQueued(true) // hors ligne : gardé sur le téléphone, l'étiquette est déjà imprimable
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : erreurs.serveur)
     } finally {
@@ -109,6 +114,21 @@ export function AddUnitPage() {
     setError(null)
     if (isLast) void send()
     else setStepIndex(stepIndex + 1)
+  }
+
+  if (queued && chosen) {
+    return (
+      <div className="flex flex-col gap-6">
+        <h1 className="text-title font-bold text-foreground">{titres.ajouterAnimal}</h1>
+        <Banner variant="info" title={messages.enAttente}>
+          {messages.gardeSurTelephone} {messages.etiquetteDejaImprimable}
+        </Banner>
+        <LabelToPrint code={code} species={chosen.label_fr} />
+        <Button icon={PawPrint} onClick={() => navigate(`/centres?elevage=${centerId}`, { replace: true })}>
+          {mots.animaux}
+        </Button>
+      </div>
+    )
   }
 
   if (species.loading) return <Loader />
