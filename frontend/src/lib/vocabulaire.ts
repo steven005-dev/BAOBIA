@@ -206,3 +206,94 @@ export const titres = {
   ajouterElevage: 'Ajouter un élevage',
   remettreEtiquettes: 'Remettre des étiquettes',
 } as const
+
+/**
+ * À VALIDER : module santé, alertes et carte (Yéo). Mots simples, sans nom de maladie
+ * pour l'éleveur ; « Contact possible », jamais « contaminé ».
+ */
+export const sante = {
+  titreSignaler: 'Signaler un cas',
+  quelElevage: 'Quel élevage ?',
+  queSePasseTIl: 'Que se passe-t-il ?',
+  quelsSignes: 'Quels signes voyez-vous ?',
+  quelsSignesAide: 'Touchez tous les signes que vous voyez. Vous pouvez passer.',
+  quelsAnimaux: 'Quels animaux ?',
+  quelsAnimauxAide: 'Touchez les animaux malades. Vous pouvez passer.',
+  combienTouches: "Combien d'animaux sont touchés ?",
+  mesSignalements: 'Mes signalements',
+  aExaminer: 'À examiner',
+  aucunSignalement: 'Aucun signalement',
+  aucunSignalementAide: 'Si un animal semble malade, touchez Signaler.',
+  signaleLe: 'Signalé le',
+  animauxTouches: 'Animaux touchés',
+  decisionVeterinaire: 'Décision du vétérinaire',
+  maladieRetenue: 'Maladie retenue',
+  motif: 'Motif',
+  motifAide: 'Obligatoire pour refuser.',
+  decisionEnregistree: 'Décision enregistrée.',
+  aucuneRegle: 'Aucune règle sanitaire pour cette maladie.',
+} as const
+
+export const typesSignalement = {
+  suspicion: 'Animal malade',
+  death: 'Animal mort',
+  abnormal_mortality: 'Plusieurs morts',
+} as const
+
+export const etatsSignalement = {
+  submitted: 'Reçu',
+  under_review: 'En examen',
+  validated: 'Validé',
+  rejected: 'Refusé',
+  closed: 'Clôturé',
+} as const
+
+export const decisionsVeterinaire = {
+  request_info: 'Demander des informations',
+  retain_suspicion: 'Garder la suspicion',
+  raise_level2: 'Passer au niveau 2',
+  validate_level3: 'Valider (niveau 3)',
+  dismiss: 'Refuser',
+  close: 'Clôturer',
+} as const
+
+export const alertesTextes = {
+  aucuneAlerte: 'Aucune alerte',
+  aucuneAlerteAide: 'Les alertes de votre zone apparaîtront ici.',
+  mesMessages: 'Mes messages',
+  aucunMessage: 'Aucun message',
+  elevagesContact: 'Élevages en contact possible',
+  elevagesEcartes: 'Élevages écartés',
+  aucunContact: 'Aucun élevage en contact possible.',
+  chemin: 'Chemin',
+  foyer: 'Élevage signalé',
+  regle: 'Règle appliquée',
+  regleExperimentale: 'Valeurs de démonstration, à valider par un vétérinaire.',
+  jours: 'jours',
+  profondeur: 'Profondeur',
+  confianceReduite: 'Confiance réduite : un mouvement est contesté.',
+  ouverteLe: 'Ouverte le',
+  valideePar: 'Validée par',
+  pasUnDiagnostic: 'Contact possible ne veut pas dire malade.',
+} as const
+
+export const raisonsExposition: Record<string, string> = {
+  sent_from_focus: "Animaux partis de l'élevage signalé",
+  sent_after_exposure: 'Animaux partis après le contact',
+  outside_window: 'Hors de la période à risque',
+  unconfirmed_not_counted: 'Transfert pas encore confirmé',
+  movement_cancelled: 'Transfert annulé',
+  movement_expired: 'Transfert expiré',
+}
+
+export const carteTextes = {
+  titre: 'Carte par zones',
+  legende: 'Légende',
+  toutesEspeces: 'Toutes',
+  elevagesDansZone: 'élevages',
+  animauxDansZone: 'animaux',
+  mesElevages: 'Mes élevages',
+  aucuneZone: 'Aucune zone à afficher',
+  majLe: 'Mis à jour le',
+  pasDeNom: "Aucun nom d'élevage n'est affiché.",
+} as const

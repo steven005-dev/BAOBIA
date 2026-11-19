@@ -1,15 +1,11 @@
 /**
- * Routes du module carte (responsable : Yéo). Réutiliser HEALTH_STATES
- * (src/lib/healthStates.ts) pour la légende et les zones.
+ * Routes du module carte (responsable : Yéo). La légende et les zones réutilisent
+ * HEALTH_STATES (src/lib/healthStates.ts).
  * Ajouter ici les écrans ; ne pas modifier src/app/.
  */
 
-import { Map as MapIcon } from 'lucide-react'
 import type { RouteObject } from 'react-router'
 
-import { ModulePlaceholder } from '@/app/ModulePlaceholder'
-import { mots } from '@/lib/vocabulaire'
+import { MapPage } from './MapPage'
 
-export const mapRoutes: RouteObject[] = [
-  { path: 'carte', element: <ModulePlaceholder title={mots.carte} icon={MapIcon} /> },
-]
+export const mapRoutes: RouteObject[] = [{ path: 'carte', element: <MapPage /> }]
