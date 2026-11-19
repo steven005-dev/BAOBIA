@@ -16,9 +16,7 @@ import { profils } from './vocabulaire'
 export interface ProfileStyle {
   label: string
   icon: LucideIcon
-  /** Fond plein et texte blanc (bandeau). */
-  solid: string
-  /** Fond clair, texte et contour de la couleur du profil (pastille). */
+  /** Fond clair, texte et contour de la couleur du profil (bandeau et pastille). */
   soft: string
 }
 
@@ -26,27 +24,22 @@ export interface ProfileStyle {
 export const profileStyles: Record<RoleCode, ProfileStyle> = {
   breeder: {
     label: profils.breeder, icon: Fence,
-    solid: 'bg-role-breeder text-primary-foreground',
     soft: 'bg-role-breeder-bg text-role-breeder border-role-breeder',
   },
   field_agent: {
     label: profils.field_agent, icon: ClipboardCheck,
-    solid: 'bg-role-field-agent text-primary-foreground',
     soft: 'bg-role-field-agent-bg text-role-field-agent border-role-field-agent',
   },
   trader: {
     label: profils.trader, icon: Store,
-    solid: 'bg-role-trader text-primary-foreground',
     soft: 'bg-role-trader-bg text-role-trader border-role-trader',
   },
   veterinarian: {
     label: profils.veterinarian, icon: Stethoscope,
-    solid: 'bg-role-veterinarian text-primary-foreground',
     soft: 'bg-role-veterinarian-bg text-role-veterinarian border-role-veterinarian',
   },
   authority: {
     label: profils.authority, icon: Landmark,
-    solid: 'bg-role-authority text-primary-foreground',
     soft: 'bg-role-authority-bg text-role-authority border-role-authority',
   },
 }
