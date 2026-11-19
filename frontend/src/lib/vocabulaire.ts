@@ -79,6 +79,16 @@ export const etatsSanitaires = {
   unknown: 'Pas assez de données',
 } as const
 
+/** Noms des profils, affichés dans la marque de l'espace (en-tête, barre latérale).
+ *  À VALIDER : absents de la charte. */
+export const profils = {
+  breeder: 'Éleveur',
+  field_agent: 'Agent de terrain',
+  trader: 'Commerçant',
+  veterinarian: 'Vétérinaire',
+  authority: 'Autorité',
+} as const
+
 /** Les 3 niveaux d'alerte (charte, section 8 : AlertLevelBadge). */
 export const niveauxAlerte = {
   1: 'Signalement reçu',

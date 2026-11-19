@@ -6,14 +6,17 @@
  *   <AppHeader />                                  // marque BAOBIA
  *   <AppHeader title="Élevage A" onBack={() => navigate(-1)} onListen={lireLaPage} />
  *   <AppHeader onLogout={logout} />                // bouton Quitter, pour tous les profils
+ *   <AppHeader profile={profile} />                // bandeau du profil sous l'en-tête
  */
 
 import { ArrowLeft, LogOut, Volume2 } from 'lucide-react'
 
+import type { Profile } from '@/lib/profiles'
 import { cn } from '@/lib/utils'
 import { APP_NAME, mots } from '@/lib/vocabulaire'
 
 import { OfflineIndicator } from './OfflineIndicator'
+import { ProfileBar } from './ProfileBar'
 
 export interface AppHeaderProps {
   title?: string
@@ -22,13 +25,15 @@ export interface AppHeaderProps {
   onListen?: () => void
   /** Se déconnecter : bouton « Quitter » (icône et mot), visible sur tous les écrans. */
   onLogout?: () => void
+  /** Profil connecté : bandeau couleur, icône et mot, sur tous les écrans. */
+  profile?: Profile | null
   className?: string
 }
 
 const headerButton =
   'flex h-touch shrink-0 items-center gap-1 rounded-md px-2 text-caption font-bold text-primary-foreground hover:bg-primary-hover active:bg-primary-hover'
 
-export function AppHeader({ title, onBack, onListen, onLogout, className }: AppHeaderProps) {
+export function AppHeader({ title, onBack, onListen, onLogout, profile, className }: AppHeaderProps) {
   return (
     <header className={cn('sticky top-0 z-40 bg-primary pt-[env(safe-area-inset-top)] text-primary-foreground', className)}>
       <div className="mx-auto flex min-h-touch-primary items-center gap-2 px-4 py-1">
@@ -56,6 +61,7 @@ export function AppHeader({ title, onBack, onListen, onLogout, className }: AppH
           </button>
         )}
       </div>
+      {profile && <ProfileBar profile={profile} />}
     </header>
   )
 }
