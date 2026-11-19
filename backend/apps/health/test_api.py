@@ -100,6 +100,33 @@ class ReportSubmitTests(HealthApiTestCase):
             AuditLog.objects.filter(action="health_report.submit", entity_id=data["id"]).exists()
         )
 
+    def make_real(self, *, user=True, center=True):
+        """Les aides de test créent des données simulées : on en rend certaines réelles."""
+        self.breeder.is_simulated = not user
+        self.breeder.save(update_fields=["is_simulated"])
+        self.center.is_simulated = not center
+        self.center.save(update_fields=["is_simulated"])
+
+    def test_real_account_on_real_farm_is_not_simulated(self):
+        self.make_real()
+        resp = self.submit()
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertFalse(resp.json()["is_simulated"])
+        self.assertFalse(HealthReport.objects.get().is_simulated)
+
+    def test_report_from_demo_account_is_simulated(self):
+        self.make_real(user=False)
+        resp = self.submit()
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertTrue(resp.json()["is_simulated"])
+        self.assertTrue(HealthReport.objects.get().is_simulated)
+
+    def test_report_on_demo_farm_is_simulated(self):
+        self.make_real(center=False)
+        resp = self.submit()
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertTrue(HealthReport.objects.get().is_simulated)
+
     def test_replaying_the_same_operation_creates_nothing(self):
         body = self.body()
         first = self.as_user(self.breeder).post("/api/health-reports/", body, format="json")

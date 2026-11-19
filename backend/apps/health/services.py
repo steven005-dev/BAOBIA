@@ -221,6 +221,8 @@ def submit_report(
     - même id, autre contenu -> ReportConflict.
     `subjects` : liste de {"unit_id", "condition"} ; chaque unité doit être dans l'élevage.
     Le signalement n'a aucun effet visible hors des professionnels avant examen (RG-14).
+    Données de démonstration : le signalement est simulé si le compte ou l'élevage l'est
+    (il ne doit jamais compter comme un vrai cas, ni l'alerte qui en découle).
     """
     symptom_codes = list(dict.fromkeys(symptom_codes))
     subjects = list(subjects)
@@ -270,7 +272,7 @@ def submit_report(
         longitude=longitude,
         position_accuracy_m=position_accuracy_m,
         position_source=position_source,
-        is_simulated=is_simulated,
+        is_simulated=is_simulated or user.is_simulated or center.is_simulated,
     )
     HealthReportSymptom.objects.bulk_create(
         HealthReportSymptom(report=report, symptom=symptom) for symptom in symptoms
