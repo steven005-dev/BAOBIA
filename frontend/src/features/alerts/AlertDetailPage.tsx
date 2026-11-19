@@ -30,7 +30,7 @@ function ExposureCard({ exposure }: { exposure: Exposure }) {
         {exposed
           ? <StatusBadge state="exposure" />
           : <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border-2 border-success bg-success-bg px-3 text-caption font-bold text-success">
-              <CircleCheck aria-hidden className="size-icon-badge" />{alertesTextes.elevagesEcartes}
+              <CircleCheck aria-hidden className="size-icon-badge" />{alertesTextes.ecarte}
             </span>}
       </div>
       <ol className="flex flex-col gap-1 text-small text-foreground">

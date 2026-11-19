@@ -264,6 +264,7 @@ export const alertesTextes = {
   aucunMessage: 'Aucun message',
   elevagesContact: 'Élevages en contact possible',
   elevagesEcartes: 'Élevages écartés',
+  ecarte: 'Écarté',
   aucunContact: 'Aucun élevage en contact possible.',
   chemin: 'Chemin',
   foyer: 'Élevage signalé',
