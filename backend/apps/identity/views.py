@@ -5,6 +5,7 @@ de identity.services. Les écritures passent par services (audit compris).
 Messages : vocabulaire officiel de la charte (docs/BAOBIA_UI_GUIDELINES.md).
 """
 
+from django.contrib.auth import get_user_model
 from django.db.models import Sum
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
@@ -13,13 +14,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import HasCenterAccess, HasRole
+from apps.accounts.services import AccountsError
 from apps.accounts.serializers import ErrorSerializer
 from apps.core.models import Species
 from apps.geo.models import Zone
 
 from . import services
-from .models import Center, CenterSpecies, IdentitySupport, IdentityVerification, Label, TrackedUnit
+from .models import Center, CenterMember, CenterSpecies, IdentitySupport, IdentityVerification, Label, TrackedUnit
 from .serializers import (
+    BreederCreateSerializer,
+    BreederRegisteredSerializer,
     CenterCreateSerializer,
     CenterDetailSerializer,
     CenterListItemSerializer,
@@ -157,6 +161,68 @@ class CenterListCreateView(APIView):
             center_id=data.get("id"),
         )
         return Response(CenterDetailView.detail_data(center), status=status.HTTP_201_CREATED)
+
+
+OUTSIDE_SECTOR = "Cette zone n'est pas dans votre secteur."
+
+
+class BreederRegisterView(APIView):
+    """Agent de terrain : inscrit un éleveur (compte + premier élevage + mandat "declare")."""
+
+    permission_classes = [HasRole("field_agent")]
+
+    @extend_schema(
+        tags=[TAG_CENTERS],
+        summary="Inscrire un éleveur (agent de terrain)",
+        description=(
+            "Crée en une fois le compte de l'éleveur (rôle éleveur sur la zone), son élevage "
+            "(il en est le détenteur) et un mandat « declare » de l'agent sur cet élevage. "
+            "La zone doit être dans le secteur de l'agent. Pas d'inscription libre. "
+            "Renvoyer le même `id` et `center_id` est sans effet (200)."
+        ),
+        request=BreederCreateSerializer,
+        responses={201: BreederRegisteredSerializer, 200: BreederRegisteredSerializer,
+                   400: ErrorSerializer, 403: ErrorSerializer, 409: ErrorSerializer},
+    )
+    def post(self, request):
+        serializer = BreederCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        center = Center.objects.filter(pk=data["center_id"]).first()
+        if center is not None:  # rejeu hors ligne
+            breeder = CenterMember.objects.filter(center=center, member_role="holder").select_related("user").first()
+            if center.created_by_id != request.user.id or breeder is None or breeder.user_id != data["id"]:
+                return Response({"detail": ID_TAKEN}, status=status.HTTP_409_CONFLICT)
+            return Response(self.response_data(breeder.user, center))
+        if get_user_model().objects.filter(pk=data["id"]).exists():
+            return Response({"detail": ID_TAKEN}, status=status.HTTP_409_CONFLICT)
+
+        zone = Zone.objects.filter(pk=data["zone_id"]).first()
+        if zone is None:
+            raise ValidationError({"zone_id": ["Zone inconnue."]})
+        if not services.user_covers_zone(request.user, zone.id, roles=("field_agent",)):
+            raise PermissionDenied(OUTSIDE_SECTOR)
+        species = list(Species.objects.filter(pk__in=data["species_ids"], is_active=True))
+        if len(species) != len(set(data["species_ids"])):
+            raise ValidationError({"species_ids": ["Espèce inconnue."]})
+
+        try:
+            breeder, center = services.register_breeder_with_center(
+                agent=request.user, phone=data["phone"], full_name=data["full_name"],
+                password=data["password"], center_name=data["center_name"], zone=zone,
+                species=species, user_id=data["id"], center_id=data["center_id"],
+            )
+        except AccountsError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+        return Response(self.response_data(breeder, center), status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def response_data(breeder, center):
+        return {
+            "breeder": {"id": breeder.id, "full_name": breeder.full_name, "phone": breeder.phone},
+            "center": CenterDetailView.detail_data(center),
+        }
 
 
 class CenterDetailView(APIView):

@@ -83,6 +83,18 @@ export interface NewCenter {
   species_ids: string[]
 }
 
+/** Agent de terrain : un éleveur et son premier élevage (ids créés sur le téléphone). */
+export interface NewBreeder {
+  id: string
+  full_name: string
+  phone: string
+  password: string
+  center_id: string
+  center_name: string
+  zone_id: string
+  species_ids: string[]
+}
+
 export interface Position {
   latitude: number
   longitude: number
@@ -115,6 +127,13 @@ export const identityApi = {
   /** Ajoute un élevage ; l'utilisateur en devient le détenteur. Rejouable (même id). */
   addCenter: (id: string, center: NewCenter) =>
     send({ type: 'center.create', path: '/centers/', id, body: { id, center_type: 'farm', ...center } }),
+
+  /**
+   * Agent de terrain : inscrit un éleveur (compte, élevage, mandat pour ajouter ses animaux).
+   * Rejouable : même `id` et `center_id` = sans effet côté serveur.
+   */
+  registerBreeder: (breeder: NewBreeder) =>
+    send({ type: 'breeder.register', path: '/breeders/', id: breeder.id, body: breeder }),
 
   /** Garde la trace d'un scan réussi (le résultat est calculé par le serveur). */
   recordVerification: (unitId: string, labelCode: string, method: 'scan' | 'manual_code',

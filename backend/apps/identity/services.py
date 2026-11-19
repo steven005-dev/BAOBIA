@@ -9,7 +9,7 @@ Codes courts :
 Accès aux centres (utilisé par accounts.permissions.HasCenterAccess) :
 - accessible_centers(user, at=None, scope=None), user_can_access_center(...)
 Écriture :
-- create_center, add_center_member, grant_mandate
+- create_center, add_center_member, grant_mandate, register_breeder_with_center (agent)
 - register_animal, register_lot, create_label_batch, bind_label, replace_label
 - set_current_center (appelée par traceability à la double confirmation)
 - record_verification (contrôle d'identité à un scan)
@@ -190,6 +190,36 @@ def create_center(
         "center.create", actor_user=created_by, entity_table="center", entity_id=center.id
     )
     return center
+
+
+AGENT_REGISTRATION_SCOPE = "declare"
+
+
+@transaction.atomic
+def register_breeder_with_center(
+    *, agent, phone, full_name, password, center_name, zone, species=(),
+    user_id=None, center_id=None,
+):
+    """Un agent de terrain inscrit un éleveur et son premier élevage, en une seule fois.
+
+    - compte de l'éleveur (accounts.register_breeder, rôle "breeder" sur la zone) ;
+    - élevage dont l'éleveur est le détenteur (créé par l'agent) ;
+    - mandat "declare" de l'agent sur cet élevage, donné par l'éleveur en personne :
+      l'agent peut ajouter ses animaux tout de suite (l'éleveur peut ne pas avoir de
+      smartphone). Tout ou rien. Lève AccountsError (numéro pris, mot de passe refusé).
+    """
+    from apps.accounts.services import register_breeder
+
+    breeder = register_breeder(
+        phone=phone, full_name=full_name, password=password, zone=zone,
+        registered_by=agent, user_id=user_id,
+    )
+    center = create_center(
+        name=center_name, zone=zone, center_type="farm", created_by=agent, holder=breeder,
+        species=species, center_id=center_id,
+    )
+    grant_mandate(agent, breeder, [center], AGENT_REGISTRATION_SCOPE)
+    return breeder, center
 
 
 def add_center_member(center, user, member_role, *, starts_at=None, added_by=None):
