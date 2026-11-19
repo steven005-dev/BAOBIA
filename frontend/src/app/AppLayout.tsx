@@ -2,6 +2,8 @@
  * Mise en page commune des écrans connectés : en-tête, bandeau hors ligne, contenu,
  * navigation basse (téléphone) ou latérale (ordinateur, à partir de « lg »).
  * Les écrans des modules s'affichent dans <Outlet />.
+ * « Quitter » est dans l'en-tête : tous les profils peuvent se déconnecter (le vétérinaire
+ * et l'autorité n'ont pas d'Accueil, donc pas le bouton de l'Accueil).
  */
 
 import { Outlet } from 'react-router'
@@ -16,13 +18,13 @@ import { SidebarNav } from '@/components/SidebarNav'
 import { navigationFor } from './navigation'
 
 export function AppLayout() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const items = navigationFor(user?.roles.map((role) => role.code) ?? [])
   return (
     <div className="flex min-h-dvh bg-background">
       <SidebarNav items={items} className="sticky top-0 hidden h-dvh lg:flex" />
       <div className="flex min-w-0 flex-1 flex-col">
-        <AppHeader />
+        <AppHeader onLogout={() => void logout()} />
         <OfflineIndicator variant="banner" />
         {user?.is_simulated && <DemoDataNotice />}
         <main className="mx-auto w-full max-w-mobile flex-1 px-4 pt-6 pb-[calc(var(--nav-height)+var(--space-6)+env(safe-area-inset-bottom))] lg:max-w-form lg:px-8 lg:pb-8">
