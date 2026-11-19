@@ -118,6 +118,7 @@ class MovementConfirmSerializer(serializers.Serializer):
     id = serializers.UUIDField(required=False, default=uuid.uuid4)
     center_id = serializers.UUIDField()
     code = serializers.RegexField(r"^\d{6}$", write_only=True)
+    occurred_at = serializers.DateTimeField(required=False)
 
 
 class DestinationShareCreateSerializer(serializers.Serializer):

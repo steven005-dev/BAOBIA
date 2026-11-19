@@ -501,10 +501,12 @@ class MovementAPITestCase(TestCase):
         self.assertEqual(declaration.status_code, 201)
 
         self.client.force_authenticate(user=self.receiver)
+        receipt_at = timezone.now() - timedelta(days=10)
         confirmation_payload = {
             "id": str(uuid.uuid4()),
             "center_id": str(self.center_to.id),
             "code": declaration.data["confirmation_code"],
+            "occurred_at": receipt_at.isoformat(),
         }
         confirmation = self.client.post(
             f"/api/movements/{movement_id}/confirm/",
@@ -513,6 +515,9 @@ class MovementAPITestCase(TestCase):
         )
         self.assertEqual(confirmation.status_code, 200)
         self.assertEqual(confirmation.data["status"], "confirmed")
+
+        movement = Movement.objects.get(pk=movement_id)
+        self.assertEqual(movement.received_at, receipt_at)
 
         self.unit.refresh_from_db()
         self.assertEqual(self.unit.current_center_id, self.center_to.id)
