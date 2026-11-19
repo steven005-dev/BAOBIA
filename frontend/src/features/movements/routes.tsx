@@ -8,6 +8,7 @@ import type { RouteObject } from 'react-router'
 
 import { DeclareMovementForm } from './DeclareMovementForm'
 import { ConfirmMovementReceiptPage } from './ConfirmMovementReceiptPage'
+import { MovementHistoryPage } from './MovementHistoryPage'
 import { ShareDestinationCodePage } from './ShareDestinationCodePage'
 import { installMovementQueue } from '@/features/offline/queue'
 
@@ -17,4 +18,5 @@ export const movementsRoutes: RouteObject[] = [
   { path: 'mouvements', element: <DeclareMovementForm /> },
   { path: 'mouvements/recevoir', element: <ConfirmMovementReceiptPage /> },
   { path: 'mouvements/partager', element: <ShareDestinationCodePage /> },
+  { path: 'mouvements/historique', element: <MovementHistoryPage /> },
 ]
