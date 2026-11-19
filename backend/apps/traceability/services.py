@@ -6,6 +6,7 @@ from datetime import timedelta
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from django.db import IntegrityError, transaction
+from django.db.models import Exists, OuterRef
 from django.utils import timezone
 
 from apps.audit.services import record_event
@@ -15,6 +16,7 @@ from apps.traceability.exceptions import (
     InvalidConfirmationCodeError,
     InvalidMovementDataError,
     MovementNotReceivableError,
+    OperationConflictError,
     UnitAlreadyLockedError,
     UnitNotAtOriginCenterError,
 )
@@ -22,8 +24,10 @@ from apps.traceability.models import (
     Movement,
     MovementConfirmation,
     MovementConfirmationCode,
+    MovementDiscrepancy,
     MovementItem,
     MovementStatusEvent,
+    StatusEvent,
     UnitOpenMovement,
 )
 
@@ -186,6 +190,65 @@ def declare_movement(
     return movement, plain_code
 
 
+def confirmation_mode(user, center_id, at=None) -> str:
+    """« direct » si la personne est membre de l'élevage, « assisted » si elle agit par
+    mandat (agent). MV-04 : une confirmation assistée n'est jamais présentée comme directe."""
+    from apps.identity.services import accessible_centers
+
+    for center in accessible_centers(user, at=at):
+        if str(center["id"]) == str(center_id):
+            return "assisted" if center["access"] == "mandate" else "direct"
+    return "assisted"
+
+
+def _received_quantities(movement, items_received):
+    """Quantité reçue par unité (MV-06). Sans détail : tout ce qui est parti est reçu."""
+    sent = {str(item.unit_id): item for item in movement.items.select_related("unit")}
+    received = {unit_id: item.quantity_sent for unit_id, item in sent.items()}
+    seen = set()
+    for line in items_received or ():
+        unit_id = str(line.get("unit_id"))
+        if unit_id not in sent:
+            raise InvalidMovementDataError("Cette unité ne fait pas partie de ce départ.")
+        if unit_id in seen:
+            raise InvalidMovementDataError("Une unité est indiquée deux fois.")
+        seen.add(unit_id)
+        quantity = line.get("quantity_received")
+        if quantity is None or int(quantity) < 0:
+            raise InvalidMovementDataError("Indiquez le nombre reçu (0 ou plus).")
+        if sent[unit_id].unit.kind == "animal" and int(quantity) > 1:
+            raise InvalidMovementDataError("Un animal ne peut être reçu qu'une fois.")
+        received[unit_id] = int(quantity)
+    return sent, received
+
+
+def _close_open_movement(movement):
+    """Libère les unités et invalide les codes encore valables du mouvement."""
+    UnitOpenMovement.objects.filter(movement=movement).delete()
+    movement.confirmation_codes.filter(used_at__isnull=True).update(expires_at=timezone.now())
+
+
+def _set_status(movement, status, *, reason, created_by, occurred_at, device=None):
+    movement.status = status
+    movement.save(update_fields=["status"])
+    MovementStatusEvent.objects.create(
+        movement=movement,
+        status=status,
+        reason=reason[:160],
+        occurred_at=occurred_at,
+        created_by=created_by,
+        device=device,
+        is_simulated=movement.is_simulated,
+    )
+
+
+def _locked_movement(movement_id):
+    movement = Movement.objects.select_for_update().filter(pk=movement_id).first()
+    if movement is None:
+        raise MovementNotReceivableError("Mouvement introuvable.")
+    return movement
+
+
 def confirm_movement_receipt(
     *,
     movement_id,
@@ -195,21 +258,32 @@ def confirm_movement_receipt(
     confirmation_id=None,
     occurred_at=None,
     device=None,
+    items_received=None,
 ):
-    """Confirme la réception et déplace les unités dans une même transaction (MV-04/05)."""
+    """Confirme la réception et déplace les unités dans une même transaction (MV-04 à MV-06).
+
+    `items_received` : [{"unit_id", "quantity_received"}] pour le rapprochement (MV-06).
+    Les unités absentes de la liste sont reçues en totalité. Un écart crée un
+    `MovementDiscrepancy` et passe le mouvement en `partial` au lieu de valider
+    automatiquement. Une unité reçue à 0 reste à l'élevage de départ.
+    Le mode (direct ou assisté par un agent mandaté) est enregistré dans l'audit.
+    """
     error = None
     now = occurred_at or timezone.now()
 
     with transaction.atomic():
-        movement = Movement.objects.select_for_update().filter(pk=movement_id).first()
-        if movement is None:
-            raise MovementNotReceivableError("Mouvement introuvable.")
+        movement = _locked_movement(movement_id)
         if not movement.to_center_id or str(movement.to_center_id) != str(receiver_center_id):
             raise MovementNotReceivableError("Ce mouvement n'est pas destiné à cet élevage.")
 
-        existing = movement.confirmations.filter(side="receiver", decision="confirm").first()
-        if existing:
+        # Rejouer une réception déjà enregistrée est sans effet (file hors ligne).
+        if movement.confirmations.filter(side="receiver").exists():
             return movement
+        if movement.status != "declared":
+            raise MovementNotReceivableError(
+                "Ce départ ne peut plus être reçu (annulé, expiré ou contesté)."
+            )
+        sent, received = _received_quantities(movement, items_received)
 
         confirmation_code = movement.confirmation_codes.select_for_update().order_by("-expires_at").first()
         if confirmation_code is None:
@@ -227,40 +301,62 @@ def confirm_movement_receipt(
         else:
             confirmation_code.used_at = now
             confirmation_code.save(update_fields=["used_at"])
+            mode = confirmation_mode(created_by, movement.to_center_id)
+
+            discrepancies = []
+            for unit_id, item in sent.items():
+                quantity = received[unit_id]
+                item.quantity_received = quantity
+                item.save(update_fields=["quantity_received"])
+                if quantity > 0:
+                    set_current_center(item.unit, movement.to_center)
+                if quantity != item.quantity_sent:
+                    discrepancies.append(MovementDiscrepancy.objects.create(
+                        movement=movement,
+                        unit=item.unit,
+                        kind="missing" if quantity == 0 else "count_mismatch",
+                        quantity_expected=item.quantity_sent,
+                        quantity_found=quantity,
+                        occurred_at=now,
+                        created_by=created_by,
+                        device=device,
+                        is_simulated=movement.is_simulated,
+                    ))
+
+            confirmation_kwargs = {"id": confirmation_id} if confirmation_id else {}
             MovementConfirmation.objects.create(
-                id=confirmation_id,
                 movement=movement,
                 side="receiver",
-                decision="confirm",
+                decision="confirm_with_discrepancy" if discrepancies else "confirm",
                 occurred_at=now,
                 created_by=created_by,
                 device=device,
                 is_simulated=movement.is_simulated,
+                **confirmation_kwargs,
             )
-            for item in movement.items.select_related("unit"):
-                item.quantity_received = item.quantity_sent
-                item.save(update_fields=["quantity_received"])
-                set_current_center(item.unit, movement.to_center)
 
             UnitOpenMovement.objects.filter(movement=movement).delete()
-            movement.status = "confirmed"
             movement.received_at = now
-            movement.save(update_fields=["status", "received_at"])
-            MovementStatusEvent.objects.create(
-                movement=movement,
-                status="confirmed",
-                reason="Réception confirmée par le destinataire",
-                occurred_at=now,
-                created_by=created_by,
-                device=device,
-                is_simulated=movement.is_simulated,
-            )
+            movement.save(update_fields=["received_at"])
+            assisted = " avec l'aide d'un agent" if mode == "assisted" else ""
+            if discrepancies:
+                total_sent = sum(item.quantity_sent for item in sent.values())
+                total_received = sum(received.values())
+                reason = f"Reçu avec écart{assisted} : {total_received} reçus sur {total_sent}"
+            else:
+                reason = f"Réception confirmée par le destinataire{assisted}"
+            _set_status(movement, "partial" if discrepancies else "confirmed", reason=reason,
+                        created_by=created_by, occurred_at=now, device=device)
             record_event(
                 action="movement.confirm_receipt",
                 actor_user=created_by,
                 entity_table="movement",
                 entity_id=movement.id,
-                details={"to_center_id": str(movement.to_center_id)},
+                details={
+                    "to_center_id": str(movement.to_center_id),
+                    "mode": mode,
+                    "discrepancies": len(discrepancies),
+                },
                 device=device,
             )
 
@@ -268,3 +364,178 @@ def confirm_movement_receipt(
     if error:
         raise InvalidConfirmationCodeError(error)
     return movement
+
+
+def _require_reason(reason):
+    reason = (reason or "").strip()
+    if not reason:
+        raise InvalidMovementDataError("Indiquez le motif.")
+    return reason
+
+
+@transaction.atomic
+def refuse_movement_receipt(
+    *, movement_id, receiver_center_id, created_by, reason, confirmation_id=None,
+    occurred_at=None, device=None,
+):
+    """Le destinataire refuse la réception : mouvement « contesté », unités laissées au
+    départ (MV-05, MV-09). BAOBIA ne tranche pas. Rejouer est sans effet."""
+    reason = _require_reason(reason)
+    now = occurred_at or timezone.now()
+    movement = _locked_movement(movement_id)
+    if not movement.to_center_id or str(movement.to_center_id) != str(receiver_center_id):
+        raise MovementNotReceivableError("Ce mouvement n'est pas destiné à cet élevage.")
+    if movement.confirmations.filter(side="receiver").exists():
+        return movement
+    if movement.status != "declared":
+        raise MovementNotReceivableError("Ce départ ne peut plus être refusé.")
+
+    confirmation_kwargs = {"id": confirmation_id} if confirmation_id else {}
+    MovementConfirmation.objects.create(
+        movement=movement, side="receiver", decision="refuse", occurred_at=now,
+        created_by=created_by, device=device, is_simulated=movement.is_simulated,
+        **confirmation_kwargs,
+    )
+    _close_open_movement(movement)
+    _set_status(movement, "disputed", reason=f"Réception refusée : {reason}",
+                created_by=created_by, occurred_at=now, device=device)
+    record_event(
+        action="movement.refuse_receipt", actor_user=created_by, entity_table="movement",
+        entity_id=movement.id, device=device,
+        details={"to_center_id": str(movement.to_center_id),
+                 "mode": confirmation_mode(created_by, movement.to_center_id)},
+    )
+    return movement
+
+
+@transaction.atomic
+def cancel_movement(*, movement_id, center_id, created_by, reason, occurred_at=None,
+                    device=None):
+    """L'élevage de départ annule un départ pas encore reçu (MV-05). Le mouvement n'est
+    jamais effacé : il passe « annulé » et les unités sont libérées. Rejouer est sans effet."""
+    reason = _require_reason(reason)
+    now = occurred_at or timezone.now()
+    movement = _locked_movement(movement_id)
+    if str(movement.from_center_id) != str(center_id):
+        raise MovementNotReceivableError("Seul l'élevage de départ peut annuler ce départ.")
+    if movement.status == "cancelled":
+        return movement
+    if movement.status != "declared" or movement.confirmations.filter(side="receiver").exists():
+        raise InvalidMovementDataError("Ce départ a déjà été reçu ou refusé : il ne s'annule plus.")
+
+    _close_open_movement(movement)
+    _set_status(movement, "cancelled", reason=f"Départ annulé : {reason}",
+                created_by=created_by, occurred_at=now, device=device)
+    record_event(
+        action="movement.cancel", actor_user=created_by, entity_table="movement",
+        entity_id=movement.id, device=device, details={"reason": reason[:160]},
+    )
+    return movement
+
+
+@transaction.atomic
+def contest_movement(*, movement_id, center_id, created_by, reason, occurred_at=None,
+                     device=None):
+    """Une des deux parties conteste un mouvement reçu (MV-09). Toutes les versions sont
+    gardées dans l'historique des statuts ; BAOBIA ne tranche ni la propriété ni le litige :
+    les unités ne bougent pas. Rejouer est sans effet."""
+    reason = _require_reason(reason)
+    now = occurred_at or timezone.now()
+    movement = _locked_movement(movement_id)
+    if str(center_id) not in (str(movement.from_center_id), str(movement.to_center_id)):
+        raise MovementNotReceivableError("Seules les deux parties peuvent contester.")
+    if movement.status == "disputed":
+        return movement
+    if movement.status not in ("confirmed", "partial"):
+        raise InvalidMovementDataError("Seul un mouvement reçu peut être contesté.")
+
+    side = "départ" if str(center_id) == str(movement.from_center_id) else "destinataire"
+    _set_status(movement, "disputed", reason=f"Contesté par l'élevage {side} : {reason}",
+                created_by=created_by, occurred_at=now, device=device)
+    record_event(
+        action="movement.contest", actor_user=created_by, entity_table="movement",
+        entity_id=movement.id, device=device,
+        details={"center_id": str(center_id), "reason": reason[:160]},
+    )
+    return movement
+
+
+def expire_overdue_movements(now=None):
+    """Passe « expiré » les départs jamais reçus dont aucun code n'est plus valable
+    (MV-05). Les unités sont libérées et restent au départ. Retourne le nombre expiré."""
+    now = now or timezone.now()
+    valid_code = MovementConfirmationCode.objects.filter(
+        movement=OuterRef("pk"), used_at__isnull=True, expires_at__gt=now
+    )
+    candidates = (
+        Movement.objects.filter(status="declared")
+        .exclude(confirmations__side="receiver")
+        .exclude(Exists(valid_code))
+        .values_list("pk", flat=True)
+    )
+    count = 0
+    for movement_id in list(candidates):
+        with transaction.atomic():
+            movement = _locked_movement(movement_id)
+            if movement.status != "declared":
+                continue
+            _close_open_movement(movement)
+            _set_status(movement, "expired", reason="Délai de confirmation dépassé",
+                        created_by=movement.created_by, occurred_at=now)
+            record_event(action="movement.expire", entity_table="movement",
+                         entity_id=movement.id)
+            count += 1
+    return count
+
+
+UNIT_EVENT_TYPES = ("death", "slaughter", "missing", "found", "stolen_declared", "stolen_lifted")
+# MV-13 : vol et disparition visibles par défaut des seuls professionnels habilités.
+RESTRICTED_UNIT_EVENTS = ("missing", "stolen_declared", "stolen_lifted", "found")
+
+
+@transaction.atomic
+def record_unit_event(*, unit_id, center_id, event_type, created_by, occurred_at=None,
+                      event_id=None, note=None, device=None):
+    """Enregistre un événement de vie d'une unité : décès, abattage, disparition, vol...
+    (MV-02). Événement immuable ; rejouer le même `event_id` est sans effet.
+
+    Le statut de vie de l'unité (`tracked_unit.life_status`) appartient au module identity :
+    il n'est pas modifié ici tant qu'identity ne fournit pas la fonction publique.
+    """
+    if event_type not in UNIT_EVENT_TYPES:
+        raise InvalidMovementDataError("Type d'événement inconnu.")
+    if event_id:
+        existing = StatusEvent.objects.filter(pk=event_id).first()
+        if existing is not None:
+            if (str(existing.unit_id) != str(unit_id) or existing.event_type != event_type
+                    or existing.created_by_id != created_by.pk):
+                raise OperationConflictError("Cette référence a déjà été utilisée.")
+            return existing, False
+
+    unit = TrackedUnit.objects.select_for_update().filter(pk=unit_id).first()
+    if unit is None:
+        raise InvalidMovementDataError("Unité introuvable.")
+    if str(unit.current_center_id) != str(center_id):
+        raise UnitNotAtOriginCenterError("Cette unité n'est pas dans cet élevage.")
+    if UnitOpenMovement.objects.filter(unit=unit).exists():
+        raise UnitAlreadyLockedError("Cette unité est dans un départ pas encore reçu.")
+
+    kwargs = {"id": event_id} if event_id else {}
+    event = StatusEvent.objects.create(
+        unit=unit,
+        event_type=event_type,
+        payload={"note": note[:500]} if note else {},
+        visibility="professionals" if event_type in RESTRICTED_UNIT_EVENTS else "owner",
+        occurred_at=occurred_at or timezone.now(),
+        created_by=created_by,
+        device=device,
+        is_simulated=getattr(created_by, "is_simulated", False),
+        **kwargs,
+    )
+    record_event(
+        action="unit.status_event", actor_user=created_by, entity_table="status_event",
+        entity_id=event.pk, device=device,
+        details={"unit_id": str(unit.pk), "event_type": event_type,
+                 "mode": confirmation_mode(created_by, center_id)},
+    )
+    return event, True
