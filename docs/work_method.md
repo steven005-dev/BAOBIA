@@ -2,7 +2,7 @@
 
 Règles de travail de l'équipe pour le prototype. Elles sont simples volontairement : le but est d'avancer vite sans se marcher dessus.
 
-Voir aussi : `GUIDE_COMMANDES.md` (les commandes), `BAOBIA_UI_GUIDELINES.md` (l'interface), la fiche technique et le cahier des charges (PDF).
+Voir aussi : `commande.md` (les commandes), `BAOBIA_UI_GUIDELINES.md` (l'interface), la fiche technique et le cahier des charges (PDF).
 
 ---
 
@@ -114,9 +114,9 @@ Dates à recaler après les tests de faisabilité.
 | 14 nov. | Santé et alertes de bout en bout ; maquette 3D, version 2 |
 | 16 nov. | Carte et tableaux de bord |
 | 17 nov. | Maquette 3D, version 3 et vidéo de secours |
-| 18 nov. | **Gel des nouvelles fonctions** : seulement des corrections |
-| 19 nov. | Répétition générale et plan de secours |
-| 20 nov. | Présentation |
+| 19 nov. | Changements de conception (`MODIFICATIONS_CONCEPTION.md`) |
+| 21 nov. | Répétition générale et plan de secours |
+| 22 nov. | Présentation |
 
 ---
 

@@ -2,6 +2,7 @@
 
 > **Statut : validé par Yéo et Konan Romuald (19 novembre 2026), sauf la section C en cours de réalisation.** Une fois validé, toute modification passe par une demande de fusion qui met ce fichier à jour.
 > Version 0.2 - 19 novembre 2026. Complète `BAOBIA_DB_SPEC.md` (qui fait foi pour les tables).
+> **À venir (19/11)** : mouvements déclarés d'un seul côté avec un niveau de confiance, morts et malades comptés à part dans le signalement. Voir `MODIFICATIONS_CONCEPTION.md` (R1, Y1, Y2) ; ce contrat sera mis à jour avec la spec v1.4.
 
 ## A. Ce que la file d'envoi hors ligne transporte pour la santé
 
