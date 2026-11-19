@@ -229,9 +229,10 @@ def compute_exposures(alert, actor):
     run_id = uuid.uuid4()
     # Espèce de l'alerte : un mouvement de porcs ne propage pas une alerte bovine.
     same_species = Q(items__unit__species_id=alert.species_id) if alert.species_id else Q()
+    item_of_species = Q(unit__species_id=alert.species_id) if alert.species_id else Q()
 
     def first_unit(movement):
-        return (movement.items.filter(same_species)
+        return (movement.items.filter(item_of_species)
                 .values_list("unit_id", flat=True).order_by("unit_id").first())
 
     starts = _start_centers(alert)

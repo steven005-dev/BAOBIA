@@ -220,9 +220,24 @@ class ZoneStatTests(AlertScenarioMixin, TestCase):
         self.assertEqual(ZoneStat.objects.get(zone=self.zone, species=None).state, "normal")
 
     def test_level2_decision_puts_zone_under_watch(self):
-        self.validate(self.report_at_a(), decision="raise_level2")
+        # Élevage sans mouvement : le niveau 2 n'expose personne, la zone est « À surveiller ».
+        other_zone = Zone.objects.create(parent=self.region, level=2, code="TEST-DEP2",
+                                         name="Dép 2")
+        breeder = make_user("+2250000000397", "Éleveur F")
+        give_role(breeder, "breeder")
+        center = make_center(breeder, name="Élevage F", zone=other_zone)
+        make_center(breeder, name="Élevage G", zone=other_zone)  # seuil d'affichage : 2
+        unit = identity_services.register_animal(species=self.cattle, center=center,
+                                                 created_by=breeder)
+        report, _ = health_services.submit_report(
+            report_id=__import__("uuid").uuid4(), user=breeder, center=center,
+            report_kind="suspicion", affected_count=1, self_severity="high",
+            occurred_at=self.now, subjects=[{"unit_id": unit.pk, "condition": "sick"}],
+        )
+        self.validate(report, decision="raise_level2")
         services.recompute_zone_stats()
-        self.assertEqual(ZoneStat.objects.get(zone=self.zone, species=None).state, "watch")
+        self.assertEqual(ZoneStat.objects.get(zone=other_zone, species=None).state, "watch")
+        self.assertEqual(ZoneStat.objects.get(zone=self.zone, species=None).state, "normal")
 
     def test_small_zone_is_masked(self):
         lonely_zone = make_zone("TEST-SEUL")
