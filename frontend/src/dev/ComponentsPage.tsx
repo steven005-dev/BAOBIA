@@ -42,6 +42,9 @@ import { OfflineIndicator } from '@/components/OfflineIndicator'
 import { PhoneInput } from '@/components/PhoneInput'
 import { Select } from '@/components/Select'
 import { SidebarNav } from '@/components/SidebarNav'
+import { ProfileBar } from '@/components/ProfileBar'
+import { profileStyles } from '@/lib/profiles'
+import type { RoleCode } from '@/auth/types'
 import { Skeleton } from '@/components/Skeleton'
 import { StatusBadge } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
@@ -218,6 +221,9 @@ export default function ComponentsPage() {
         <Section id="navigation" title="AppHeader, BottomNav, SidebarNav">
           <AppHeader className="static" />
           <AppHeader className="static" title="Élevage A (simulé)" onBack={() => {}} onListen={() => {}} />
+          {(Object.keys(profileStyles) as RoleCode[]).map((role) => (
+            <ProfileBar key={role} profile={{ role, name: 'Personne simulée', zone: 'Zone Nord' }} />
+          ))}
           <BottomNav items={fieldNavigation} className="static" />
           <BottomNav items={deskNavigation} className="static" />
           <SidebarNav items={deskNavigation} className="rounded-md border" />
