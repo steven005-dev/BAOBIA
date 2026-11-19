@@ -117,6 +117,30 @@ class ExposureEngineTests(AlertScenarioMixin, TestCase):
         d = services.current_exposures(alert).get(center=self.centers["D"])
         self.assertEqual(d.steps.get().explanation_code, "outside_window")
 
+    def test_movement_of_another_species_is_ignored(self):
+        # Une alerte bovine ne suit pas un mouvement qui ne porte que des porcs.
+        pig = make_species("pig")
+        pig_unit = identity_services.register_animal(
+            species=pig, center=self.centers["A"], created_by=self.users["A"])
+        self.units["A-pig"] = pig_unit
+        self.move("A", "E", days_ago=1, unit_key="A-pig")
+        self.validate(self.report_at_a())
+        alert = Alert.objects.get()
+        self.assertEqual(alert.species, self.cattle)
+        self.assertNotIn("Élevage E", self.exposure_map(alert))
+
+    def test_mixed_movement_counts_and_names_the_right_animal(self):
+        pig = make_species("pig")
+        self.units["A-pig"] = identity_services.register_animal(
+            species=pig, center=self.centers["A"], created_by=self.users["A"])
+        movement = self.move("A", "E", days_ago=1, unit_key="A-pig")
+        MovementItem.objects.create(movement=movement, unit=self.units["A"])
+        self.validate(self.report_at_a())
+        alert = Alert.objects.get()
+        self.assertEqual(self.exposure_map(alert)["Élevage E"], ("exposed", 1))
+        step = services.current_exposures(alert).get(center=self.centers["E"]).steps.get()
+        self.assertEqual(step.unit_id, self.units["A"].pk)
+
     def test_depth_is_respected(self):
         self.validate(self.report_at_a())
         self.assertNotIn("Élevage E", self.exposure_map(Alert.objects.get()))
@@ -189,8 +213,14 @@ class ZoneStatTests(AlertScenarioMixin, TestCase):
         stat = ZoneStat.objects.get(zone=self.zone, species=None)
         self.assertEqual((stat.state, stat.centers_count, stat.is_masked), ("alert", 5, False))
 
-    def test_pending_report_puts_zone_under_watch(self):
+    def test_pending_report_does_not_change_the_map(self):
+        # RG-14 : avant examen, un signalement n'a aucun effet visible hors des professionnels.
         self.report_at_a()
+        services.recompute_zone_stats()
+        self.assertEqual(ZoneStat.objects.get(zone=self.zone, species=None).state, "normal")
+
+    def test_level2_decision_puts_zone_under_watch(self):
+        self.validate(self.report_at_a(), decision="raise_level2")
         services.recompute_zone_stats()
         self.assertEqual(ZoneStat.objects.get(zone=self.zone, species=None).state, "watch")
 
