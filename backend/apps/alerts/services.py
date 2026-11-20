@@ -308,21 +308,24 @@ def compute_exposures(alert, actor):
             for index, step in enumerate(path, start=1)
         )
 
-    # Un mouvement contesté compte (prudence) mais réduit la confiance de l'alerte
-    # (contrat docs/CONTRAT_SANTE_MOUVEMENTS.md, B.3). Ne remet jamais « normal ».
-    disputed = sum(
-        1 for status_, *_, path in exposures if status_ == "exposed"
-        for step in path if step["movement"].status == "disputed"
-    )
+    # Un mouvement contesté, ou déclaré d'un seul côté (v1.4, 9.6), compte (prudence)
+    # mais réduit la confiance de l'alerte (contrat CONTRAT_SANTE_MOUVEMENTS.md, B.3).
+    # Ne remet jamais « normal ».
+    path_statuses = [
+        step["movement"].status for status_, *_, path in exposures if status_ == "exposed"
+        for step in path
+    ]
+    disputed = path_statuses.count("disputed")
+    one_side = sum(1 for s in path_statuses if s in UNCONFIRMED_STATUSES)
     update_fields = ["current_run_id", "updated_at"]
-    if disputed and alert.confidence != "reduced":
+    if (disputed or one_side) and alert.confidence != "reduced":
         alert.confidence = "reduced"
         update_fields.append("confidence")
     alert.current_run_id = run_id
     alert.save(update_fields=update_fields)
     _event(alert, "recomputed", actor, {
         "run_id": str(run_id), "rule_version": rule.version,
-        "disputed_movements": disputed,
+        "disputed_movements": disputed, "one_side_movements": one_side,
         "window_start": window_start.isoformat(), "window_end": window_end.isoformat(),
         "max_depth": rule.max_depth, "include_unconfirmed": rule.include_unconfirmed,
         "exposed": sum(1 for e in exposures if e[0] == "exposed"),

@@ -10,7 +10,7 @@ Après un cas suspect dans un élevage, retrouver rapidement les autres élevage
 
 ## Ce que fait BAOBIA
 - **Identifier** : chaque animal porte une étiquette QR qui ne contient que son numéro.
-- **Tracer** : transferts entre élevages, confirmés par les deux parties, même hors ligne.
+- **Tracer** : transferts entre élevages et passages au marché, même hors ligne ; un transfert confirmé par les deux parties est « sûr », déclaré d'un seul côté « probable ».
 - **Surveiller** : carnet sanitaire et signalement d'un cas suspect.
 - **Alerter** : recherche des élevages exposés, validation par un vétérinaire, carte par zones.
 
@@ -56,7 +56,7 @@ Comptes de démonstration (mot de passe = `SEED_DEMO_PASSWORD`) : éleveurs `000
 
 Base de démonstration ancienne (étiquettes refusées au scan) : `docker compose down -v`, puis `docker compose up -d`, `migrate` et `seed --demo` (efface les données locales).
 
-Toutes les commandes : `docs/commande.md`. Méthode de travail : `docs/work_method.md`.
+Toutes les commandes : `docs/commande.md`. Méthode de travail : `docs/work_method.md`. Changements de conception du 19/11 : `docs/MODIFICATIONS_CONCEPTION.md`.
 
 ## Règles de travail
 - Une branche par fonction : `feature/<module>-<sujet>`, jamais de commit direct sur `main`.

@@ -159,6 +159,20 @@ class ExposureEngineTests(AlertScenarioMixin, TestCase):
         self.assertEqual(self.exposure_map(alert)["Élevage B"], ("exposed", 1))
         self.assertEqual(alert.confidence, "reduced")
 
+    def test_one_side_movement_counts_with_reduced_confidence(self):
+        # Spec v1.4, 9.6 : un transfert déclaré d'un seul côté réduit aussi la confiance.
+        self.rule.include_unconfirmed = True
+        self.rule.save(update_fields=["include_unconfirmed"])
+        Movement.objects.filter(from_center=self.centers["A"],
+                                to_center=self.centers["B"]).update(status="declared",
+                                                                    received_at=None)
+        self.validate(self.report_at_a())
+        alert = Alert.objects.get()
+        self.assertEqual(self.exposure_map(alert)["Élevage B"], ("exposed", 1))
+        self.assertEqual(alert.confidence, "reduced")
+        event = AlertEvent.objects.filter(alert=alert, event_type="recomputed").latest("occurred_at")
+        self.assertEqual(event.payload["one_side_movements"], 2)  # chemins vers B et C
+
     def test_confirmed_movements_keep_normal_confidence(self):
         self.validate(self.report_at_a())
         self.assertEqual(Alert.objects.get().confidence, "normal")

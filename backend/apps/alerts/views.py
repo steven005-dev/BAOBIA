@@ -102,7 +102,8 @@ class AlertDetailView(APIView):
             for r in alert.reports.all().order_by("occurred_at")
         ]
         exposures = (services.current_exposures(alert).select_related("center")
-                     .prefetch_related("steps__from_center", "steps__to_center")
+                     .prefetch_related("steps__from_center", "steps__to_center",
+                                       "steps__movement")
                      .order_by("exposure_status", "depth")) if alert.current_run_id else []
         data["exposures"] = [
             {
@@ -113,7 +114,9 @@ class AlertDetailView(APIView):
                 "path": [
                     {"step": s.step_no, "movement_id": s.movement_id,
                      "from": s.from_center.name, "to": s.to_center.name,
-                     "occurred_at": s.occurred_at, "reason": s.explanation_code}
+                     "occurred_at": s.occurred_at, "reason": s.explanation_code,
+                     # declared = transfert déclaré d'un seul côté (vétérinaire seulement)
+                     "movement_status": s.movement.status}
                     for s in sorted(e.steps.all(), key=lambda s: s.step_no)
                 ],
             }
