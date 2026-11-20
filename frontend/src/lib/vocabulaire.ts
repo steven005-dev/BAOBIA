@@ -147,6 +147,9 @@ export const messages = {
   etiquettesRemises: 'Étiquettes remises.',
   aucuneEtiquette: 'Aucune étiquette ajoutée.',
   etiquetteDejaDansLaListe: 'Cette étiquette est déjà dans la liste.',
+  // À VALIDER : boucle préimprimée (spec v1.4).
+  boucleLue: 'Boucle lue.',
+  scannezLaBoucle: 'Scannez la boucle ou saisissez son code.',
 } as const
 
 /**
@@ -200,6 +203,9 @@ export const champs = {
   nomElevage: "Nom de l'élevage",
   zone: 'Zone',
   especesElevees: 'Espèces élevées',
+  // À VALIDER : boucle préimprimée (spec v1.4).
+  scannerBoucle: 'Scanner la boucle',
+  creerCode: 'Pas de boucle : créer un code',
 } as const
 
 /** Titres d'écran. */
@@ -215,4 +221,5 @@ export const titres = {
   pourquoiChanger: "Pourquoi changer l'étiquette ?",
   ajouterElevage: 'Ajouter un élevage',
   remettreEtiquettes: 'Remettre des étiquettes',
+  quelleEtiquette: 'Quelle étiquette ?', // À VALIDER
 } as const
