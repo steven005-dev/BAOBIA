@@ -1,6 +1,6 @@
 # BAOBIA : script de démonstration (SELAB 2026)
 
-> Pour la personne qui présente et pour la répétition générale du 19 novembre.
+> Pour la personne qui présente et pour la répétition générale du samedi 21 novembre (présentation le dimanche 22).
 > Toutes les données sont **simulées**. BAOBIA n'a **aucune valeur légale**.
 > Les étapes marquées ⏳ dépendent de modules encore en cours : mettre ce fichier à jour à la répétition.
 
@@ -78,7 +78,7 @@ Bonus si le temps le permet : sur la fiche de l'animal ajouté à l'étape 1, **
 | Session expirée | se reconnecter (numéro + mot de passe), les données restent sur le serveur |
 | Tout plante | vidéo complète du parcours |
 
-## 7. Répétition du 19 novembre
+## 7. Répétition du samedi 21 novembre
 
 - Chronométrer chaque étape ; viser 7 minutes, questions comprises 10.
 - Faire le parcours **deux fois** sur les vrais téléphones.

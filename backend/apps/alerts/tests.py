@@ -117,6 +117,30 @@ class ExposureEngineTests(AlertScenarioMixin, TestCase):
         d = services.current_exposures(alert).get(center=self.centers["D"])
         self.assertEqual(d.steps.get().explanation_code, "outside_window")
 
+    def test_movement_of_another_species_is_ignored(self):
+        # Une alerte bovine ne suit pas un mouvement qui ne porte que des porcs.
+        pig = make_species("pig")
+        pig_unit = identity_services.register_animal(
+            species=pig, center=self.centers["A"], created_by=self.users["A"])
+        self.units["A-pig"] = pig_unit
+        self.move("A", "E", days_ago=1, unit_key="A-pig")
+        self.validate(self.report_at_a())
+        alert = Alert.objects.get()
+        self.assertEqual(alert.species, self.cattle)
+        self.assertNotIn("Élevage E", self.exposure_map(alert))
+
+    def test_mixed_movement_counts_and_names_the_right_animal(self):
+        pig = make_species("pig")
+        self.units["A-pig"] = identity_services.register_animal(
+            species=pig, center=self.centers["A"], created_by=self.users["A"])
+        movement = self.move("A", "E", days_ago=1, unit_key="A-pig")
+        MovementItem.objects.create(movement=movement, unit=self.units["A"])
+        self.validate(self.report_at_a())
+        alert = Alert.objects.get()
+        self.assertEqual(self.exposure_map(alert)["Élevage E"], ("exposed", 1))
+        step = services.current_exposures(alert).get(center=self.centers["E"]).steps.get()
+        self.assertEqual(step.unit_id, self.units["A"].pk)
+
     def test_depth_is_respected(self):
         self.validate(self.report_at_a())
         self.assertNotIn("Élevage E", self.exposure_map(Alert.objects.get()))
@@ -134,6 +158,20 @@ class ExposureEngineTests(AlertScenarioMixin, TestCase):
         alert = Alert.objects.get()
         self.assertEqual(self.exposure_map(alert)["Élevage B"], ("exposed", 1))
         self.assertEqual(alert.confidence, "reduced")
+
+    def test_one_side_movement_counts_with_reduced_confidence(self):
+        # Spec v1.4, 9.6 : un transfert déclaré d'un seul côté réduit aussi la confiance.
+        self.rule.include_unconfirmed = True
+        self.rule.save(update_fields=["include_unconfirmed"])
+        Movement.objects.filter(from_center=self.centers["A"],
+                                to_center=self.centers["B"]).update(status="declared",
+                                                                    received_at=None)
+        self.validate(self.report_at_a())
+        alert = Alert.objects.get()
+        self.assertEqual(self.exposure_map(alert)["Élevage B"], ("exposed", 1))
+        self.assertEqual(alert.confidence, "reduced")
+        event = AlertEvent.objects.filter(alert=alert, event_type="recomputed").latest("occurred_at")
+        self.assertEqual(event.payload["one_side_movements"], 2)  # chemins vers B et C
 
     def test_confirmed_movements_keep_normal_confidence(self):
         self.validate(self.report_at_a())
@@ -189,10 +227,31 @@ class ZoneStatTests(AlertScenarioMixin, TestCase):
         stat = ZoneStat.objects.get(zone=self.zone, species=None)
         self.assertEqual((stat.state, stat.centers_count, stat.is_masked), ("alert", 5, False))
 
-    def test_pending_report_puts_zone_under_watch(self):
+    def test_pending_report_does_not_change_the_map(self):
+        # RG-14 : avant examen, un signalement n'a aucun effet visible hors des professionnels.
         self.report_at_a()
         services.recompute_zone_stats()
-        self.assertEqual(ZoneStat.objects.get(zone=self.zone, species=None).state, "watch")
+        self.assertEqual(ZoneStat.objects.get(zone=self.zone, species=None).state, "normal")
+
+    def test_level2_decision_puts_zone_under_watch(self):
+        # Élevage sans mouvement : le niveau 2 n'expose personne, la zone est « À surveiller ».
+        other_zone = Zone.objects.create(parent=self.region, level=2, code="TEST-DEP2",
+                                         name="Dép 2")
+        breeder = make_user("+2250000000397", "Éleveur F")
+        give_role(breeder, "breeder")
+        center = make_center(breeder, name="Élevage F", zone=other_zone)
+        make_center(breeder, name="Élevage G", zone=other_zone)  # seuil d'affichage : 2
+        unit = identity_services.register_animal(species=self.cattle, center=center,
+                                                 created_by=breeder)
+        report, _ = health_services.submit_report(
+            report_id=__import__("uuid").uuid4(), user=breeder, center=center,
+            report_kind="suspicion", affected_count=1, self_severity="high",
+            occurred_at=self.now, subjects=[{"unit_id": unit.pk, "condition": "sick"}],
+        )
+        self.validate(report, decision="raise_level2")
+        services.recompute_zone_stats()
+        self.assertEqual(ZoneStat.objects.get(zone=other_zone, species=None).state, "watch")
+        self.assertEqual(ZoneStat.objects.get(zone=self.zone, species=None).state, "normal")
 
     def test_small_zone_is_masked(self):
         lonely_zone = make_zone("TEST-SEUL")
