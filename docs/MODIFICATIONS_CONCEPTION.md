@@ -1,8 +1,8 @@
 # BAOBIA : modifications de conception (19/11/2026)
 
 > Décidé par le chef de projet. À lire par Romuald et Yéo **avant** de continuer à coder.
-> Les détails des tables (noms de colonnes, contraintes) seront dans **la spec v1.4**
-> (`docs/BAOBIA_DB_SPEC.md`), qui reste la source de vérité. En cas de doute : demander, ne pas improviser.
+> Les détails des tables sont dans **la spec v1.4** (`docs/BAOBIA_DB_SPEC.md`, 20/11), qui reste la source de vérité.
+> **Pas de modèle d'IA avant dimanche** (décision du 20/11) : la détection reste par règles ; un modèle viendra avec de vraies données. En cas de doute : demander, ne pas improviser.
 
 ## Pourquoi on change maintenant
 
@@ -36,20 +36,17 @@ Le reste de ce document est présenté au jury comme la conception cible (« pro
 
 ### Pour dimanche
 
-**R1. Un transfert déclaré d'un seul côté compte, avec un niveau de confiance.**
-- Aujourd'hui : un transfert non confirmé par le destinataire n'existe pas pour le reste du système.
-- Demain : chaque mouvement a une **confiance** :
-  - `confirmed` (« sûr ») : déclaré par l'expéditeur ET confirmé par le destinataire ;
-  - `one_side` (« probable ») : déclaré par un seul des deux (expéditeur, destinataire ou agent).
-- La double confirmation reste le meilleur cas, mais n'est plus obligatoire pour que le mouvement existe.
-- Le moteur d'exposition (Yéo) lit cette confiance : prévoir une fonction de service qui la donne
-  (ex. `traceability.services.movements_for_exposure(...)` avec la confiance de chaque mouvement).
-- Le nom exact du champ sera dans la spec v1.4.
+**R1. Un transfert déclaré d'un seul côté compte : déjà en place, à garder.**
+- Bonne nouvelle : le statut `declared` existe et le moteur d'exposition le compte déjà
+  (`include_unconfirmed`). **Rien à changer dans les tables.**
+- À vérifier de ton côté : un transfert reste `declared` (il n'expire pas en silence) tant que le
+  destinataire n'a pas confirmé, et l'écran le montre « En attente » chez l'expéditeur.
 
 **R2. Saisie au marché : Entrée / Sortie.**
 - Un agent ou un gestionnaire de marché scanne les animaux qui **entrent** dans un marché et qui en **sortent**.
 - Le marché est déjà un centre (`center_type = 'market'`). Un passage au marché = deux mouvements
-  (origine → marché, marché → destination), confiance `one_side` si l'autre partie ne confirme pas.
+  (origine → marché, marché → destination), qui restent `declared` si l'autre partie ne confirme pas
+  (spec v1.4, section 9.11). Aucune nouvelle table.
 - Écran : « Marché » avec deux gros boutons **Entrée** / **Sortie**, puis scan des étiquettes (plusieurs à la suite).
 - Droits : membre du centre marché ou mandat `move` sur ce centre (permissions existantes).
 
@@ -69,16 +66,16 @@ textes via `vocabulaire.ts`, heure de l'appareil (`received_at`).
 ### Pour dimanche
 
 **Y1. Le formulaire Signaler devient « comptable ».**
-- Déjà dans le contrat (`CONTRAT_SANTE_MOUVEMENTS.md`) : `report_kind`, `affected_count`, `symptom_codes`,
-  `subjects`. À ajouter : **séparer le nombre de morts et le nombre de malades** (au lieu d'un seul
-  `affected_count`), et rapporter ce nombre à l'effectif de l'élevage. Photo : après dimanche.
-- Une question par écran, gros boutons, compteurs (`NumberStepper`) : même gabarit que « Ajouter un animal ».
-- Ces chiffres servent à la détection précoce (Y5). Les colonnes exactes seront dans la spec v1.4.
+- Déjà dans le contrat (`CONTRAT_SANTE_MOUVEMENTS.md`) : `report_kind`, `affected_count`, `symptom_codes`, `subjects`.
+- **Seul changement de table (spec v1.4) : `health_report.dead_count`** (dont morts ; `0 <= dead_count <= affected_count`).
+  Malades = `affected_count - dead_count`. Une migration, un champ dans l'API et dans le contrat.
+- Écran : une question par écran, gros boutons, compteurs (`NumberStepper`), comme « Ajouter un animal » :
+  combien de malades ? combien de morts ? quels gros symptômes ? Photo : après dimanche.
 
-**Y2. Le calcul d'exposition tient compte de la confiance des mouvements (R1).**
-- Mouvement `confirmed` : comme aujourd'hui.
-- Mouvement `one_side` : l'élevage est aussi « contact possible », mais **l'alerte l'indique** (ex. « transfert
-  déclaré d'un seul côté ») pour que le vétérinaire juge. Le message à l'éleveur reste le même, neutre.
+**Y2. Confiance réduite aussi pour un transfert `declared` (petit changement).**
+- Aujourd'hui `compute_exposures` met `alert.confidence = 'reduced'` seulement pour un mouvement `disputed`.
+- Spec v1.4 (9.6) : faire de même pour un mouvement `declared` dans le chemin d'un exposé, et l'afficher au
+  vétérinaire (« transfert déclaré d'un seul côté »). Le message à l'éleveur reste le même, neutre. + 1 test.
 
 **Y3. Carte au niveau du département.**
 - Charger les **tracés officiels** des départements de Côte d'Ivoire dans `zone.boundary`, et le centre
@@ -110,7 +107,7 @@ administrateur : c'est le rôle Autorité, sur son périmètre (le pays pour l'a
 ## Chef de projet : identité, comptes, spec
 
 ### Pour dimanche
-- **C1. Spec v1.4** : inscrire toutes ces décisions (colonnes, contraintes) et prévenir l'équipe.
+- **C1. Spec v1.4** : faite le 20/11.
 - **C2. Boucles préimprimées** comme voie principale : à l'ajout d'un animal, **scanner la boucle** déjà
   remise par l'agent ; le code créé par le téléphone devient le secours.
 - **C3. Partie « Santé » sur la fiche de l'animal** (avec Y5).
@@ -126,11 +123,11 @@ administrateur : c'est le rôle Autorité, sur son périmètre (le pays pour l'a
 
 ## Ordre de travail
 
-1. **Chef de projet** : spec v1.4 (colonnes de R1, Y1, Y3). Prévient dès qu'elle est fusionnée.
+1. **Chef de projet** : spec v1.4 — **faite le 20/11** (une seule colonne : `health_report.dead_count`).
 2. **En attendant la spec**, on peut déjà faire ce qui ne touche pas aux tables :
    - Romuald : écran Marché (R2) avec les mouvements actuels ;
    - Yéo : écrans vétérinaire (Y4), chargement des tracés (Y3), filtre `unit_id` (Y5).
-3. **Après la spec** : migrations et code de R1, Y1, Y2.
+3. **Dès la fusion de la spec** : migration `dead_count` et Y2 (Yéo).
 4. **Samedi 21/11** : répétition de la démo de bout en bout, tous ensemble.
 
 Une question, un doute ou un désaccord sur ce document : le dire au chef de projet **avant** de coder.

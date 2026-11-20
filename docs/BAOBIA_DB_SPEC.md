@@ -1,6 +1,6 @@
 # BAOBIA : spécification de la base de données (source de vérité pour les agents)
 
-> **Version 1.3 - 17 novembre 2026. Ce fichier fait foi.** Il décrit les 56 tables de la base, leurs contraintes et la façon de les coder avec Django.
+> **Version 1.4 - 20 novembre 2026. Ce fichier fait foi.** Il décrit les 56 tables de la base, leurs contraintes et la façon de les coder avec Django.
 > Tout agent (ou personne) qui écrit des modèles, des migrations, des services ou des API **doit s'y conformer**. En cas de doute ou de conflit avec du code existant : **ne pas improviser, signaler**.
 > Document complémentaire pour les humains : `BAOBIA_MCD_MLD.pdf` (schémas MCD).
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changements |
 |---|---|---|
+| 1.4 | 20 novembre 2026 | Changements de conception (`MODIFICATIONS_CONCEPTION.md`) : nouvelle colonne `health_report.dead_count` (morts comptés à part) ; un mouvement `declared` compté par le calcul d'exposition réduit la confiance de l'alerte, comme `disputed` (9.6) ; boucles préimprimées = voie principale, code créé par le téléphone = secours (9.10) ; passage au marché (9.11). Toujours 56 tables. Pas de modèle d'IA en P1. |
 | 1.3 | 17 novembre 2026 | Étiquettes : le code est **créé par le téléphone** à l'enregistrement (ou au remplacement), puis écrit ou imprimé sur l'étiquette ; plus de saisie ni de stock pré-imprimé obligatoire. Aucun changement de table ni de colonne (sections 6, 9.4, 9.10, 12). |
 | 1.2 | 12 novembre 2026 | Regroupement de zone : colonnes `cluster_*` et `escalation_hours` dans `disease_rule` ; `trigger_kind`, `species_id`, `confidence`, `escalation_due_at` dans `alert` (`focus_center_id` devient NULL pour une alerte de zone) ; nouvelle table `alert_review` (56 tables) ; nouveaux types d'`alert_event` ; section 9.9 ; décision D11 à trancher. |
 | 1.1 | 9 novembre 2026 | Version de référence (55 tables). |
@@ -702,7 +703,8 @@ Signalement sanitaire d'un éleveur ou agent. Le statut est un cache de health_r
 | `id` | `uuid` | PK | généré par l'appareil |
 | `center_id` | `uuid` | FK center NOT NULL |  |
 | `report_kind` | `varchar(18)` | NOT NULL, CHECK IN ('suspicion','death','abnormal_mortality') |  |
-| `affected_count` | `int` | NOT NULL DEFAULT 1, CHECK > 0 |  |
+| `affected_count` | `int` | NOT NULL DEFAULT 1, CHECK > 0 | animaux touchés : malades + morts |
+| `dead_count` | `int` | NOT NULL DEFAULT 0, CHECK dead_count >= 0 AND dead_count <= affected_count | v1.4 : dont morts ; malades = affected_count - dead_count. Sert à la détection précoce (comparaison à l'effectif de l'élevage et à la normale de la zone) |
 | `self_severity` | `varchar(6)` | NOT NULL, CHECK IN ('low','medium','high') | gravité estimée par l'éleveur |
 | `note` | `varchar(500)` | NULL | texte court |
 | `status` | `varchar(12)` | NOT NULL DEFAULT 'submitted', CHECK IN ('submitted','under_review','validated','rejected','closed') | CALCULÉ (cache) |
@@ -1066,7 +1068,7 @@ Dans les deux cas : niveau 3 uniquement après validation par un vétérinaire h
 
 ### 9.6 Calcul des expositions (`alerts.services.compute_exposures`)
 1. Charger la règle (`alert.rule_id`) : fenêtres, profondeur, `include_unconfirmed`.
-2. Partir de `alert.focus_center_id` ; pour une alerte de zone (`trigger_kind = 'zone_cluster'`), partir de **l'ensemble des centres ayant signalé** (`alert_report` -> `health_report.center_id`), chacun à la profondeur 0. Parcourir le graphe des mouvements : un centre est **exposé** s'il a reçu des unités d'un centre exposé (ou du foyer) dans la fenêtre `lookback_days`/`lookforward_days`, jusqu'à `max_depth` ; ne compter les mouvements `declared` que si `include_unconfirmed`. Suivre aussi la lignée des lots (`origin_unit_id`).
+2. Partir de `alert.focus_center_id` ; pour une alerte de zone (`trigger_kind = 'zone_cluster'`), partir de **l'ensemble des centres ayant signalé** (`alert_report` -> `health_report.center_id`), chacun à la profondeur 0. Parcourir le graphe des mouvements : un centre est **exposé** s'il a reçu des unités d'un centre exposé (ou du foyer) dans la fenêtre `lookback_days`/`lookforward_days`, jusqu'à `max_depth` ; ne compter les mouvements `declared` que si `include_unconfirmed`. **v1.4 :** un mouvement `declared` (d'un seul côté) ou `disputed` présent dans le chemin d'un exposé met `alert.confidence = 'reduced'` ; l'alerte l'indique au vétérinaire (« transfert déclaré d'un seul côté »), le message à l'éleveur ne change pas. Suivre aussi la lignée des lots (`origin_unit_id`).
 3. Utiliser une **CTE récursive** avec garde anti-boucle (tableau des centres déjà visités) et la borne de profondeur.
 4. Écrire un nouveau `run_id` : une ligne `alert_exposure` par centre (ou unité) avec son statut, et une ligne `alert_exposure_step` par étape du chemin. **Écrire aussi les cas écartés** (`excluded_negative`) avec `explanation_code` (ex. `outside_window`).
 5. Mettre à jour `alert.current_run_id` en dernier, dans la même transaction. Ne jamais supprimer les calculs précédents.
@@ -1120,9 +1122,15 @@ Quand plusieurs situations s'appliquent à une zone, l'état le plus grave l'emp
 **Valeurs de démonstration** : `cluster_window_days`, `cluster_min_reports`, `cluster_min_ratio` et `escalation_hours` sont expérimentales et **à faire valider par un vétérinaire**.
 
 ### 9.10 Créer le code d'une étiquette (`identity.services.label_for_registration`)
-- **Qui crée le code :** le téléphone, au moment d'« Ajouter » un animal ou un lot, ou de « Changer l'étiquette » : 8 caractères tirés au hasard dans l'alphabet sans 0, O, 1, I, plus le caractère de contrôle (même algorithme que le serveur). Cela marche hors ligne ; personne ne saisit de code.
+- **v1.4, voie principale : boucle préimprimée.** L'agent ou l'autorité crée un lot (`label_batch`), le fait imprimer sur des boucles solides et les remet à un élevage (`issue_labels`). À l'ajout d'un animal, le téléphone **scanne la boucle** : le code existe déjà, le serveur vérifie qu'il est remis à cet élevage (ou à aucun) et non posé, puis le pose. Aucun changement de table : `label_for_registration` le fait déjà. Le code créé par le téléphone (ci-dessous) devient **le secours** (pas de boucle sous la main, hors ligne sans stock).
+- **Qui crée le code (secours) :** le téléphone, au moment d'« Ajouter » un animal ou un lot, ou de « Changer l'étiquette » : 8 caractères tirés au hasard dans l'alphabet sans 0, O, 1, I, plus le caractère de contrôle (même algorithme que le serveur). Cela marche hors ligne ; personne ne saisit de code.
 - **Ce que fait le serveur :** il vérifie le format et le caractère de contrôle. Si le code n'existe pas, il crée l'étiquette (`label_batch` d'une étiquette, `label.status = 'issued'`, `issued_to_center_id` = élevage de l'unité), la pose sur l'unité et l'écrit dans `audit_log` (`label.generate`), dans la même transaction que l'enregistrement. Un code déjà posé sur une autre unité est refusé : le téléphone en crée un autre et réessaie une fois (doublon en pratique impossible : plus de mille milliards de combinaisons).
 - **Ensuite :** la fiche affiche le code en grand, à écrire ou imprimer (QR + code lisible) sur l'étiquette physique posée sur l'animal. Le QR ne contient que le code.
+
+### 9.11 Passage au marché (v1.4, sans nouvelle table)
+- Un marché est un `center` avec `center_type = 'market'`. Un agent ou un gestionnaire de marché agit dessus comme membre du centre ou par mandat `move`.
+- **Entrée** au marché = mouvement origine -> marché ; **Sortie** = mouvement marché -> destination (`to_party_note` si l'acheteur n'est pas inscrit). Déclarés par `traceability.services.declare_movement`.
+- Si l'autre partie ne confirme pas, le mouvement reste `declared` : il compte pour l'exposition avec une confiance réduite (9.6). Le marché devient ainsi le point où les chemins se croisent, sans exiger un smartphone chez chaque éleveur.
 
 ## 10. Données de départ (`manage.py seed`, idempotent)
 Chargées par migration de données ou commande, **jamais à la main** : `role` (breeder, field_agent, veterinarian, authority, trader), `species` (bovin, ovin, caprin, porcin, volaille avec `tracking_mode`), `symptom` et `disease` (liste courte, vocabulaire simple), `disease_rule` (version 1 par maladie ; valeurs **à faire valider par un vétérinaire**), au moins une `zone` de démonstration. Tout est marqué `is_simulated` quand c'est de la donnée de démonstration.
