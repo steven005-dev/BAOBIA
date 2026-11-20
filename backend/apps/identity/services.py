@@ -198,7 +198,7 @@ AGENT_REGISTRATION_SCOPE = "declare"
 @transaction.atomic
 def register_breeder_with_center(
     *, agent, phone, full_name, password, center_name, zone, species=(),
-    user_id=None, center_id=None,
+    user_id=None, center_id=None, consent_notice=None,
 ):
     """Un agent de terrain inscrit un éleveur et son premier élevage, en une seule fois.
 
@@ -212,7 +212,7 @@ def register_breeder_with_center(
 
     breeder = register_breeder(
         phone=phone, full_name=full_name, password=password, zone=zone,
-        registered_by=agent, user_id=user_id,
+        registered_by=agent, user_id=user_id, consent_notice=consent_notice,
     )
     center = create_center(
         name=center_name, zone=zone, center_type="farm", created_by=agent, holder=breeder,

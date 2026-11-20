@@ -151,7 +151,17 @@ export const messages = {
   // À VALIDER : inscription d'un éleveur par l'agent de terrain.
   eleveurInscrit: 'Éleveur inscrit.',
   remettreIdentifiants: "Donnez ce numéro et ce mot de passe à l'éleveur. Il s'en sert pour se connecter.",
+  // À VALIDER : notice lue à l'éleveur (loi 2013-450). Changer ce texte = changer
+  // CONSENT_NOTICE_VERSION dans backend/apps/identity/serializers.py.
+  noticeDonnees:
+    "BAOBIA garde votre nom, votre numéro et vos animaux pour suivre les maladies. Seuls les vétérinaires et les services de l'État de votre zone les voient. Les autres éleveurs ne voient jamais le nom de votre élevage. Vous pouvez demander à votre agent de voir ou de corriger vos informations.",
+  accordObligatoire: "L'accord de l'éleveur est obligatoire.",
   inscriptionEnAttente: "L'inscription partira toute seule au retour du réseau. Vous pouvez déjà donner le mot de passe.",
+  // À VALIDER : boucle préimprimée (spec v1.4).
+  boucleLue: 'Boucle lue.',
+  motDePasseChange: 'Mot de passe changé.', // À VALIDER
+  aucunSignalement: 'Aucun signalement pour cet animal.', // À VALIDER
+  scannezLaBoucle: 'Scannez la boucle ou saisissez son code.',
 } as const
 
 /**
@@ -182,6 +192,7 @@ export const erreurs = {
   codeIncomplet: 'Le code doit avoir 9 caractères.',
   codeIncorrect: "Code incorrect. Vérifiez l'étiquette.",
   motDePasseVide: 'Écrivez votre mot de passe.',
+  motDePasseCourt: 'Au moins 8 caractères.', // À VALIDER
 } as const
 
 /** Libellés des champs et aides. */
@@ -189,6 +200,10 @@ export const champs = {
   telephone: 'Numéro de téléphone',
   telephoneAide: 'Exemple : 07 07 07 07 07',
   motDePasse: 'Mot de passe',
+  // À VALIDER : changer son mot de passe.
+  motDePasseActuel: 'Mot de passe actuel',
+  nouveauMotDePasse: 'Nouveau mot de passe',
+  nouveauMotDePasseAide: 'Au moins 8 caractères, pas trop simple.',
   codeEtiquette: "Code de l'étiquette",
   codeEtiquetteAide: '9 caractères, écrits sous le QR code',
   espece: 'Espèce',
@@ -206,6 +221,11 @@ export const champs = {
   zone: 'Zone',
   especesElevees: 'Espèces élevées',
   nomEleveur: "Nom de l'éleveur",
+  accordEleveur: "L'éleveur a écouté et il est d'accord", // À VALIDER
+  lireEleveur: "À lire à l'éleveur", // À VALIDER
+  // À VALIDER : boucle préimprimée (spec v1.4).
+  scannerBoucle: 'Scanner la boucle',
+  creerCode: 'Pas de boucle : créer un code',
 } as const
 
 /** Titres d'écran. */
@@ -223,6 +243,8 @@ export const titres = {
   remettreEtiquettes: 'Remettre des étiquettes',
   inscrireEleveur: 'Inscrire un éleveur',
   ajouterSesAnimaux: 'Ajouter ses animaux',
+  quelleEtiquette: 'Quelle étiquette ?', // À VALIDER
+  changerMotDePasse: 'Changer mon mot de passe', // À VALIDER
 } as const
 
 /**

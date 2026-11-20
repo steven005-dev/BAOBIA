@@ -235,6 +235,12 @@ class ReportVisibilityTests(HealthApiTestCase):
         self.assertNotIn("reviews", data)
         self.assertNotIn("position", data)
 
+    def test_filter_by_unit(self):
+        url = "/api/health-reports/?unit_id="
+        mine = self.as_user(self.breeder).get(url + str(self.unit.id)).json()
+        self.assertEqual([r["id"] for r in mine], [self.report_id])
+        self.assertEqual(self.client.get(url + str(self.stranger_unit.id)).json(), [])
+
     def test_other_breeder_sees_nothing(self):
         self.assertEqual(self.ids(self.stranger), [])
         resp = self.as_user(self.stranger).get(f"/api/health-reports/{self.report_id}/")

@@ -1,7 +1,7 @@
 /**
  * Fiche d'un animal ou d'un lot (gabarit Fiche détail) : identifiant très visible,
  * informations essentielles, action principale en bas (Transférer).
- * L'état sanitaire s'affichera quand le module santé le fournira.
+ * Partie Santé : ses signalements (UnitHealth, API du module santé).
  */
 
 import { ArrowLeft, ArrowLeftRight, PawPrint, QrCode } from 'lucide-react'
@@ -17,6 +17,7 @@ import { champs, messages, mots, titres } from '@/lib/vocabulaire'
 
 import { identityApi } from './api'
 import { LabelToPrint } from './LabelToPrint'
+import { UnitHealth } from './UnitHealth'
 import { speciesIcon } from './speciesIcon'
 import { useResource } from './useResource'
 
@@ -72,6 +73,8 @@ export function UnitPage() {
           <Row label={champs.ajouteLe} value={new Date(unit.created_at).toLocaleDateString('fr-CI')} />
         </dl>
       </Card>
+
+      <UnitHealth unitId={unit.id} />
 
       <div className="flex flex-col gap-3">
         <Button icon={ArrowLeftRight} onClick={() => navigate('/mouvements')}>

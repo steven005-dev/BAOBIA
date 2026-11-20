@@ -3,14 +3,16 @@
 import uuid
 from datetime import timedelta
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts import services as accounts_services
-from apps.accounts.tests.helpers import give_role, make_habilitation, make_user
+from apps.accounts.tests.helpers import give_role, make_habilitation, make_species, make_user
+from apps.alerts.models import Alert, DiseaseRule
 from apps.geo.models import Zone
+from apps.health.models import Disease
 from apps.notifications import services
 from apps.notifications.models import Notification
 
@@ -21,6 +23,17 @@ def zones():
     dep = Zone.objects.create(level=2, code="T-DEP", name="Département test", parent=region)
     other = Zone.objects.create(level=1, code="T-AUTRE", name="Autre région", parent=country)
     return country, region, dep, other
+
+
+def make_alert(zone, approved_by):
+    disease = Disease.objects.create(code="t-fmd", label_fr="Maladie test")
+    rule = DiseaseRule.objects.create(
+        disease=disease, version=1, lookback_days=21, lookforward_days=0, max_depth=2,
+        min_zone_effectif=2, include_unconfirmed=False,
+        valid_from=timezone.localdate() - timedelta(days=90), approved_by=approved_by,
+    )
+    return Alert.objects.create(rule=rule, zone=zone, level=1, opened_at=timezone.now(),
+                                trigger_kind=Alert.TriggerKind.ZONE_CLUSTER, species=make_species())
 
 
 class VetsForZoneTests(TestCase):
@@ -89,13 +102,20 @@ class NotifyTests(TestCase):
         with transaction.atomic(), self.assertRaises(IntegrityError):
             Notification.objects.create(user=self.user, kind="x", message_code="x", status="lost")
 
+    def test_unknown_alert_refused(self):
+        user = make_user("+2250000000313", "Éleveur")
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")  # sinon vérifié à la fin seulement
+            Notification.objects.create(user=user, kind="x", message_code="x", alert_id=uuid.uuid4())
+
     def test_notify_zone_vets_once_per_round(self):
         _, _, dep, _ = zones()
         verifier = make_user("+2250000000311", "Vérificateur")
         vet = make_user("+2250000000312", "Vétérinaire")
         give_role(vet, "veterinarian", zone=dep)
         make_habilitation(vet, verifier=verifier)
-        alert_id = uuid.uuid4()
+        alert_id = make_alert(dep, verifier).pk
         params = {"species": "cattle", "reports": 4, "zone": dep.name}
 
         sent = services.notify_zone_vets(dep.id, "zone_cluster.review_requested", alert_id=alert_id, params=params)

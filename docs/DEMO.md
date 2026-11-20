@@ -38,7 +38,13 @@ Administration Django (équipe technique seulement) : `/admin/`, compte créé a
 | `XT5A H86V 9` · `5ZGQ Y7M4 6` · `QGKQ U8G4 S` | posées : animaux 5 à 7, Élevage B (2 bovins, 1 chèvre) |
 | `ZSQE 4QYM G` | posée : animal 8, Élevage C (mouton) |
 
-Pour « Ajouter un animal », **aucun code à préparer** : le téléphone crée le code et la fiche l'affiche en grand.
+**Boucles préimprimées (voie principale, spec v1.4).** À « Ajouter un animal », dernière étape **Quelle étiquette ?** → **Scanner la boucle** : scanner le QR de la boucle ou saisir son code. Le serveur accepte une boucle remise à cet élevage (ou jamais remise), pas encore posée.
+
+- Base de démo actuelle (20/11) : 4 boucles remises à l'élevage de l'Éleveur 1 : `7DSJ VLHQ J` · `KPJK SH4C 7` · `LSZ9 P598 4` · `WSQP 73YM 8`.
+- Base recréée par `seed --demo` : 2 boucles vierges remises à l'Élevage A et 2 à l'Élevage B (codes 9 à 12 du lot de démo).
+- Pour la scène, imprimer leurs QR à l'avance (n'importe quel générateur de QR : le QR ne contient que le code).
+
+**Secours :** **Pas de boucle : créer un code** → le téléphone crée le code et la fiche l'affiche en grand, avec **Imprimer**.
 
 ## 4. Le parcours (≈ 7 minutes)
 
@@ -46,17 +52,19 @@ Pour « Ajouter un animal », **aucun code à préparer** : le téléphone crée
 
 | # | Qui (téléphone) | Action | Ce qu'on montre | État |
 |---|---|---|---|---|
-| 0 | Agent de terrain | Accueil → **Inscrire** → nom, numéro, élevage, zone (Nord), espèces → Inscrire | pas d'inscription libre : l'agent crée le compte en face de l'éleveur ; **le mot de passe (8 chiffres) est créé par le téléphone** et affiché pour être remis ; puis **Ajouter ses animaux** (mandat de l'agent) ; l'éleveur se connecte avec ce numéro et ce mot de passe | ✅ |
+| 0 | Agent de terrain | Accueil → **Inscrire** → nom, numéro, élevage, zone (Nord), espèces → **cocher l'accord de l'éleveur** → Inscrire | pas d'inscription libre ; sans l'accord (loi 2013-450), l'inscription est refusée : l'agent crée le compte en face de l'éleveur ; **le mot de passe (8 chiffres) est créé par le téléphone** et affiché pour être remis ; puis **Ajouter ses animaux** (mandat de l'agent) ; l'éleveur se connecte avec ce numéro et ce mot de passe | ✅ |
 | 1 | Éleveur 1 | Accueil → **Ajouter** → Bovin → Ajouter | une question par écran, gros boutons, « Animal ajouté. » ; **le code de l'étiquette est créé automatiquement** ; la fiche montre l'étiquette (QR + code) et le bouton **Imprimer** | ✅ |
 | 2 | Éleveur 1 | **Scanner** l'étiquette `KECT T2U8 V` | « Animal retrouvé. », fiche ; le scan est enregistré (heure, position si autorisée) | ✅ |
 | 3 | Éleveur 3 | **Scanner** la même étiquette | vue réduite : l'espèce seulement, **aucun nom d'élevage** (confidentialité) | ✅ |
-| 4 | Éleveur 1 → Éleveur 2 | **Transférer** un animal, puis **Recevoir** et confirmer avec le code | double confirmation, l'animal change d'élevage | ⏳ Romuald |
-| 5 | Éleveur 2 | **Signaler** un cas (symptômes cochés, photo) | « Signalement envoyé au vétérinaire. » | ⏳ Yéo |
-| 6 | Vétérinaire | **Valider** ; voir les élevages exposés, le chemin et le **cas négatif** | l'alerte s'explique ; seul le vétérinaire habilité valide | ⏳ Yéo |
+| 4 | Éleveur 1 → Éleveur 2 | **Transférer** un animal, puis **Recevoir** et confirmer avec le code | double confirmation, l'animal change d'élevage ; sans réseau, l'envoi attend dans la file et part au retour du réseau | ✅ |
+| 5 | Éleveur 2 | **Signaler** un cas : une question par écran, symptômes en icônes, **combien de morts**, puis **combien de malades** | « Signalement envoyé au vétérinaire. » ; ensuite la fiche de l'animal montre sa partie **Santé** (signalement en cours) | ✅ écran fait (Yéo), à vérifier en répétition |
+| 6 | Vétérinaire | **Valider** ; voir les élevages exposés, le chemin et le **cas négatif** | l'alerte s'explique (chemin, élevages écartés, transfert déclaré d'un seul côté) ; seul le vétérinaire habilité valide | ✅ écrans faits (Yéo), à vérifier en répétition |
 | 7 | Éleveur exposé | Accueil : message « Un animal arrivé chez vous a peut-être été en contact avec un cas suspect. Appelez votre vétérinaire. » | message neutre, sans l'élevage d'origine | ✅ affichage prêt, ⏳ déclenchement par l'alerte |
-| 8 | Autorité | **Carte** : zones normal / à surveiller / contact possible / alerte / pas assez de données | couleur + icône + motif, aucun nom d'élevage | ⏳ Yéo |
+| 8 | Autorité | **Carte** : zones normal / à surveiller / contact possible / alerte / pas assez de données | couleur + icône + motif, aucun nom d'élevage ; tuiles par zone (pas de fond de carte) | ✅ écran fait (Yéo), à vérifier en répétition |
 
 Bonus si le temps le permet : sur la fiche de l'animal ajouté à l'étape 1, **Changer l'étiquette** → « Abîmée » → un nouveau code est créé ; scanner l'ancien code renvoie « Étiquette remplacée » vers le même animal.
+
+Bonus 2 : l'éleveur inscrit à l'étape 0 se connecte avec le mot de passe remis par l'agent, puis Accueil → **Changer mon mot de passe** (l'actuel, puis un nouveau d'au moins 8 caractères).
 
 **Second scénario (si demandé) : regroupement de zone.** Plusieurs signalements similaires dans une zone → les vétérinaires de la zone sont prévenus → l'un confirme ou infirme. Règles explicables, pas d'IA qui diagnostique. ⏳ Yéo.
 
@@ -83,5 +91,6 @@ Bonus si le temps le permet : sur la fiche de l'animal ajouté à l'étape 1, **
 
 - Chronométrer chaque étape ; viser 7 minutes, questions comprises 10.
 - Faire le parcours **deux fois** sur les vrais téléphones.
-- Hors ligne : ne le montrer **que si** la file d'envoi de Romuald est branchée (`setOfflineQueue`) ; sans elle, un ajout sans réseau affiche « Pas de connexion » et n'est pas gardé.
+- Hors ligne : la file d'envoi de Romuald est branchée pour les **mouvements** (Transférer, Recevoir). Pour les autres actions (ex. Ajouter un animal), sans réseau l'écran affiche « Pas de connexion » et rien n'est gardé : ne montrer le hors-ligne que sur un transfert.
+- Base : la base tourne dans **Docker** (port 5433 sur ce PC). Lancer Docker Desktop avant `docker compose up -d`.
 - Mettre à jour la colonne « État » de la section 4 et retirer ce qui n'est pas prêt.

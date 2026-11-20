@@ -4,9 +4,10 @@
  * Le mot de passe est CRÉÉ PAR LE TÉLÉPHONE (8 chiffres, faciles à dicter) et affiché à la
  * fin pour être remis à l'éleveur. L'agent reçoit un mandat « declare » sur l'élevage : il
  * peut ajouter les animaux tout de suite. Identifiants créés ici : envoi rejouable.
+ * Avant d'inscrire : l'agent lit la notice (données personnelles, loi 2013-450) ; l'accord est obligatoire.
  */
 
-import { ArrowLeft, House, PawPrint, UserPlus } from 'lucide-react'
+import { ArrowLeft, Handshake, House, PawPrint, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 
@@ -57,6 +58,7 @@ export function RegisterBreederPage() {
   const [centerName, setCenterName] = useState('')
   const [zoneId, setZoneId] = useState('')
   const [speciesIds, setSpeciesIds] = useState<string[]>([])
+  const [consent, setConsent] = useState<string[]>([])
   const [submitted, setSubmitted] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -77,6 +79,10 @@ export function RegisterBreederPage() {
       setError(messages.champManquant)
       return
     }
+    if (consent.length === 0) {
+      setError(messages.accordObligatoire)
+      return
+    }
     setSending(true)
     setError(null)
     const breeder = (pwd: string) => ({
@@ -88,6 +94,7 @@ export function RegisterBreederPage() {
       center_name: centerName.trim(),
       zone_id: zoneId,
       species_ids: speciesIds,
+      consent: true as const,
     })
     try {
       let result = await identityApi.registerBreeder(breeder(password))
@@ -167,6 +174,15 @@ export function RegisterBreederPage() {
         value={speciesIds}
         onChange={setSpeciesIds}
         options={(species.data ?? []).map((s) => ({ value: s.id, label: s.label_fr, icon: speciesIcon(s.code) }))}
+      />
+
+      <Banner variant="info" title={champs.lireEleveur}>{messages.noticeDonnees}</Banner>
+      <ChoiceGrid
+        multiple
+        label={champs.accordEleveur}
+        value={consent}
+        onChange={setConsent}
+        options={[{ value: 'yes', label: champs.accordEleveur, icon: Handshake }]}
       />
 
       {error && <Banner variant="error">{error}</Banner>}

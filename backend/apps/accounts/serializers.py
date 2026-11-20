@@ -29,6 +29,12 @@ class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField(help_text="Le jeton refresh à mettre en liste noire.")
 
 
+class PasswordChangeSerializer(serializers.Serializer):
+    current_password = serializers.CharField(max_length=128, write_only=True, trim_whitespace=False)
+    new_password = serializers.CharField(max_length=128, write_only=True, trim_whitespace=False,
+                                         help_text="8 caractères ou plus, pas trop simple.")
+
+
 class ErrorSerializer(serializers.Serializer):
     detail = serializers.CharField()
 

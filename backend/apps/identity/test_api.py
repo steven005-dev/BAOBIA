@@ -166,6 +166,14 @@ class UnitApiTests(ApiTestCase):
         resp = self.post_unit(self.breeder, kind="animal", species_id=str(self.cattle.id), label_code=wrong)
         self.assertEqual(resp.status_code, 400)
 
+    def test_preprinted_tag_issued_to_my_center_accepted(self):
+        # Spec v1.4 : boucle préimprimée remise par l'agent à cet élevage, scannée à l'ajout.
+        services.issue_labels([self.labels[2]], self.center, issued_by=self.breeder)
+        resp = self.post_unit(self.breeder, kind="animal", species_id=str(self.cattle.id),
+                              label_code=self.labels[2].short_code)
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()["label_code"], self.labels[2].short_code)
+
     def test_label_issued_to_another_center_refused(self):
         services.issue_labels([self.labels[1]], self.stranger_center, issued_by=self.stranger)
         resp = self.post_unit(self.breeder, kind="animal", species_id=str(self.cattle.id),
@@ -443,7 +451,7 @@ class BreederRegisterApiTests(ApiTestCase):
             "id": str(uuid.uuid4()), "full_name": "Koffi Yao", "phone": "07 11 22 33 44",
             "password": "K7RT2M9P", "center_id": str(uuid.uuid4()),
             "center_name": "Ferme Koffi", "zone_id": str(self.zone.id),
-            "species_ids": [str(self.cattle.id)],
+            "species_ids": [str(self.cattle.id)], "consent": True,
         }
         data.update(extra)
         return data
@@ -465,7 +473,8 @@ class BreederRegisterApiTests(ApiTestCase):
         self.assertEqual(services.accessible_centers(breeder)[0]["access"], "holder")
         agent_access = {c["id"]: c for c in services.accessible_centers(self.agent)}
         self.assertEqual(agent_access[uuid.UUID(body["center_id"])]["mandate_scope"], "declare")
-        self.assertTrue(AuditLog.objects.filter(action="user.register", actor_user=self.agent).exists())
+        log = AuditLog.objects.get(action="user.register", actor_user=self.agent)
+        self.assertEqual(log.details["consent_notice"], "2026-11-20")
 
         # Rejeu hors ligne : sans effet.
         again = self.client.post("/api/breeders/", body, format="json")
@@ -485,6 +494,12 @@ class BreederRegisterApiTests(ApiTestCase):
                 "species_id": str(self.cattle.id), "label_code": self.labels[0].short_code}
         resp = self.client.post("/api/units/", unit, format="json")
         self.assertEqual(resp.status_code, 201, resp.content)
+
+    def test_consent_required(self):
+        body = self.body(consent=False)
+        resp = self.as_user(self.agent).post("/api/breeders/", body, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(services.Center.objects.filter(pk=body["center_id"]).exists())
 
     def test_only_field_agent(self):
         resp = self.as_user(self.breeder).post("/api/breeders/", self.body(), format="json")

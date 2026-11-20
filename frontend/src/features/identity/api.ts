@@ -93,6 +93,8 @@ export interface NewBreeder {
   center_name: string
   zone_id: string
   species_ids: string[]
+  /** L'agent a lu la notice à l'éleveur, qui accepte. */
+  consent: true
 }
 
 export interface Position {
