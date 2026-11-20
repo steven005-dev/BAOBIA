@@ -347,4 +347,18 @@ export const carteTextes = {
   aucuneZone: 'Aucune zone à afficher',
   majLe: 'Mis à jour le',
   pasDeNom: "Aucun nom d'élevage n'est affiché.",
+  // À VALIDER : carte de Côte d'Ivoire (districts, régions, points des élevages).
+  titreCi: "Carte sanitaire de Côte d'Ivoire",
+  districts: 'Districts',
+  regions: 'Régions',
+  voirRegions: 'Voir ses régions',
+  retourPays: 'Tout le pays',
+  touchezZone: 'Touchez une zone pour voir son état.',
+  pointElevage: 'Un élevage',
+  pointMarche: 'Un marché',
+  pointGroupe: "Plusieurs élevages (le nombre est écrit dans le rond)",
+  pointsReserves: 'Les points des élevages sont visibles par le vétérinaire et l’Autorité seulement.',
+  aucunElevage: 'Aucun élevage enregistré dans cette zone.',
+  listeZones: 'Liste des zones',
+  sourceTraces: 'Limites : geoBoundaries (CC BY 4.0).',
 } as const

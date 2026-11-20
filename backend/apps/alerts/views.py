@@ -138,7 +138,9 @@ class MapZonesView(APIView):
         description=(
             "États : normal, watch (à surveiller), exposure (contact possible), alert (alerte "
             "validée), unknown (pas assez de données). Une zone masquée ne donne aucun "
-            "effectif. Aucun élevage n'apparaît, sauf ceux de l'utilisateur (my_centers)."
+            "effectif. Élevages : ceux de l'utilisateur (my_centers) ; pour un vétérinaire ou "
+            "une autorité, aussi les points des élevages de ses zones (points : position et "
+            "type seulement, ni nom ni identifiant)."
         ),
         parameters=[OpenApiParameter("species", str, description="Code d'espèce ; vide = "
                                                                  "toutes espèces.")],
@@ -163,11 +165,20 @@ class MapZonesView(APIView):
             for s in stats.order_by("zone__name")
         ]
         mine = Center.objects.filter(pk__in=[c["id"] for c in accessible_centers(request.user)])
+        covered = services._covered_zone_ids(request.user)
+        points = Center.objects.filter(
+            zone_id__in=covered, status="active", latitude__isnull=False, longitude__isnull=False
+        ).values("latitude", "longitude", "zone_id", "center_type") if covered else []
         return Response({
             "zones": zones,
             "my_centers": [
                 {"id": c.id, "name": c.name, "zone_id": c.zone_id,
                  "latitude": c.latitude, "longitude": c.longitude}
                 for c in mine
+            ],
+            "points": [
+                {"latitude": p["latitude"], "longitude": p["longitude"], "zone_id": p["zone_id"],
+                 "type": p["center_type"]}
+                for p in points
             ],
         })

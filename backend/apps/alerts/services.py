@@ -388,16 +388,32 @@ def recompute_zone_stats():
     et par espèce. L'état le plus grave l'emporte (alert > exposure > watch > normal) ;
     une zone sous l'effectif minimum est masquée (« Pas assez de données »).
     RG-14 : un signalement pas encore examiné ne change pas la carte (visible de tous) ;
-    seule une décision du vétérinaire (alerte ouverte) peut la faire passer « À surveiller »."""
+    seule une décision du vétérinaire (alerte ouverte) peut la faire passer « À surveiller ».
+    Une zone compte aussi les élevages de ses zones filles (région -> district -> pays) :
+    la carte colore chaque niveau."""
+    from apps.geo.models import Zone
     from apps.geo.services import save_zone_stat
 
     threshold = _min_zone_effectif()
+    parents = dict(Zone.objects.values_list("id", "parent_id"))
+
+    def with_ancestors(zone_id):
+        while zone_id is not None:
+            yield zone_id
+            zone_id = parents.get(zone_id)
+
     centers = Center.objects.filter(status="active").values("id", "zone_id")
     by_zone = {}
+    subtree = {}  # zone -> elle-même et ses zones filles (pour les alertes de zone)
     for center in centers:
-        by_zone.setdefault(center["zone_id"], set()).add(center["id"])
+        for zone_id in with_ancestors(center["zone_id"]):
+            by_zone.setdefault(zone_id, set()).add(center["id"])
+            subtree.setdefault(zone_id, set()).add(center["zone_id"])
 
     open_alerts = list(Alert.objects.filter(status__in=OPEN_STATUSES))
+    for alert in open_alerts:
+        for zone_id in with_ancestors(alert.zone_id):
+            subtree.setdefault(zone_id, set()).add(alert.zone_id)
     exposed_pairs = set(
         AlertExposure.objects.filter(
             alert__status__in=OPEN_STATUSES, alert__current_run_id=F("run_id"),
@@ -424,7 +440,7 @@ def recompute_zone_stats():
                 return species_id is None or alert.species_id in (None, species_id)
 
             zone_alerts = [a for a in open_alerts if matches(a) and (
-                a.zone_id == zone_id or a.focus_center_id in center_ids)]
+                a.zone_id in subtree[zone_id] or a.focus_center_id in center_ids)]
             if any(a.level == 3 for a in zone_alerts):
                 state = "alert"
             elif any(c in center_ids and (species_id is None or s in (None, species_id))

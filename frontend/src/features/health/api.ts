@@ -100,9 +100,18 @@ export interface ZoneState {
   computed_at: string
 }
 
+export interface MapPoint {
+  latitude: string
+  longitude: string
+  zone_id: string
+  type: string
+}
+
 export interface MapData {
   zones: ZoneState[]
-  my_centers: { id: string; name: string; zone_id: string }[]
+  my_centers: { id: string; name: string; zone_id: string; latitude: string | null; longitude: string | null }[]
+  /** Points des élevages de ses zones : vétérinaire et autorité seulement (sinon vide). */
+  points?: MapPoint[]
 }
 
 /** Une erreur de saisie de la file directe devient un résultat « check » (un seul cas). */

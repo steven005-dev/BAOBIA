@@ -8,7 +8,7 @@
 
 | # | Action | Commande / détail |
 |---|---|---|
-| 1 | Base propre avec les données de démo | `docker compose down -v` ; `docker compose up -d` ; dans `backend/` : `python manage.py migrate` puis `python manage.py seed --demo` (`SEED_DEMO_PASSWORD` dans `.env`) |
+| 1 | Base propre avec les données de démo | `docker compose down -v` ; `docker compose up -d` ; dans `backend/` : `python manage.py migrate` puis `python manage.py seed --demo` (`SEED_DEMO_PASSWORD` dans `.env` ; charge aussi les districts et régions de Côte d'Ivoire et place les élevages de démo dans le Poro et le Gbêkê) |
 | 2 | Certificat HTTPS (caméra du téléphone) | dans `frontend/` : `npm run cert` |
 | 3 | Serveurs | `python manage.py runserver` (backend) ; `npm run dev:phone` (frontend) |
 | 4 | Téléphones | même Wi-Fi que le PC ; ouvrir `https://<IP-du-PC>:5173`, accepter l'avertissement une fois, autoriser la caméra |
@@ -60,7 +60,7 @@ Administration Django (équipe technique seulement) : `/admin/`, compte créé a
 | 5 | Éleveur 2 | **Signaler** un cas : une question par écran, symptômes en icônes, **combien de morts**, puis **combien de malades** | « Signalement envoyé au vétérinaire. » ; ensuite la fiche de l'animal montre sa partie **Santé** (signalement en cours) | ✅ écran fait (Yéo), à vérifier en répétition |
 | 6 | Vétérinaire | **Valider** ; voir les élevages exposés, le chemin et le **cas négatif** | l'alerte s'explique (chemin, élevages écartés, transfert déclaré d'un seul côté) ; seul le vétérinaire habilité valide | ✅ écrans faits (Yéo), à vérifier en répétition |
 | 7 | Éleveur exposé | Accueil : message « Un animal arrivé chez vous a peut-être été en contact avec un cas suspect. Appelez votre vétérinaire. » | message neutre, sans l'élevage d'origine | ✅ affichage prêt, ⏳ déclenchement par l'alerte |
-| 8 | Autorité | **Carte** : zones normal / à surveiller / contact possible / alerte / pas assez de données | couleur + icône + motif, aucun nom d'élevage ; tuiles par zone (pas de fond de carte) | ✅ écran fait (Yéo), à vérifier en répétition |
+| 8 | Autorité | **Carte** : zones normal / à surveiller / contact possible / alerte / pas assez de données | **carte de Côte d'Ivoire** : 14 districts colorés, toucher un district = zoom sur ses régions ; points des élevages (vétérinaire et Autorité seulement), aucun nom ; marche hors ligne (tracés dans l'application) | ✅ écran fait (Yéo), à vérifier en répétition |
 
 Bonus si le temps le permet : sur la fiche de l'animal ajouté à l'étape 1, **Changer l'étiquette** → « Abîmée » → un nouveau code est créé ; scanner l'ancien code renvoie « Étiquette remplacée » vers le même animal.
 

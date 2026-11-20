@@ -88,6 +88,26 @@ class MapApiTests(AlertScenarioMixin, TestCase):
         data = self.client.get("/api/map/zones/?species=cattle").json()
         self.assertEqual({z["state"] for z in data["zones"]}, {"alert"})
 
+    def test_parent_zone_takes_the_state_of_its_children(self):
+        """Carte de Côte d'Ivoire : la région (zone mère) compte les élevages de ses zones filles
+        et prend l'état le plus grave."""
+        self.client.force_authenticate(user=self.vet)
+        zones = {z["zone"]["code"]: z for z in self.client.get("/api/map/zones/").json()["zones"]}
+        parent = zones[self.region.code]
+        self.assertEqual(parent["state"], "alert")
+        self.assertGreaterEqual(parent["centers_count"], zones["TEST-DEP"]["centers_count"])
+
+    def test_farm_points_only_for_professionals(self):
+        from apps.identity.models import Center
+
+        Center.objects.filter(zone=self.zone).update(latitude="9.500000", longitude="-5.600000")
+        self.client.force_authenticate(user=self.vet)
+        points = self.client.get("/api/map/zones/").json()["points"]
+        self.assertTrue(points)
+        self.assertEqual(set(points[0]), {"latitude", "longitude", "zone_id", "type"})  # ni nom ni id
+        self.client.force_authenticate(user=self.users["B"])
+        self.assertEqual(self.client.get("/api/map/zones/").json()["points"], [])
+
     def test_masked_zone_hides_counts(self):
         from apps.geo.models import ZoneStat
 

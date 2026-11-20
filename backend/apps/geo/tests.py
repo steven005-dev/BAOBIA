@@ -47,3 +47,16 @@ class ZoneStatConstraintTests(TestCase):
 
     def test_zone_level_check(self):
         self.assert_db_refuses(lambda: Zone.objects.create(level=7, code="BAD", name="Mauvaise"))
+
+
+class LoadCiZonesTests(TestCase):
+    def test_districts_and_regions_under_the_country(self):
+        from .services import load_ci_zones
+
+        country = Zone.objects.create(level=0, code="TEST-CI", name="Pays test")
+        zones = load_ci_zones(country)
+        load_ci_zones(country)  # idempotent
+        self.assertEqual(Zone.objects.filter(level=1, parent=country).count(), 14)
+        self.assertEqual(Zone.objects.filter(level=2, parent__parent=country).count(), 33)
+        self.assertEqual(zones["CI-R-POR"].parent.code, "CI-D-SV")  # Poro -> Savanes
+        self.assertIsNotNone(zones["CI-R-GBE"].latitude)
