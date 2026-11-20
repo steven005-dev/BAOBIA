@@ -1,0 +1,381 @@
+{
+ "source": "geoBoundaries (CIV ADM1, ADM2), CC BY 4.0, simplifié pour BAOBIA",
+ "zones": [
+  {
+   "code": "CI-D-BS",
+   "name": "Bas-Sassandra",
+   "level": 1,
+   "parent": null,
+   "lat": 5.35892,
+   "lon": -6.6804
+  },
+  {
+   "code": "CI-D-CM",
+   "name": "Comoé",
+   "level": 1,
+   "parent": null,
+   "lat": 6.09141,
+   "lon": -3.3023
+  },
+  {
+   "code": "CI-D-DN",
+   "name": "Denguélé",
+   "level": 1,
+   "parent": null,
+   "lat": 9.63869,
+   "lon": -7.38547
+  },
+  {
+   "code": "CI-D-AB",
+   "name": "District autonome d'Abidjan",
+   "level": 1,
+   "parent": null,
+   "lat": 5.41397,
+   "lon": -4.0752
+  },
+  {
+   "code": "CI-D-YM",
+   "name": "District autonome de Yamoussoukro",
+   "level": 1,
+   "parent": null,
+   "lat": 6.85582,
+   "lon": -5.26867
+  },
+  {
+   "code": "CI-D-GD",
+   "name": "Gôh-Djiboua",
+   "level": 1,
+   "parent": null,
+   "lat": 5.95892,
+   "lon": -5.61249
+  },
+  {
+   "code": "CI-D-LC",
+   "name": "Lacs",
+   "level": 1,
+   "parent": null,
+   "lat": 7.04674,
+   "lon": -4.44507
+  },
+  {
+   "code": "CI-D-LG",
+   "name": "Lagunes",
+   "level": 1,
+   "parent": null,
+   "lat": 5.83269,
+   "lon": -4.27074
+  },
+  {
+   "code": "CI-D-MG",
+   "name": "Montagnes",
+   "level": 1,
+   "parent": null,
+   "lat": 6.94755,
+   "lon": -7.65304
+  },
+  {
+   "code": "CI-D-SM",
+   "name": "Sassandra-Marahoué",
+   "level": 1,
+   "parent": null,
+   "lat": 7.0539,
+   "lon": -6.34501
+  },
+  {
+   "code": "CI-D-SV",
+   "name": "Savanes",
+   "level": 1,
+   "parent": null,
+   "lat": 9.56778,
+   "lon": -5.55719
+  },
+  {
+   "code": "CI-D-VB",
+   "name": "Vallée du Bandama",
+   "level": 1,
+   "parent": null,
+   "lat": 8.26092,
+   "lon": -4.95847
+  },
+  {
+   "code": "CI-D-WR",
+   "name": "Woroba",
+   "level": 1,
+   "parent": null,
+   "lat": 8.37764,
+   "lon": -6.7476
+  },
+  {
+   "code": "CI-D-ZZ",
+   "name": "Zanzan",
+   "level": 1,
+   "parent": null,
+   "lat": 8.67275,
+   "lon": -3.34803
+  },
+  {
+   "code": "CI-R-ABJ",
+   "name": "Abidjan (district autonome)",
+   "level": 2,
+   "parent": "CI-D-AB",
+   "lat": 5.41397,
+   "lon": -4.0752
+  },
+  {
+   "code": "CI-R-AGT",
+   "name": "Agnéby-Tiassa",
+   "level": 2,
+   "parent": "CI-D-LG",
+   "lat": 5.93541,
+   "lon": -4.51788
+  },
+  {
+   "code": "CI-R-BAF",
+   "name": "Bafing",
+   "level": 2,
+   "parent": "CI-D-WR",
+   "lat": 8.38908,
+   "lon": -7.62443
+  },
+  {
+   "code": "CI-R-BAG",
+   "name": "Bagoué",
+   "level": 2,
+   "parent": "CI-D-SV",
+   "lat": 9.86114,
+   "lon": -6.47105
+  },
+  {
+   "code": "CI-R-BOU",
+   "name": "Bounkani",
+   "level": 2,
+   "parent": "CI-D-ZZ",
+   "lat": 9.16757,
+   "lon": -3.44661
+  },
+  {
+   "code": "CI-R-BEL",
+   "name": "Bélier",
+   "level": 2,
+   "parent": "CI-D-LC",
+   "lat": 7.20672,
+   "lon": -5.05057
+  },
+  {
+   "code": "CI-R-BER",
+   "name": "Béré",
+   "level": 2,
+   "parent": "CI-D-WR",
+   "lat": 8.36548,
+   "lon": -6.04067
+  },
+  {
+   "code": "CI-R-CAV",
+   "name": "Cavally",
+   "level": 2,
+   "parent": "CI-D-MG",
+   "lat": 6.33312,
+   "lon": -7.68613
+  },
+  {
+   "code": "CI-R-FOL",
+   "name": "Folon",
+   "level": 2,
+   "parent": "CI-D-DN",
+   "lat": 10.09999,
+   "lon": -7.40026
+  },
+  {
+   "code": "CI-R-GBE",
+   "name": "Gbêkê",
+   "level": 2,
+   "parent": "CI-D-VB",
+   "lat": 7.70297,
+   "lon": -5.21636
+  },
+  {
+   "code": "CI-R-GBO",
+   "name": "Gbôklé",
+   "level": 2,
+   "parent": "CI-D-BS",
+   "lat": 5.26706,
+   "lon": -5.97176
+  },
+  {
+   "code": "CI-R-GON",
+   "name": "Gontougo",
+   "level": 2,
+   "parent": "CI-D-ZZ",
+   "lat": 7.99229,
+   "lon": -3.21249
+  },
+  {
+   "code": "CI-R-GRP",
+   "name": "Grands-Ponts",
+   "level": 2,
+   "parent": "CI-D-LG",
+   "lat": 5.36015,
+   "lon": -4.77649
+  },
+  {
+   "code": "CI-R-GUE",
+   "name": "Guémon",
+   "level": 2,
+   "parent": "CI-D-MG",
+   "lat": 7.01805,
+   "lon": -7.31606
+  },
+  {
+   "code": "CI-R-GOH",
+   "name": "Gôh",
+   "level": 2,
+   "parent": "CI-D-GD",
+   "lat": 6.21582,
+   "lon": -5.87772
+  },
+  {
+   "code": "CI-R-HAM",
+   "name": "Hambol",
+   "level": 2,
+   "parent": "CI-D-VB",
+   "lat": 8.5205,
+   "lon": -4.83851
+  },
+  {
+   "code": "CI-R-HSA",
+   "name": "Haut-Sassandra",
+   "level": 2,
+   "parent": "CI-D-SM",
+   "lat": 7.03605,
+   "lon": -6.60351
+  },
+  {
+   "code": "CI-R-IFF",
+   "name": "Iffou",
+   "level": 2,
+   "parent": "CI-D-LC",
+   "lat": 7.46412,
+   "lon": -4.06002
+  },
+  {
+   "code": "CI-R-IND",
+   "name": "Indénié-Djuablin",
+   "level": 2,
+   "parent": "CI-D-CM",
+   "lat": 6.71527,
+   "lon": -3.42712
+  },
+  {
+   "code": "CI-R-KAB",
+   "name": "Kabadougou",
+   "level": 2,
+   "parent": "CI-D-DN",
+   "lat": 9.42354,
+   "lon": -7.37858
+  },
+  {
+   "code": "CI-R-ME",
+   "name": "La Mé",
+   "level": 2,
+   "parent": "CI-D-LG",
+   "lat": 5.98917,
+   "lon": -3.7433
+  },
+  {
+   "code": "CI-R-LOH",
+   "name": "Lôh-Djiboua",
+   "level": 2,
+   "parent": "CI-D-GD",
+   "lat": 5.75722,
+   "lon": -5.40427
+  },
+  {
+   "code": "CI-R-MAR",
+   "name": "Marahoué",
+   "level": 2,
+   "parent": "CI-D-SM",
+   "lat": 7.08512,
+   "lon": -5.8928
+  },
+  {
+   "code": "CI-R-MOR",
+   "name": "Moronou",
+   "level": 2,
+   "parent": "CI-D-LC",
+   "lat": 6.60295,
+   "lon": -4.23922
+  },
+  {
+   "code": "CI-R-NZI",
+   "name": "N'Zi",
+   "level": 2,
+   "parent": "CI-D-LC",
+   "lat": 6.97377,
+   "lon": -4.56082
+  },
+  {
+   "code": "CI-R-NAW",
+   "name": "Nawa",
+   "level": 2,
+   "parent": "CI-D-BS",
+   "lat": 5.85311,
+   "lon": -6.66921
+  },
+  {
+   "code": "CI-R-POR",
+   "name": "Poro",
+   "level": 2,
+   "parent": "CI-D-SV",
+   "lat": 9.41572,
+   "lon": -5.83293
+  },
+  {
+   "code": "CI-R-SPE",
+   "name": "San-Pédro",
+   "level": 2,
+   "parent": "CI-D-BS",
+   "lat": 5.0129,
+   "lon": -7.04719
+  },
+  {
+   "code": "CI-R-SCO",
+   "name": "Sud-Comoé",
+   "level": 2,
+   "parent": "CI-D-CM",
+   "lat": 5.48065,
+   "lon": -3.1801
+  },
+  {
+   "code": "CI-R-TCH",
+   "name": "Tchologo",
+   "level": 2,
+   "parent": "CI-D-SV",
+   "lat": 9.50511,
+   "lon": -4.82
+  },
+  {
+   "code": "CI-R-TON",
+   "name": "Tonkpi",
+   "level": 2,
+   "parent": "CI-D-MG",
+   "lat": 7.47344,
+   "lon": -7.82091
+  },
+  {
+   "code": "CI-R-WOR",
+   "name": "Worodougou",
+   "level": 2,
+   "parent": "CI-D-WR",
+   "lat": 8.38054,
+   "lon": -6.75755
+  },
+  {
+   "code": "CI-R-YAM",
+   "name": "Yamoussoukro (district autonome)",
+   "level": 2,
+   "parent": "CI-D-YM",
+   "lat": 6.85583,
+   "lon": -5.26867
+  }
+ ]
+}
