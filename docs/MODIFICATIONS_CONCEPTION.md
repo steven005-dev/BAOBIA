@@ -86,9 +86,8 @@ textes via `vocabulaire.ts`, heure de l'appareil (`received_at`).
 **Y4. Écrans vétérinaire** : liste des signalements de sa zone, évaluation (valider / refuser), alerte avec
 les élevages exposés, le chemin et le cas négatif. Le serveur est déjà prêt.
 
-**Y5. Petit ajout serveur pour la fiche de l'animal** : lister les signalements d'**un animal**
-(filtre `unit_id` sur `/api/health-reports/`, mêmes règles de visibilité). Le chef de projet affiche ensuite
-une partie « Santé » sur la fiche de l'animal.
+**Y5. Filtre des signalements par animal : FAIT par le chef de projet le 20/11** (`?unit_id=` sur
+`/api/health-reports/`, 1 test, branche `feature/identity-boucle`). Rien à faire, juste le relire.
 
 ### Après dimanche
 
@@ -108,16 +107,17 @@ administrateur : c'est le rôle Autorité, sur son périmètre (le pays pour l'a
 
 ### Pour dimanche
 - **C1. Spec v1.4** : faite le 20/11.
-- **C2. Boucles préimprimées** comme voie principale : à l'ajout d'un animal, **scanner la boucle** déjà
+- **C2. FAIT (20/11).** Boucles préimprimées comme voie principale : à l'ajout d'un animal, **scanner la boucle** déjà
   remise par l'agent ; le code créé par le téléphone devient le secours.
-- **C3. Partie « Santé » sur la fiche de l'animal** (avec Y5).
+- **C3. FAIT (20/11).** Partie « Santé » sur la fiche de l'animal.
 - Fait le 19/11 : **l'agent de terrain inscrit l'éleveur** et son élevage (pas d'inscription libre).
 
 ### Après dimanche
 - **C4. Passeport de l'animal** : page de vérification par QR pour un acheteur (origine, état sanitaire,
   vaccinations), sans nom d'élevage.
 - **C5. Alertes par SMS** pour les éleveurs sans smartphone.
-- **C6. Changement de mot de passe** de l'éleveur.
+- **C6. FAIT (20/11).** Changement de mot de passe.
+- **Accord de l'éleveur à l'inscription (loi 2013-450) : FAIT (20/11).**
 
 ---
 
