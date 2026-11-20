@@ -362,3 +362,24 @@ export const carteTextes = {
   listeZones: 'Liste des zones',
   sourceTraces: 'Limites : geoBoundaries (CC BY 4.0).',
 } as const
+
+/** À VALIDER : flux des animaux sur la carte (vétérinaire, autorité). */
+export const fluxTextes = {
+  afficher: 'Flux des animaux',
+  periode: 'Période',
+  jours: (n: number) => (n === 365 ? '1 an' : `${n} jours`),
+  aucun: 'Aucun mouvement sur cette période.',
+  mouvementDu: 'Mouvement du',
+  de: 'De',
+  vers: 'Vers',
+  animaux: 'Animaux',
+  sansEtiquette: 'sans étiquette',
+  liste: 'Mouvements affichés',
+  confiance: {
+    sure: 'Confirmé des deux côtés',
+    one_side: "Déclaré d'un seul côté",
+    disputed: 'Contesté',
+  },
+  types: { transfer: 'Transfert', sale: 'Vente', slaughter: 'Abattage', temporary: 'Temporaire', return: 'Retour' } as Record<string, string>,
+  sexes: { male: 'mâle', female: 'femelle' } as Record<string, string>,
+} as const

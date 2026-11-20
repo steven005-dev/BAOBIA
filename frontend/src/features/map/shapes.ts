@@ -5,6 +5,8 @@
 
 import { geoArea, geoMercator, geoPath, type GeoPermissibleObjects } from 'd3-geo'
 
+import type { FlowConfidence } from '@/features/health/api'
+
 import ciZones from './ci-zones.json'
 
 interface ZoneShape {
@@ -76,4 +78,11 @@ export function boxFor(bounds: [[number, number], [number, number]]): ViewBox {
   const cx = (x0 + x1) / 2
   const cy = (y0 + y1) / 2
   return [cx - w / 2, cy - h / 2, w, h]
+}
+
+/** Style d'un flux selon sa confiance : trait plein, tirets ou pointillés (jamais la couleur seule). */
+export const FLOW_STYLE: Record<FlowConfidence, { color: string; dash?: string }> = {
+  sure: { color: '#175CD3' },
+  one_side: { color: '#175CD3', dash: '7 5' },
+  disputed: { color: '#9C2A56', dash: '1.5 4' },
 }
