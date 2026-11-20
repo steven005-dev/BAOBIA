@@ -240,3 +240,23 @@ Le fichier `.github/CODEOWNERS` applique ces responsabilités. Méthode de trava
 ## 14. Calendrier indicatif
 
 Répétition générale le **samedi 21 novembre**, présentation le **dimanche 22 novembre 2026**. Priorités : voir `MODIFICATIONS_CONCEPTION.md`. Si le temps manque, on sacrifie dans cet ordre : tableau de bord d'administration, détail de zone enrichi, carnet sanitaire complet, indicateur de complétude. On ne sacrifie jamais le parcours de la section 6.
+
+## 15. Feuille de route : vers un outil officiel (après la présentation)
+
+Décidée le 20/11 par le chef de projet ; à faire **dans cet ordre**. Le point 8 (consentement à
+l'inscription) est déjà fait. À présenter au jury comme la suite du prototype.
+
+| Ordre | Point | Ce qu'on fait | Pourquoi | Qui |
+|---|---|---|---|---|
+| 1 | Un silence n'est pas une absence | Rapport hebdomadaire « rien à signaler » par zone (agent ou vétérinaire) ; une zone sans rapport passe en « pas assez de données » sur la carte | Règle de base de la surveillance : sans elle, la carte rassure à tort | Yéo |
+| 2 | Couverture par zone | Animaux enregistrés / population estimée, part des transferts confirmés, délai observation → signalement | L'autorité sait si une zone est bien suivie | Yéo |
+| 3 | Suspicion ≠ confirmé | Prélèvement envoyé et résultat du laboratoire liés à l'alerte | Un foyer officiel exige la confirmation du laboratoire | Yéo |
+| 4 | Zone sous restriction | L'autorité place une zone sous restriction ; un transfert qui en sort est signalé (voire bloqué) ; visites assignées aux vétérinaires | Prévenir ne suffit pas : il faut aider à contenir | Yéo, Romuald |
+| 5 | Bilan d'une alerte | À la clôture : élevages exposés, joints, visités, délais, résultat | Rendre des comptes ; prouver l'efficacité | Yéo |
+| 6 | Fausses données | Contrôles sur le journal : animal enregistré deux fois, transfert impossible, rythme d'inscription anormal, signalements répétés | Une donnée fausse décrédibilise toute la carte | Chef de projet, Romuald |
+| 7 | Retour au déclarant | Le déclarant voit le statut de son signalement (reçu, en cours, vu par un vétérinaire) | Sans retour, on arrête de signaler | Yéo (à faire dès les écrans santé si possible) |
+| 8 | Données personnelles | ~~Accord de l'éleveur à l'inscription~~ (fait le 20/11) ; ensuite durée de conservation, hébergement, déclaration à l'ARTCI (loi 2013-450) | Exigé avant tout essai réel | Chef de projet |
+| 9 | Inscription des professionnels | L'autorité crée ses agents ; numéro d'ordre des vétérinaires vérifié | Aujourd'hui seule l'équipe technique crée ces comptes (/admin) | Chef de projet |
+| 10 | Cadre officiel | Liste officielle des maladies à déclaration obligatoire ; export pour les déclarations (OMSA) | Parler la langue des services de l'État | Yéo, avec un vétérinaire |
+
+Puis : modèle de détection d'anomalies (quand il y aura de vraies données), passeport de l'animal, alertes par SMS.
