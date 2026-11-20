@@ -23,10 +23,9 @@ class Notification(UUIDModel):
         FAILED = "failed"
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
-    # Spec : FK alert NULL. La table `alert` (application alerts, Yéo) n'existe pas encore :
-    # identifiant seul en attendant ; une migration le changera en ForeignKey("alerts.Alert")
-    # quand le modèle sera fusionné (même colonne alert_id, aucune donnée à migrer).
-    alert_id = models.UUIDField(null=True, blank=True, db_index=True)
+    # Spec : FK alert NULL (même colonne alert_id qu'avant, quand ce n'était qu'un identifiant).
+    alert = models.ForeignKey("alerts.Alert", null=True, blank=True, on_delete=models.PROTECT,
+                              related_name="+")
     kind = models.CharField(max_length=24)
     message_code = models.CharField(max_length=40)
     params = models.JSONField(default=dict, blank=True)
