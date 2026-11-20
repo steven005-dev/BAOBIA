@@ -1,6 +1,6 @@
 # BAOBIA : script de démonstration (SELAB 2026)
 
-> Pour la personne qui présente et pour la répétition générale du 19 novembre.
+> Pour la personne qui présente et pour la répétition générale du 21 novembre.
 > Toutes les données sont **simulées**. BAOBIA n'a **aucune valeur légale**.
 > Les étapes marquées ⏳ dépendent de modules encore en cours : mettre ce fichier à jour à la répétition.
 
@@ -52,17 +52,19 @@ Administration Django (équipe technique seulement) : `/admin/`, compte créé a
 
 | # | Qui (téléphone) | Action | Ce qu'on montre | État |
 |---|---|---|---|---|
-| 0 | Agent de terrain | Accueil → **Inscrire** → nom, numéro, élevage, zone (Nord), espèces → Inscrire | pas d'inscription libre : l'agent crée le compte en face de l'éleveur ; **le mot de passe (8 chiffres) est créé par le téléphone** et affiché pour être remis ; puis **Ajouter ses animaux** (mandat de l'agent) ; l'éleveur se connecte avec ce numéro et ce mot de passe | ✅ |
+| 0 | Agent de terrain | Accueil → **Inscrire** → nom, numéro, élevage, zone (Nord), espèces → **cocher l'accord de l'éleveur** → Inscrire | pas d'inscription libre ; sans l'accord (loi 2013-450), l'inscription est refusée : l'agent crée le compte en face de l'éleveur ; **le mot de passe (8 chiffres) est créé par le téléphone** et affiché pour être remis ; puis **Ajouter ses animaux** (mandat de l'agent) ; l'éleveur se connecte avec ce numéro et ce mot de passe | ✅ |
 | 1 | Éleveur 1 | Accueil → **Ajouter** → Bovin → Ajouter | une question par écran, gros boutons, « Animal ajouté. » ; **le code de l'étiquette est créé automatiquement** ; la fiche montre l'étiquette (QR + code) et le bouton **Imprimer** | ✅ |
 | 2 | Éleveur 1 | **Scanner** l'étiquette `KECT T2U8 V` | « Animal retrouvé. », fiche ; le scan est enregistré (heure, position si autorisée) | ✅ |
 | 3 | Éleveur 3 | **Scanner** la même étiquette | vue réduite : l'espèce seulement, **aucun nom d'élevage** (confidentialité) | ✅ |
-| 4 | Éleveur 1 → Éleveur 2 | **Transférer** un animal, puis **Recevoir** et confirmer avec le code | double confirmation, l'animal change d'élevage | ⏳ Romuald |
-| 5 | Éleveur 2 | **Signaler** un cas (symptômes cochés, photo) | « Signalement envoyé au vétérinaire. » | ⏳ Yéo |
-| 6 | Vétérinaire | **Valider** ; voir les élevages exposés, le chemin et le **cas négatif** | l'alerte s'explique ; seul le vétérinaire habilité valide | ⏳ Yéo |
+| 4 | Éleveur 1 → Éleveur 2 | **Transférer** un animal, puis **Recevoir** et confirmer avec le code | double confirmation, l'animal change d'élevage ; sans réseau, l'envoi attend dans la file et part au retour du réseau | ✅ |
+| 5 | Éleveur 2 | **Signaler** un cas (symptômes cochés, photo) | « Signalement envoyé au vétérinaire. » ; ensuite la fiche de l'animal montre sa partie **Santé** (signalement en cours) | ⏳ Yéo : serveur prêt, écran Signaler pas encore fait |
+| 6 | Vétérinaire | **Valider** ; voir les élevages exposés, le chemin et le **cas négatif** | l'alerte s'explique ; seul le vétérinaire habilité valide | ⏳ Yéo : serveur prêt, écrans pas encore faits |
 | 7 | Éleveur exposé | Accueil : message « Un animal arrivé chez vous a peut-être été en contact avec un cas suspect. Appelez votre vétérinaire. » | message neutre, sans l'élevage d'origine | ✅ affichage prêt, ⏳ déclenchement par l'alerte |
-| 8 | Autorité | **Carte** : zones normal / à surveiller / contact possible / alerte / pas assez de données | couleur + icône + motif, aucun nom d'élevage | ⏳ Yéo |
+| 8 | Autorité | **Carte** : zones normal / à surveiller / contact possible / alerte / pas assez de données | couleur + icône + motif, aucun nom d'élevage | ⏳ Yéo : données prêtes, écran Carte pas encore fait |
 
 Bonus si le temps le permet : sur la fiche de l'animal ajouté à l'étape 1, **Changer l'étiquette** → « Abîmée » → un nouveau code est créé ; scanner l'ancien code renvoie « Étiquette remplacée » vers le même animal.
+
+Bonus 2 : l'éleveur inscrit à l'étape 0 se connecte avec le mot de passe remis par l'agent, puis Accueil → **Changer mon mot de passe** (l'actuel, puis un nouveau d'au moins 8 caractères).
 
 **Second scénario (si demandé) : regroupement de zone.** Plusieurs signalements similaires dans une zone → les vétérinaires de la zone sont prévenus → l'un confirme ou infirme. Règles explicables, pas d'IA qui diagnostique. ⏳ Yéo.
 
@@ -85,9 +87,10 @@ Bonus si le temps le permet : sur la fiche de l'animal ajouté à l'étape 1, **
 | Session expirée | se reconnecter (numéro + mot de passe), les données restent sur le serveur |
 | Tout plante | vidéo complète du parcours |
 
-## 7. Répétition du 19 novembre
+## 7. Répétition du 21 novembre
 
 - Chronométrer chaque étape ; viser 7 minutes, questions comprises 10.
 - Faire le parcours **deux fois** sur les vrais téléphones.
-- Hors ligne : ne le montrer **que si** la file d'envoi de Romuald est branchée (`setOfflineQueue`) ; sans elle, un ajout sans réseau affiche « Pas de connexion » et n'est pas gardé.
+- Hors ligne : la file d'envoi de Romuald est branchée pour les **mouvements** (Transférer, Recevoir). Pour les autres actions (ex. Ajouter un animal), sans réseau l'écran affiche « Pas de connexion » et rien n'est gardé : ne montrer le hors-ligne que sur un transfert.
+- Base : la base tourne dans **Docker** (port 5433 sur ce PC). Lancer Docker Desktop avant `docker compose up -d`.
 - Mettre à jour la colonne « État » de la section 4 et retirer ce qui n'est pas prêt.
