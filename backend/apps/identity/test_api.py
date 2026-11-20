@@ -428,3 +428,91 @@ class GeneratedLabelApiTests(ApiTestCase):
             "label_code": self.labels[0].short_code,
         }, format="json")
         self.assertEqual(resp.status_code, 400)
+
+
+class BreederRegisterApiTests(ApiTestCase):
+    """Agent de terrain : inscrire un éleveur et son premier élevage."""
+
+    def setUp(self):
+        super().setUp()
+        self.agent = make_user("+2250000000110", "Agent test")
+        give_role(self.agent, "field_agent", zone=self.region)
+
+    def body(self, **extra):
+        data = {
+            "id": str(uuid.uuid4()), "full_name": "Koffi Yao", "phone": "07 11 22 33 44",
+            "password": "K7RT2M9P", "center_id": str(uuid.uuid4()),
+            "center_name": "Ferme Koffi", "zone_id": str(self.zone.id),
+            "species_ids": [str(self.cattle.id)],
+        }
+        data.update(extra)
+        return data
+
+    def test_agent_registers_breeder_center_and_mandate(self):
+        body = self.body()
+        resp = self.as_user(self.agent).post("/api/breeders/", body, format="json")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()["breeder"]["phone"], "+2250711223344")
+        self.assertNotIn("password", resp.json()["breeder"])
+
+        from django.contrib.auth import get_user_model
+        from apps.accounts.services import user_has_role
+
+        breeder = get_user_model().objects.get(pk=body["id"])
+        self.assertTrue(breeder.check_password("K7RT2M9P"))
+        self.assertTrue(user_has_role(breeder, "breeder"))
+        # L'éleveur est détenteur ; l'agent a un mandat "declare" sur l'élevage.
+        self.assertEqual(services.accessible_centers(breeder)[0]["access"], "holder")
+        agent_access = {c["id"]: c for c in services.accessible_centers(self.agent)}
+        self.assertEqual(agent_access[uuid.UUID(body["center_id"])]["mandate_scope"], "declare")
+        self.assertTrue(AuditLog.objects.filter(action="user.register", actor_user=self.agent).exists())
+
+        # Rejeu hors ligne : sans effet.
+        again = self.client.post("/api/breeders/", body, format="json")
+        self.assertEqual(again.status_code, 200)
+        self.assertEqual(AuditLog.objects.filter(action="user.register").count(), 1)
+
+        # L'éleveur peut se connecter avec le mot de passe remis.
+        self.client.force_authenticate(user=None)
+        login = self.client.post("/api/auth/login/", {"phone": "0711223344", "password": "K7RT2M9P"},
+                                 format="json")
+        self.assertEqual(login.status_code, 200)
+
+    def test_agent_can_add_animals_for_the_breeder(self):
+        body = self.body()
+        self.as_user(self.agent).post("/api/breeders/", body, format="json")
+        unit = {"id": str(uuid.uuid4()), "kind": "animal", "center_id": body["center_id"],
+                "species_id": str(self.cattle.id), "label_code": self.labels[0].short_code}
+        resp = self.client.post("/api/units/", unit, format="json")
+        self.assertEqual(resp.status_code, 201, resp.content)
+
+    def test_only_field_agent(self):
+        resp = self.as_user(self.breeder).post("/api/breeders/", self.body(), format="json")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_zone_outside_agent_sector_refused(self):
+        resp = self.as_user(self.agent).post(
+            "/api/breeders/", self.body(zone_id=str(self.other_zone.id)), format="json")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_phone_already_used_rolls_back(self):
+        body = self.body(phone=self.breeder.phone)
+        resp = self.as_user(self.agent).post("/api/breeders/", body, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("déjà un compte", resp.json()["detail"])
+        self.assertFalse(services.Center.objects.filter(pk=body["center_id"]).exists())
+
+    def test_weak_password_refused_and_nothing_created(self):
+        body = self.body(password="123")
+        resp = self.as_user(self.agent).post("/api/breeders/", body, format="json")
+        self.assertEqual(resp.status_code, 400)
+        from django.contrib.auth import get_user_model
+        self.assertFalse(get_user_model().objects.filter(pk=body["id"]).exists())
+
+    def test_same_center_id_from_another_agent_conflicts(self):
+        body = self.body()
+        self.as_user(self.agent).post("/api/breeders/", body, format="json")
+        other = make_user("+2250000000111", "Autre agent")
+        give_role(other, "field_agent", zone=self.region)
+        resp = self.as_user(other).post("/api/breeders/", body, format="json")
+        self.assertEqual(resp.status_code, 409)

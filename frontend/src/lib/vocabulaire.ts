@@ -68,6 +68,7 @@ export const mots = {
   cacher: 'Cacher',
   plus: 'Plus',
   moins: 'Moins',
+  inscrire: 'Inscrire', // À VALIDER : l'agent inscrit un éleveur
 } as const
 
 /** Les 5 états sanitaires (carte, badges, maquette 3D). */
@@ -147,6 +148,10 @@ export const messages = {
   etiquettesRemises: 'Étiquettes remises.',
   aucuneEtiquette: 'Aucune étiquette ajoutée.',
   etiquetteDejaDansLaListe: 'Cette étiquette est déjà dans la liste.',
+  // À VALIDER : inscription d'un éleveur par l'agent de terrain.
+  eleveurInscrit: 'Éleveur inscrit.',
+  remettreIdentifiants: "Donnez ce numéro et ce mot de passe à l'éleveur. Il s'en sert pour se connecter.",
+  inscriptionEnAttente: "L'inscription partira toute seule au retour du réseau. Vous pouvez déjà donner le mot de passe.",
 } as const
 
 /**
@@ -200,6 +205,7 @@ export const champs = {
   nomElevage: "Nom de l'élevage",
   zone: 'Zone',
   especesElevees: 'Espèces élevées',
+  nomEleveur: "Nom de l'éleveur",
 } as const
 
 /** Titres d'écran. */
@@ -215,6 +221,8 @@ export const titres = {
   pourquoiChanger: "Pourquoi changer l'étiquette ?",
   ajouterElevage: 'Ajouter un élevage',
   remettreEtiquettes: 'Remettre des étiquettes',
+  inscrireEleveur: 'Inscrire un éleveur',
+  ajouterSesAnimaux: 'Ajouter ses animaux',
 } as const
 
 /**

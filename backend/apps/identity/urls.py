@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    BreederRegisterView,
     CenterDetailView,
     CenterLabelsView,
     CenterListCreateView,
@@ -15,6 +16,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path("breeders/", BreederRegisterView.as_view(), name="breeder-register"),
     path("centers/", CenterListCreateView.as_view(), name="center-list"),
     path("centers/<uuid:center_id>/", CenterDetailView.as_view(), name="center-detail"),
     path("centers/zones/", ZoneListView.as_view(), name="center-zones"),

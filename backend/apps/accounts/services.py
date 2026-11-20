@@ -15,7 +15,7 @@ Fonctions de lecture :
 - authorities_for_zone(zone_id, at=None, include_ancestors=True) -> list[User]
 
 Fonctions d'écriture (journalisées dans audit_log) :
-- grant_role, verify_habilitation, create_mandate
+- grant_role, verify_habilitation, create_mandate, register_breeder (inscription par un agent)
 - authenticate_by_phone, issue_tokens, refresh_access, logout
 """
 
@@ -173,6 +173,45 @@ def verify_habilitation(habilitation, verifier, at=None):
         },
     )
     return habilitation
+
+
+PHONE_TAKEN = "Ce numéro a déjà un compte."
+
+
+@transaction.atomic
+def register_breeder(*, phone, full_name, password, zone, registered_by, user_id=None):
+    """Crée le compte d'un éleveur inscrit par un agent de terrain (rôle "breeder" sur `zone`).
+
+    Pas d'inscription libre : c'est l'agent, en face de l'éleveur, qui crée le compte et lui
+    remet son mot de passe. Lève AccountsError si le numéro a déjà un compte ou si le mot
+    de passe est refusé. Journalisé "user.register" (acteur : l'agent).
+    """
+    from django.contrib.auth.password_validation import validate_password
+
+    User = get_user_model()
+    try:
+        phone = normalize_phone(phone)
+    except ValidationError as exc:
+        raise AccountsError(exc.messages[0]) from exc
+    if User.objects.filter(phone=phone).exists():
+        raise AccountsError(PHONE_TAKEN)
+    kwargs = {"id": user_id} if user_id else {}
+    user = User(phone=phone, full_name=full_name.strip(), **kwargs)
+    try:
+        validate_password(password, user)
+    except ValidationError as exc:
+        raise AccountsError(" ".join(exc.messages)) from exc
+    user.set_password(password)
+    user.save()
+    grant_role(user, "breeder", zone=zone, granted_by=registered_by)
+    record_event(
+        "user.register",
+        actor_user=registered_by,
+        entity_table="app_user",
+        entity_id=user.id,
+        details={"role": "breeder", "zone_id": str(zone.id) if zone else None},
+    )
+    return user
 
 
 def create_mandate(agent, granted_by, scope, *, starts_at=None, ends_at=None, mandate_id=None):

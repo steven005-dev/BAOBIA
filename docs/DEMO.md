@@ -46,6 +46,7 @@ Pour « Ajouter un animal », **aucun code à préparer** : le téléphone crée
 
 | # | Qui (téléphone) | Action | Ce qu'on montre | État |
 |---|---|---|---|---|
+| 0 | Agent de terrain | Accueil → **Inscrire** → nom, numéro, élevage, zone (Nord), espèces → Inscrire | pas d'inscription libre : l'agent crée le compte en face de l'éleveur ; **le mot de passe (8 chiffres) est créé par le téléphone** et affiché pour être remis ; puis **Ajouter ses animaux** (mandat de l'agent) ; l'éleveur se connecte avec ce numéro et ce mot de passe | ✅ |
 | 1 | Éleveur 1 | Accueil → **Ajouter** → Bovin → Ajouter | une question par écran, gros boutons, « Animal ajouté. » ; **le code de l'étiquette est créé automatiquement** ; la fiche montre l'étiquette (QR + code) et le bouton **Imprimer** | ✅ |
 | 2 | Éleveur 1 | **Scanner** l'étiquette `KECT T2U8 V` | « Animal retrouvé. », fiche ; le scan est enregistré (heure, position si autorisée) | ✅ |
 | 3 | Éleveur 3 | **Scanner** la même étiquette | vue réduite : l'espèce seulement, **aucun nom d'élevage** (confidentialité) | ✅ |

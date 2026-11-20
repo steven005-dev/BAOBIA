@@ -3,7 +3,7 @@
  * mène à l'écran du module concerné. Pas de logique métier ici.
  */
 
-import { ArrowLeftRight, CirclePlus, Flag, LogOut, PackageCheck, QrCode } from 'lucide-react'
+import { ArrowLeftRight, CirclePlus, Flag, LogOut, PackageCheck, QrCode, UserPlus } from 'lucide-react'
 import { Navigate } from 'react-router'
 
 import { useAuth } from '@/auth/AuthProvider'
@@ -25,6 +25,7 @@ export function HomePage() {
         <BigChoiceTile to="/mouvements" icon={ArrowLeftRight} label={mots.transferer} />
         <BigChoiceTile to="/mouvements/recevoir" icon={PackageCheck} label={mots.recevoir} />
         <BigChoiceTile to="/sante" icon={Flag} label={mots.signaler} />
+        {hasRole('field_agent') && <BigChoiceTile to="/eleveurs/nouveau" icon={UserPlus} label={mots.inscrire} />}
         {hasRole('field_agent') && <BigChoiceTile to="/etiquettes" icon={QrCode} label={mots.etiquettes} />}
       </div>
       <Button variant="ghost" icon={LogOut} onClick={() => void logout()} className="self-center">

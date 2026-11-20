@@ -18,28 +18,10 @@ import { useToast } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
 import { champs, erreurs, messages, mots, titres } from '@/lib/vocabulaire'
 
-import { identityApi, newUuid, type Zone } from './api'
+import { identityApi, newUuid } from './api'
 import { speciesIcon } from './speciesIcon'
 import { useResource } from './useResource'
-
-/** Zones dans l'ordre de la hiérarchie, avec un retrait par niveau (lecture facile). */
-function zoneOptions(zones: Zone[]) {
-  const children = new Map<string | null, Zone[]>()
-  for (const zone of zones) {
-    const list = children.get(zone.parent_id) ?? []
-    list.push(zone)
-    children.set(zone.parent_id, list)
-  }
-  const known = new Set(zones.map((z) => z.id))
-  const roots = zones.filter((z) => !z.parent_id || !known.has(z.parent_id))
-  const out: { value: string; label: string }[] = []
-  const walk = (zone: Zone, depth: number) => {
-    out.push({ value: zone.id, label: `${'  '.repeat(depth)}${zone.name}` })
-    for (const child of children.get(zone.id) ?? []) walk(child, depth + 1)
-  }
-  roots.forEach((root) => walk(root, 0))
-  return out
-}
+import { zoneOptions } from './zones'
 
 export function AddCenterPage() {
   const navigate = useNavigate()
