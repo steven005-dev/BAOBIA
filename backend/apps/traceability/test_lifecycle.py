@@ -1,5 +1,6 @@
 """Cycle de vie d'un mouvement : confirmation assistée (MV-04), rapprochement (MV-06),
-refus, annulation, expiration (MV-05), contestation (MV-09), événements de vie (MV-02)."""
+refus, annulation (MV-05), contestation (MV-09), événements de vie (MV-02), confiance des
+mouvements pour l'exposition (R1, spec v1.4)."""
 
 import uuid
 from datetime import timedelta
@@ -21,7 +22,8 @@ from apps.traceability.models import (
     StatusEvent,
     UnitOpenMovement,
 )
-from apps.traceability.services import expire_overdue_movements
+from apps.traceability import services
+from apps.traceability.services import movements_for_exposure
 
 User = get_user_model()
 
@@ -226,20 +228,40 @@ class RefuseCancelContestTests(LifecycleBase):
                          .status_code, 403)
 
 
-class ExpiryTests(LifecycleBase):
-    def test_unreceived_departure_expires_after_code_validity(self):
-        movement_id, _ = self.declare([self.cow])
-        received_id, code = self.declare([self.calf])
-        self.confirm(self.buyer, received_id, code)
+class ExposureConfidenceTests(LifecycleBase):
+    """R1 / spec v1.4 : un mouvement déclaré d'un seul côté compte, avec sa confiance."""
 
-        self.assertEqual(expire_overdue_movements(), 0)
-        self.assertEqual(expire_overdue_movements(now=timezone.now() + timedelta(days=8)), 1)
-        movement = Movement.objects.get(pk=movement_id)
-        self.assertEqual(movement.status, "expired")
-        self.assertTrue(movement.status_events.filter(status="expired").exists())
-        self.assertFalse(UnitOpenMovement.objects.filter(unit=self.cow).exists())
-        self.assertEqual(Movement.objects.get(pk=received_id).status, "confirmed")
-        self.assertEqual(expire_overdue_movements(now=timezone.now() + timedelta(days=8)), 0)
+    def confidences(self, **kwargs):
+        return {str(m.pk): m.confidence
+                for m in movements_for_exposure(from_center_ids=[self.origin.id], **kwargs)}
+
+    def test_each_movement_carries_its_confidence(self):
+        one_side, _ = self.declare([self.cow])
+        sure, code = self.declare([self.calf])
+        self.confirm(self.buyer, sure, code)
+        self.assertEqual(self.confidences(),
+                         {str(one_side): "one_side", str(sure): "confirmed"})
+        self.assertEqual(self.confidences(include_one_side=False), {str(sure): "confirmed"})
+
+    def test_disputed_counts_and_cancelled_does_not(self):
+        disputed, _ = self.declare([self.cow])
+        self.client.force_authenticate(user=self.buyer)
+        self.client.post(f"/api/movements/{disputed}/refuse/",
+                         {"center_id": str(self.dest.id), "reason": "Non conforme"}, format="json")
+        cancelled, _ = self.declare([self.calf])
+        self.client.force_authenticate(user=self.seller)
+        self.client.post(f"/api/movements/{cancelled}/cancel/",
+                         {"center_id": str(self.origin.id), "reason": "Erreur"}, format="json")
+        self.assertEqual(self.confidences(), {str(disputed): "disputed"})
+
+    def test_species_and_window_filters(self):
+        movement_id, _ = self.declare([self.cow])
+        self.assertIn(str(movement_id), self.confidences(species_id=self.cattle.id))
+        self.assertEqual(self.confidences(species_id=self.poultry.id), {})
+        self.assertEqual(self.confidences(since=timezone.now() + timedelta(days=1)), {})
+
+    def test_one_side_departure_never_expires_on_its_own(self):
+        self.assertFalse(hasattr(services, "expire_overdue_movements"))
 
 
 class ClockTests(LifecycleBase):

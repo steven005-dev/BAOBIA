@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from django.db import IntegrityError, transaction
-from django.db.models import Exists, OuterRef
+from django.db.models import Case, CharField, Exists, OuterRef, Value, When
 from django.utils import timezone
 
 from apps.audit.services import record_event
@@ -460,32 +460,50 @@ def contest_movement(*, movement_id, center_id, created_by, reason, occurred_at=
     return movement
 
 
-def expire_overdue_movements(now=None):
-    """Passe « expiré » les départs jamais reçus dont aucun code n'est plus valable
-    (MV-05). Les unités sont libérées et restent au départ. Retourne le nombre expiré."""
-    now = now or timezone.now()
-    valid_code = MovementConfirmationCode.objects.filter(
-        movement=OuterRef("pk"), used_at__isnull=True, expires_at__gt=now
+# Spec v1.4 (9.6, 9.11) : un mouvement déclaré d'un seul côté reste `declared` et compte
+# pour l'exposition avec une confiance réduite ; il n'expire donc pas automatiquement.
+CONFIDENCE_BY_STATUS = {
+    "confirmed": "confirmed",  # sûr : expéditeur et destinataire
+    "partial": "confirmed",    # reçu par les deux, avec un écart de nombre
+    "declared": "one_side",    # probable : déclaré d'un seul côté
+    "disputed": "disputed",    # contesté : compte par prudence, confiance réduite
+}
+
+
+def movement_confidence(movement) -> Optional[str]:
+    """Confiance d'un mouvement pour le calcul d'exposition (R1) ; None s'il ne compte pas
+    (annulé, expiré)."""
+    return CONFIDENCE_BY_STATUS.get(movement.status)
+
+
+def movements_for_exposure(*, from_center_ids, since=None, until=None, species_id=None,
+                           include_one_side=True):
+    """Mouvements sortants à suivre pour l'exposition (lecture seule, pour alerts).
+
+    Chaque mouvement porte `confidence` : « confirmed », « one_side » ou « disputed ».
+    Seuls les mouvements vers un élevage enregistré comptent ; `species_id` garde ceux qui
+    portent au moins une unité de cette espèce. Ne modifie rien.
+    """
+    statuses = [s for s, c in CONFIDENCE_BY_STATUS.items()
+                if include_one_side or c != "one_side"]
+    movements = Movement.objects.filter(
+        from_center_id__in=list(from_center_ids), to_center__isnull=False, status__in=statuses,
     )
-    candidates = (
-        Movement.objects.filter(status="declared")
-        .exclude(confirmations__side="receiver")
-        .exclude(Exists(valid_code))
-        .values_list("pk", flat=True)
-    )
-    count = 0
-    for movement_id in list(candidates):
-        with transaction.atomic():
-            movement = _locked_movement(movement_id)
-            if movement.status != "declared":
-                continue
-            _close_open_movement(movement)
-            _set_status(movement, "expired", reason="Délai de confirmation dépassé",
-                        created_by=movement.created_by, occurred_at=now)
-            record_event(action="movement.expire", entity_table="movement",
-                         entity_id=movement.id)
-            count += 1
-    return count
+    if since is not None:
+        movements = movements.filter(occurred_at__gte=since)
+    if until is not None:
+        movements = movements.filter(occurred_at__lte=until)
+    if species_id is not None:
+        movements = movements.filter(
+            Exists(MovementItem.objects.filter(movement=OuterRef("pk"),
+                                               unit__species_id=species_id))
+        )
+    return movements.annotate(
+        confidence=Case(
+            *[When(status=s, then=Value(c)) for s, c in CONFIDENCE_BY_STATUS.items()],
+            output_field=CharField(),
+        )
+    ).order_by("occurred_at")
 
 
 UNIT_EVENT_TYPES = ("death", "slaughter", "missing", "found", "stolen_declared", "stolen_lifted")
