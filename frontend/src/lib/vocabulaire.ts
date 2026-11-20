@@ -159,6 +159,7 @@ export const messages = {
   inscriptionEnAttente: "L'inscription partira toute seule au retour du réseau. Vous pouvez déjà donner le mot de passe.",
   // À VALIDER : boucle préimprimée (spec v1.4).
   boucleLue: 'Boucle lue.',
+  aucunSignalement: 'Aucun signalement pour cet animal.', // À VALIDER
   scannezLaBoucle: 'Scannez la boucle ou saisissez son code.',
 } as const
 
@@ -174,6 +175,22 @@ export const textesNotifications: Record<string, string> = {
   'zone_cluster.escalated': 'Rappel : des signalements attendent toujours un avis.',
   'alert.review_disagreement': "Deux vétérinaires ne sont pas d'accord sur une alerte.",
 }
+
+/** À VALIDER : où en est un signalement (fiche de l'animal). Mots neutres, aucun diagnostic. */
+export const etatsSignalement = {
+  submitted: 'Envoyé au vétérinaire',
+  under_review: "En cours d'examen",
+  validated: 'Validé par le vétérinaire',
+  rejected: 'Écarté par le vétérinaire',
+  closed: 'Clôturé',
+} as const
+
+/** À VALIDER : types de signalement (contrat santé, report_kind). */
+export const typesSignalement = {
+  suspicion: 'Cas suspect',
+  death: 'Mort',
+  abnormal_mortality: 'Morts anormales',
+} as const
 
 /** Messages d'erreur du client API et de la connexion (À VALIDER, ton de la charte). */
 export const erreurs = {

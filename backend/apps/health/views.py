@@ -143,6 +143,7 @@ class ReportListCreateView(APIView):
         ),
         parameters=[
             OpenApiParameter("center_id", str, description="Un seul élevage."),
+            OpenApiParameter("unit_id", str, description="Un seul animal ou lot (fiche de l'animal)."),
             OpenApiParameter("status", str, description="submitted, under_review, validated, "
                                                          "rejected, closed"),
         ],
@@ -155,6 +156,9 @@ class ReportListCreateView(APIView):
         center_id = request.query_params.get("center_id")
         if center_id:
             reports = reports.filter(center_id=center_id)
+        unit_id = request.query_params.get("unit_id")
+        if unit_id:
+            reports = reports.filter(subjects__unit_id=unit_id).distinct()
         status_filter = request.query_params.get("status")
         if status_filter:
             reports = reports.filter(status=status_filter)
