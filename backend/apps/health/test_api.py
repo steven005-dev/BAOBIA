@@ -125,6 +125,7 @@ class ReportSubmitTests(HealthApiTestCase):
             "symptom_codes": [],
             "subjects": [{"unit_id": str(self.unit.id), "condition": "dead"}],
             "self_severity": "low",
+            "dead_count": 1,
         }
         for field, value in changes.items():
             with self.subTest(field=field):
@@ -142,6 +143,25 @@ class ReportSubmitTests(HealthApiTestCase):
                 resp = self.as_user(self.breeder).post("/api/health-reports/", body,
                                                        format="json")
                 self.assertEqual(resp.status_code, 409, resp.content)
+
+    def test_dead_and_sick_are_counted_apart(self):
+        # Spec v1.4 (Y1) : 5 animaux touchés dont 2 morts, donc 3 malades.
+        resp = self.submit(affected_count=5, dead_count=2)
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual((resp.json()["affected_count"], resp.json()["dead_count"]), (5, 2))
+        self.assertEqual(HealthReport.objects.get().dead_count, 2)
+
+    def test_old_offline_payload_without_dead_count_still_works(self):
+        resp = self.submit()
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()["dead_count"], 0)
+
+    def test_more_dead_than_affected_is_refused(self):
+        resp = self.submit(affected_count=2, dead_count=3)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("morts", resp.json()["detail"])
+        self.assertEqual(self.submit(dead_count=-1).status_code, 400)
+        self.assertEqual(HealthReport.objects.count(), 0)
 
     def test_other_breeder_cannot_report_for_my_farm(self):
         resp = self.submit(user=self.stranger, subjects=[])

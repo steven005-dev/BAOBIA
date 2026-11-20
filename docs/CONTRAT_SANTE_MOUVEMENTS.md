@@ -13,7 +13,8 @@
    | `id` | UUID | oui | UUID de l'opération, créé sur le téléphone = identifiant du signalement |
    | `center_id` | UUID | oui | élevage concerné |
    | `report_kind` | `suspicion`, `death`, `abnormal_mortality` | oui | |
-   | `affected_count` | entier ≥ 1 | oui | |
+   | `affected_count` | entier ≥ 1 | oui | animaux touchés : malades + morts |
+   | `dead_count` | entier, 0 à `affected_count` | non (0) | **v1.4** : dont morts ; malades = `affected_count` − `dead_count`. Absent d'une opération ancienne → 0 |
    | `self_severity` | `low`, `medium`, `high` | oui | gravité estimée par l'éleveur |
    | `occurred_at` | date-heure ISO | oui | date d'observation, selon le téléphone |
    | `note` | texte ≤ 500 | non | |

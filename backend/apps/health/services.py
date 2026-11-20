@@ -177,7 +177,7 @@ def _decimal_or_none(value):
     return None if value is None else Decimal(str(value))
 
 
-def _same_report(report, *, user, center, report_kind, affected_count, self_severity,
+def _same_report(report, *, user, center, report_kind, affected_count, dead_count, self_severity,
                  occurred_at, note, latitude, longitude, position_accuracy_m,
                  position_source, symptom_codes, subjects):
     """Vrai si le signalement existant a EXACTEMENT le même contenu que l'envoi rejoué
@@ -196,6 +196,7 @@ def _same_report(report, *, user, center, report_kind, affected_count, self_seve
         and report.center_id == center.pk
         and report.report_kind == report_kind
         and report.affected_count == affected_count
+        and report.dead_count == dead_count
         and report.self_severity == self_severity
         and report.occurred_at == occurred_at
         and (report.note or None) == (note or None)
@@ -211,6 +212,7 @@ def _same_report(report, *, user, center, report_kind, affected_count, self_seve
 @transaction.atomic
 def submit_report(
     *, report_id, user, center, report_kind, affected_count, self_severity, occurred_at,
+    dead_count=0,
     symptom_codes=(), subjects=(), note=None, latitude=None, longitude=None,
     position_accuracy_m=None, position_source="none", device=None, is_simulated=False,
 ):
@@ -225,7 +227,8 @@ def submit_report(
     symptom_codes = list(dict.fromkeys(symptom_codes))
     subjects = list(subjects)
     comparable = dict(user=user, center=center, report_kind=report_kind,
-                      affected_count=affected_count, self_severity=self_severity,
+                      affected_count=affected_count, dead_count=dead_count,
+                      self_severity=self_severity,
                       occurred_at=occurred_at, note=note, latitude=latitude,
                       longitude=longitude, position_accuracy_m=position_accuracy_m,
                       position_source=position_source, symptom_codes=symptom_codes,
@@ -241,6 +244,8 @@ def submit_report(
         raise HealthForbidden("Vous n'avez pas accès à cet élevage.")
     if center.status != "active":
         raise HealthError("Cet élevage est fermé.")
+    if not 0 <= dead_count <= affected_count:
+        raise HealthError("Le nombre de morts ne peut pas dépasser le nombre d'animaux touchés.")
 
     symptoms = list(Symptom.objects.filter(code__in=symptom_codes, is_active=True))
     unknown = sorted(set(symptom_codes) - {s.code for s in symptoms})
@@ -261,6 +266,7 @@ def submit_report(
         center=center,
         report_kind=report_kind,
         affected_count=affected_count,
+        dead_count=dead_count,
         self_severity=self_severity,
         note=note or None,
         occurred_at=occurred_at,
@@ -284,7 +290,7 @@ def submit_report(
         "health_report.submit", actor_user=user, entity_table="health_report",
         entity_id=report.pk, device=device,
         details={"center_id": str(center.pk), "report_kind": report_kind,
-                 "affected_count": affected_count},
+                 "affected_count": affected_count, "dead_count": dead_count},
     )
     return report, True
 
