@@ -202,6 +202,32 @@ class ReportVisibilityTests(HealthApiTestCase):
     def test_vet_of_another_zone_sees_nothing(self):
         self.assertEqual(self.ids(self.far_vet), [])
 
+    def test_filter_by_animal(self):
+        # Y5 : partie « Santé » de la fiche de l'animal.
+        other_unit = identity_services.register_animal(
+            species=self.cattle, center=self.center, created_by=self.breeder)
+        other_id = self.submit(subjects=[{"unit_id": str(other_unit.id),
+                                          "condition": "dead"}]).json()["id"]
+        no_subject_id = self.submit(subjects=[]).json()["id"]
+        for user in (self.breeder, self.vet):
+            resp = self.as_user(user).get(f"/api/health-reports/?unit_id={self.unit.id}")
+            self.assertEqual([r["id"] for r in resp.json()], [self.report_id])
+            resp = self.as_user(user).get(f"/api/health-reports/?unit_id={other_unit.id}")
+            self.assertEqual([r["id"] for r in resp.json()], [other_id])
+        self.assertNotIn(no_subject_id, [r["id"] for r in self.as_user(self.breeder).get(
+            f"/api/health-reports/?unit_id={self.unit.id}").json()])
+
+    def test_filter_by_animal_keeps_visibility_rules(self):
+        resp = self.as_user(self.stranger).get(f"/api/health-reports/?unit_id={self.unit.id}")
+        self.assertEqual(resp.json(), [])
+        resp = self.as_user(self.far_vet).get(f"/api/health-reports/?unit_id={self.unit.id}")
+        self.assertEqual(resp.json(), [])
+
+    def test_invalid_filter_is_refused(self):
+        for name in ("unit_id", "center_id"):
+            resp = self.as_user(self.breeder).get(f"/api/health-reports/?{name}=pas-un-uuid")
+            self.assertEqual(resp.status_code, 400)
+
     def test_symptoms_filtered_by_species(self):
         Symptom.objects.create(code="feathers", label_fr="Plumes ébouriffées")
         resp = self.as_user(self.breeder).get("/api/symptoms/?species=cattle")
