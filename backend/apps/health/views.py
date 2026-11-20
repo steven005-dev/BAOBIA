@@ -69,6 +69,7 @@ def report_data(report, *, professional):
                    "zone_id": report.center.zone_id},
         "report_kind": report.report_kind,
         "affected_count": report.affected_count,
+        "dead_count": report.dead_count,
         "self_severity": report.self_severity,
         "note": report.note,
         "status": report.status,
