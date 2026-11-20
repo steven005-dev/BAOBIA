@@ -152,6 +152,9 @@ export const messages = {
   eleveurInscrit: 'Éleveur inscrit.',
   remettreIdentifiants: "Donnez ce numéro et ce mot de passe à l'éleveur. Il s'en sert pour se connecter.",
   inscriptionEnAttente: "L'inscription partira toute seule au retour du réseau. Vous pouvez déjà donner le mot de passe.",
+  // À VALIDER : boucle préimprimée (spec v1.4).
+  boucleLue: 'Boucle lue.',
+  scannezLaBoucle: 'Scannez la boucle ou saisissez son code.',
 } as const
 
 /**
@@ -206,6 +209,9 @@ export const champs = {
   zone: 'Zone',
   especesElevees: 'Espèces élevées',
   nomEleveur: "Nom de l'éleveur",
+  // À VALIDER : boucle préimprimée (spec v1.4).
+  scannerBoucle: 'Scanner la boucle',
+  creerCode: 'Pas de boucle : créer un code',
 } as const
 
 /** Titres d'écran. */
@@ -223,4 +229,5 @@ export const titres = {
   remettreEtiquettes: 'Remettre des étiquettes',
   inscrireEleveur: 'Inscrire un éleveur',
   ajouterSesAnimaux: 'Ajouter ses animaux',
+  quelleEtiquette: 'Quelle étiquette ?', // À VALIDER
 } as const

@@ -166,6 +166,14 @@ class UnitApiTests(ApiTestCase):
         resp = self.post_unit(self.breeder, kind="animal", species_id=str(self.cattle.id), label_code=wrong)
         self.assertEqual(resp.status_code, 400)
 
+    def test_preprinted_tag_issued_to_my_center_accepted(self):
+        # Spec v1.4 : boucle préimprimée remise par l'agent à cet élevage, scannée à l'ajout.
+        services.issue_labels([self.labels[2]], self.center, issued_by=self.breeder)
+        resp = self.post_unit(self.breeder, kind="animal", species_id=str(self.cattle.id),
+                              label_code=self.labels[2].short_code)
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()["label_code"], self.labels[2].short_code)
+
     def test_label_issued_to_another_center_refused(self):
         services.issue_labels([self.labels[1]], self.stranger_center, issued_by=self.stranger)
         resp = self.post_unit(self.breeder, kind="animal", species_id=str(self.cattle.id),

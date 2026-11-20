@@ -38,7 +38,13 @@ Administration Django (équipe technique seulement) : `/admin/`, compte créé a
 | `XT5A H86V 9` · `5ZGQ Y7M4 6` · `QGKQ U8G4 S` | posées : animaux 5 à 7, Élevage B (2 bovins, 1 chèvre) |
 | `ZSQE 4QYM G` | posée : animal 8, Élevage C (mouton) |
 
-Pour « Ajouter un animal », **aucun code à préparer** : le téléphone crée le code et la fiche l'affiche en grand.
+**Boucles préimprimées (voie principale, spec v1.4).** À « Ajouter un animal », dernière étape **Quelle étiquette ?** → **Scanner la boucle** : scanner le QR de la boucle ou saisir son code. Le serveur accepte une boucle remise à cet élevage (ou jamais remise), pas encore posée.
+
+- Base de démo actuelle (20/11) : 4 boucles remises à l'élevage de l'Éleveur 1 : `7DSJ VLHQ J` · `KPJK SH4C 7` · `LSZ9 P598 4` · `WSQP 73YM 8`.
+- Base recréée par `seed --demo` : 2 boucles vierges remises à l'Élevage A et 2 à l'Élevage B (codes 9 à 12 du lot de démo).
+- Pour la scène, imprimer leurs QR à l'avance (n'importe quel générateur de QR : le QR ne contient que le code).
+
+**Secours :** **Pas de boucle : créer un code** → le téléphone crée le code et la fiche l'affiche en grand, avec **Imprimer**.
 
 ## 4. Le parcours (≈ 7 minutes)
 
