@@ -145,7 +145,9 @@ class HealthReport(DeclarationModel, PositionMixin):
 
     center = models.ForeignKey("identity.Center", on_delete=models.PROTECT, related_name="+")
     report_kind = models.CharField(max_length=18, choices=Kind.choices)
-    affected_count = models.IntegerField(default=1)
+    affected_count = models.IntegerField(default=1)  # animaux touchés : malades + morts
+    # v1.4 : dont morts ; malades = affected_count - dead_count (détection précoce).
+    dead_count = models.IntegerField(default=0)
     self_severity = models.CharField(max_length=6, choices=Severity.choices)
     note = models.CharField(max_length=500, null=True, blank=True)
     status = models.CharField(
@@ -171,6 +173,11 @@ class HealthReport(DeclarationModel, PositionMixin):
             models.CheckConstraint(
                 condition=models.Q(affected_count__gt=0),
                 name="chk_health_report_affected_count",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(dead_count__gte=0)
+                & models.Q(dead_count__lte=models.F("affected_count")),
+                name="chk_health_report_dead_count",
             ),
             models.CheckConstraint(
                 condition=models.Q(self_severity__in=("low", "medium", "high")),

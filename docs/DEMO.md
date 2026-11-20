@@ -1,6 +1,6 @@
 # BAOBIA : script de démonstration (SELAB 2026)
 
-> Pour la personne qui présente et pour la répétition générale du 21 novembre.
+> Pour la personne qui présente et pour la répétition générale du samedi 21 novembre (présentation le dimanche 22).
 > Toutes les données sont **simulées**. BAOBIA n'a **aucune valeur légale**.
 > Les étapes marquées ⏳ dépendent de modules encore en cours : mettre ce fichier à jour à la répétition.
 
@@ -57,10 +57,10 @@ Administration Django (équipe technique seulement) : `/admin/`, compte créé a
 | 2 | Éleveur 1 | **Scanner** l'étiquette `KECT T2U8 V` | « Animal retrouvé. », fiche ; le scan est enregistré (heure, position si autorisée) | ✅ |
 | 3 | Éleveur 3 | **Scanner** la même étiquette | vue réduite : l'espèce seulement, **aucun nom d'élevage** (confidentialité) | ✅ |
 | 4 | Éleveur 1 → Éleveur 2 | **Transférer** un animal, puis **Recevoir** et confirmer avec le code | double confirmation, l'animal change d'élevage ; sans réseau, l'envoi attend dans la file et part au retour du réseau | ✅ |
-| 5 | Éleveur 2 | **Signaler** un cas (symptômes cochés, photo) | « Signalement envoyé au vétérinaire. » ; ensuite la fiche de l'animal montre sa partie **Santé** (signalement en cours) | ⏳ Yéo : serveur prêt, écran Signaler pas encore fait |
-| 6 | Vétérinaire | **Valider** ; voir les élevages exposés, le chemin et le **cas négatif** | l'alerte s'explique ; seul le vétérinaire habilité valide | ⏳ Yéo : serveur prêt, écrans pas encore faits |
+| 5 | Éleveur 2 | **Signaler** un cas : une question par écran, symptômes en icônes, **combien de morts**, puis **combien de malades** | « Signalement envoyé au vétérinaire. » ; ensuite la fiche de l'animal montre sa partie **Santé** (signalement en cours) | ✅ écran fait (Yéo), à vérifier en répétition |
+| 6 | Vétérinaire | **Valider** ; voir les élevages exposés, le chemin et le **cas négatif** | l'alerte s'explique (chemin, élevages écartés, transfert déclaré d'un seul côté) ; seul le vétérinaire habilité valide | ✅ écrans faits (Yéo), à vérifier en répétition |
 | 7 | Éleveur exposé | Accueil : message « Un animal arrivé chez vous a peut-être été en contact avec un cas suspect. Appelez votre vétérinaire. » | message neutre, sans l'élevage d'origine | ✅ affichage prêt, ⏳ déclenchement par l'alerte |
-| 8 | Autorité | **Carte** : zones normal / à surveiller / contact possible / alerte / pas assez de données | couleur + icône + motif, aucun nom d'élevage | ⏳ Yéo : données prêtes, écran Carte pas encore fait |
+| 8 | Autorité | **Carte** : zones normal / à surveiller / contact possible / alerte / pas assez de données | couleur + icône + motif, aucun nom d'élevage ; tuiles par zone (pas de fond de carte) | ✅ écran fait (Yéo), à vérifier en répétition |
 
 Bonus si le temps le permet : sur la fiche de l'animal ajouté à l'étape 1, **Changer l'étiquette** → « Abîmée » → un nouveau code est créé ; scanner l'ancien code renvoie « Étiquette remplacée » vers le même animal.
 
@@ -87,7 +87,7 @@ Bonus 2 : l'éleveur inscrit à l'étape 0 se connecte avec le mot de passe remi
 | Session expirée | se reconnecter (numéro + mot de passe), les données restent sur le serveur |
 | Tout plante | vidéo complète du parcours |
 
-## 7. Répétition du 21 novembre
+## 7. Répétition du samedi 21 novembre
 
 - Chronométrer chaque étape ; viser 7 minutes, questions comprises 10.
 - Faire le parcours **deux fois** sur les vrais téléphones.

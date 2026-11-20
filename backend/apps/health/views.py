@@ -4,6 +4,8 @@ Droits et masquage côté serveur (health.services) ; écritures par services
 (audit compris). Messages : vocabulaire officiel de la charte.
 """
 
+import uuid
+
 from django.db import connection
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
@@ -69,6 +71,7 @@ def report_data(report, *, professional):
                    "zone_id": report.center.zone_id},
         "report_kind": report.report_kind,
         "affected_count": report.affected_count,
+        "dead_count": report.dead_count,
         "self_severity": report.self_severity,
         "note": report.note,
         "status": report.status,
@@ -95,6 +98,16 @@ def report_data(report, *, professional):
             if report.latitude is not None else None
         )
     return data
+
+
+def _uuid_param(request, name):
+    value = request.query_params.get(name)
+    if not value:
+        return None
+    try:
+        return uuid.UUID(value)
+    except ValueError as exc:
+        raise ValidationError({"detail": "Identifiant invalide."}) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +156,8 @@ class ReportListCreateView(APIView):
         ),
         parameters=[
             OpenApiParameter("center_id", str, description="Un seul élevage."),
-            OpenApiParameter("unit_id", str, description="Un seul animal ou lot (fiche de l'animal)."),
+            OpenApiParameter("unit_id", str, description="Un seul animal ou lot (fiche de "
+                                                       "l'animal) : signalements qui le citent."),
             OpenApiParameter("status", str, description="submitted, under_review, validated, "
                                                          "rejected, closed"),
         ],
@@ -153,12 +167,12 @@ class ReportListCreateView(APIView):
         reports = _report_queryset().filter(
             pk__in=services.visible_reports(request.user).values("pk")
         )
-        center_id = request.query_params.get("center_id")
+        center_id = _uuid_param(request, "center_id")
         if center_id:
             reports = reports.filter(center_id=center_id)
-        unit_id = request.query_params.get("unit_id")
+        unit_id = _uuid_param(request, "unit_id")
         if unit_id:
-            reports = reports.filter(subjects__unit_id=unit_id).distinct()
+            reports = reports.filter(subjects__unit_id=unit_id)
         status_filter = request.query_params.get("status")
         if status_filter:
             reports = reports.filter(status=status_filter)

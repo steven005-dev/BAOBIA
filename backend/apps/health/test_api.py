@@ -100,6 +100,33 @@ class ReportSubmitTests(HealthApiTestCase):
             AuditLog.objects.filter(action="health_report.submit", entity_id=data["id"]).exists()
         )
 
+    def make_real(self, *, user=True, center=True):
+        """Les aides de test créent des données simulées : on en rend certaines réelles."""
+        self.breeder.is_simulated = not user
+        self.breeder.save(update_fields=["is_simulated"])
+        self.center.is_simulated = not center
+        self.center.save(update_fields=["is_simulated"])
+
+    def test_real_account_on_real_farm_is_not_simulated(self):
+        self.make_real()
+        resp = self.submit()
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertFalse(resp.json()["is_simulated"])
+        self.assertFalse(HealthReport.objects.get().is_simulated)
+
+    def test_report_from_demo_account_is_simulated(self):
+        self.make_real(user=False)
+        resp = self.submit()
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertTrue(resp.json()["is_simulated"])
+        self.assertTrue(HealthReport.objects.get().is_simulated)
+
+    def test_report_on_demo_farm_is_simulated(self):
+        self.make_real(center=False)
+        resp = self.submit()
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertTrue(HealthReport.objects.get().is_simulated)
+
     def test_replaying_the_same_operation_creates_nothing(self):
         body = self.body()
         first = self.as_user(self.breeder).post("/api/health-reports/", body, format="json")
@@ -125,6 +152,7 @@ class ReportSubmitTests(HealthApiTestCase):
             "symptom_codes": [],
             "subjects": [{"unit_id": str(self.unit.id), "condition": "dead"}],
             "self_severity": "low",
+            "dead_count": 1,
         }
         for field, value in changes.items():
             with self.subTest(field=field):
@@ -142,6 +170,25 @@ class ReportSubmitTests(HealthApiTestCase):
                 resp = self.as_user(self.breeder).post("/api/health-reports/", body,
                                                        format="json")
                 self.assertEqual(resp.status_code, 409, resp.content)
+
+    def test_dead_and_sick_are_counted_apart(self):
+        # Spec v1.4 (Y1) : 5 animaux touchés dont 2 morts, donc 3 malades.
+        resp = self.submit(affected_count=5, dead_count=2)
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual((resp.json()["affected_count"], resp.json()["dead_count"]), (5, 2))
+        self.assertEqual(HealthReport.objects.get().dead_count, 2)
+
+    def test_old_offline_payload_without_dead_count_still_works(self):
+        resp = self.submit()
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()["dead_count"], 0)
+
+    def test_more_dead_than_affected_is_refused(self):
+        resp = self.submit(affected_count=2, dead_count=3)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("morts", resp.json()["detail"])
+        self.assertEqual(self.submit(dead_count=-1).status_code, 400)
+        self.assertEqual(HealthReport.objects.count(), 0)
 
     def test_other_breeder_cannot_report_for_my_farm(self):
         resp = self.submit(user=self.stranger, subjects=[])
@@ -207,6 +254,32 @@ class ReportVisibilityTests(HealthApiTestCase):
 
     def test_vet_of_another_zone_sees_nothing(self):
         self.assertEqual(self.ids(self.far_vet), [])
+
+    def test_filter_by_animal(self):
+        # Y5 : partie « Santé » de la fiche de l'animal.
+        other_unit = identity_services.register_animal(
+            species=self.cattle, center=self.center, created_by=self.breeder)
+        other_id = self.submit(subjects=[{"unit_id": str(other_unit.id),
+                                          "condition": "dead"}]).json()["id"]
+        no_subject_id = self.submit(subjects=[]).json()["id"]
+        for user in (self.breeder, self.vet):
+            resp = self.as_user(user).get(f"/api/health-reports/?unit_id={self.unit.id}")
+            self.assertEqual([r["id"] for r in resp.json()], [self.report_id])
+            resp = self.as_user(user).get(f"/api/health-reports/?unit_id={other_unit.id}")
+            self.assertEqual([r["id"] for r in resp.json()], [other_id])
+        self.assertNotIn(no_subject_id, [r["id"] for r in self.as_user(self.breeder).get(
+            f"/api/health-reports/?unit_id={self.unit.id}").json()])
+
+    def test_filter_by_animal_keeps_visibility_rules(self):
+        resp = self.as_user(self.stranger).get(f"/api/health-reports/?unit_id={self.unit.id}")
+        self.assertEqual(resp.json(), [])
+        resp = self.as_user(self.far_vet).get(f"/api/health-reports/?unit_id={self.unit.id}")
+        self.assertEqual(resp.json(), [])
+
+    def test_invalid_filter_is_refused(self):
+        for name in ("unit_id", "center_id"):
+            resp = self.as_user(self.breeder).get(f"/api/health-reports/?{name}=pas-un-uuid")
+            self.assertEqual(resp.status_code, 400)
 
     def test_symptoms_filtered_by_species(self):
         Symptom.objects.create(code="feathers", label_fr="Plumes ébouriffées")

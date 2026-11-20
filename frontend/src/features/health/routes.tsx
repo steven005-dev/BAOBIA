@@ -3,12 +3,14 @@
  * Ajouter ici les écrans ; ne pas modifier src/app/.
  */
 
-import { HeartPulse } from 'lucide-react'
 import type { RouteObject } from 'react-router'
 
-import { ModulePlaceholder } from '@/app/ModulePlaceholder'
-import { mots } from '@/lib/vocabulaire'
+import { ReportDetailPage } from './ReportDetailPage'
+import { ReportPage } from './ReportPage'
+import { ReportsPage } from './ReportsPage'
 
 export const healthRoutes: RouteObject[] = [
-  { path: 'sante', element: <ModulePlaceholder title={mots.sante} icon={HeartPulse} /> },
+  { path: 'sante', element: <ReportsPage /> },
+  { path: 'sante/signaler', element: <ReportPage /> },
+  { path: 'sante/:reportId', element: <ReportDetailPage /> },
 ]

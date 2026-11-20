@@ -115,6 +115,8 @@ class HealthReportConstraintTests(HealthFixtureMixin, TestCase):
             ("affected_count", 0),
             ("self_severity", "max"),
             ("position_source", "sat"),
+            ("dead_count", -1),
+            ("dead_count", 3),  # plus de morts que d'animaux touchés (2)
         ):
             with self.subTest(field=field):
                 self.assert_db_refuses(lambda: self.make_report(**{field: value}))

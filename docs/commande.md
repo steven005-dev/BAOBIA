@@ -18,8 +18,8 @@ Chacune doit afficher un numéro de version.
 
 ### 1.2 Récupérer le projet
 ```powershell
-git clone https://github.com/ORGANISATION/baobia.git
-cd baobia
+git clone https://github.com/steven005-dev/BAOBIA.git
+cd BAOBIA
 ```
 (Remplacez l'adresse par celle du dépôt.)
 

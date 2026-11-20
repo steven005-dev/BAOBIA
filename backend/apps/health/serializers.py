@@ -21,7 +21,11 @@ class ReportCreateSerializer(serializers.Serializer):
     id = serializers.UUIDField(help_text="UUID de l'opération créé sur le téléphone.")
     center_id = serializers.UUIDField()
     report_kind = serializers.ChoiceField(choices=HealthReport.Kind.choices)
-    affected_count = serializers.IntegerField(min_value=1)
+    affected_count = serializers.IntegerField(min_value=1,
+                                              help_text="Animaux touchés : malades + morts.")
+    dead_count = serializers.IntegerField(min_value=0, default=0,
+                                          help_text="Dont morts (v1.4). Malades = "
+                                                    "affected_count - dead_count.")
     self_severity = serializers.ChoiceField(choices=HealthReport.Severity.choices)
     occurred_at = serializers.DateTimeField(help_text="Date d'observation (téléphone).")
     note = serializers.CharField(max_length=500, required=False, allow_blank=True)
@@ -85,6 +89,7 @@ class ReportOutSerializer(serializers.Serializer):
     center = CenterRefSerializer()
     report_kind = serializers.CharField()
     affected_count = serializers.IntegerField()
+    dead_count = serializers.IntegerField()
     self_severity = serializers.CharField()
     note = serializers.CharField(allow_null=True)
     status = serializers.CharField()
