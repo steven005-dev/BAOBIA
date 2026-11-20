@@ -117,3 +117,31 @@ class MapApiTests(AlertScenarioMixin, TestCase):
                     if z["zone"]["code"] == "TEST-DEP")
         self.assertEqual((zone["state"], zone["centers_count"], zone["animals_count"]),
                          ("unknown", None, None))
+
+
+class MapFlowsApiTests(AlertScenarioMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+        self.client = APIClient()
+
+    def test_vet_sees_flows_with_their_animals(self):
+        self.move("B", "C", days_ago=1, status="declared", unit_key="B")
+        self.client.force_authenticate(user=self.vet)
+        data = self.client.get("/api/map/flows/?days=30").json()
+        self.assertEqual(data["days"], 30)
+        flows = data["flows"]
+        self.assertEqual(len(flows), 4)  # A->B, B->C, C->E, B->C déclaré ; A->D (60 j) exclu
+        self.assertEqual(flows[0]["confidence"], "one_side")  # le plus récent d'abord
+        self.assertTrue({"from", "to", "animals", "count"} <= set(flows[0]))
+        self.assertEqual(flows[0]["animals"][0]["species"], "cattle")
+
+    def test_longer_period_and_bad_value(self):
+        self.client.force_authenticate(user=self.vet)
+        self.assertEqual(len(self.client.get("/api/map/flows/?days=90").json()["flows"]), 4)
+        self.assertEqual(self.client.get("/api/map/flows/?days=abc").json()["days"], 30)
+
+    def test_breeder_cannot_see_flows(self):
+        self.client.force_authenticate(user=self.users["B"])
+        self.assertEqual(self.client.get("/api/map/flows/").status_code, 403)
+

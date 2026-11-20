@@ -6,6 +6,10 @@
 - La carte ne donne aucun nom ni position d'élevage, sauf ceux de l'utilisateur (CA-04).
 """
 
+from datetime import timedelta
+
+from django.db.models import Q
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
@@ -16,7 +20,8 @@ from apps.accounts.serializers import ErrorSerializer
 from apps.audit.services import record_event
 from apps.geo.models import ZoneStat
 from apps.identity.models import Center
-from apps.identity.services import accessible_centers
+from apps.identity.services import accessible_centers, active_label
+from apps.traceability.models import Movement
 
 from . import services
 from .models import Alert
@@ -182,3 +187,76 @@ class MapZonesView(APIView):
                 for p in points
             ],
         })
+
+
+# Confiance d'un mouvement (spec v1.4, 9.6 et 9.11) : déduite de son statut.
+FLOW_CONFIDENCE = {"confirmed": "sure", "partial": "sure", "declared": "one_side", "disputed": "disputed"}
+FLOW_DAYS = (7, 30, 90, 365)
+
+
+def _flow_place(center):
+    return {"name": center.name, "zone": center.zone.name, "type": center.center_type,
+            "latitude": center.latitude, "longitude": center.longitude}
+
+
+class MapFlowsView(APIView):
+    """Flux des animaux pour la carte : vétérinaire et autorité seulement, sur leurs zones."""
+
+    permission_classes = [HasRole("veterinarian", "authority")]
+
+    @extend_schema(
+        tags=[TAG_MAP],
+        summary="Flux des animaux (vétérinaire, autorité)",
+        description=(
+            "Mouvements entre deux élevages dont l'un est dans une zone couverte par "
+            "l'utilisateur, sur les `days` derniers jours (7, 30, 90 ou 365 ; 30 par défaut). "
+            "Pour chacun : origine, destination, date, confiance (sure = confirmé des deux côtés, "
+            "one_side = déclaré d'un seul côté, disputed = contesté) et les animaux ou lots "
+            "(espèce, code d'étiquette). Annulés et expirés exclus."
+        ),
+        parameters=[OpenApiParameter("days", int), OpenApiParameter("species", str)],
+        responses={200: dict},
+    )
+    def get(self, request):
+        try:
+            days = int(request.query_params.get("days", 30))
+        except ValueError:
+            days = 30
+        days = days if days in FLOW_DAYS else 30
+        covered = services._covered_zone_ids(request.user)
+        movements = (
+            Movement.objects.filter(to_center__isnull=False, status__in=list(FLOW_CONFIDENCE),
+                                    occurred_at__gte=timezone.now() - timedelta(days=days))
+            .filter(Q(from_center__zone_id__in=covered) | Q(to_center__zone_id__in=covered))
+            .select_related("from_center__zone", "to_center__zone")
+            .prefetch_related("items__unit__species", "items__unit__animal")
+            .order_by("-occurred_at")[:300]
+        )
+        species = request.query_params.get("species")
+        flows = []
+        for m in movements:
+            animals = []
+            for item in m.items.all():
+                unit = item.unit
+                if species and unit.species.code != species:
+                    continue
+                label = active_label(unit)
+                animal = getattr(unit, "animal", None) if unit.kind == "animal" else None
+                animals.append({
+                    "kind": unit.kind, "species": unit.species.code, "species_label": unit.species.label_fr,
+                    "code": label.short_code if label else None,
+                    "local_name": unit.local_name,
+                    "sex": animal.sex if animal else None,
+                    "quantity": item.quantity_sent,
+                })
+            if not animals:
+                continue
+            flows.append({
+                "id": m.id, "occurred_at": m.occurred_at, "received_at": m.received_at,
+                "movement_type": m.movement_type, "status": m.status,
+                "confidence": FLOW_CONFIDENCE[m.status],
+                "from": _flow_place(m.from_center), "to": _flow_place(m.to_center),
+                "animals": animals,
+                "count": sum(a["quantity"] for a in animals),
+            })
+        return Response({"days": days, "flows": flows})
