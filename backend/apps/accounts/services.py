@@ -179,7 +179,8 @@ PHONE_TAKEN = "Ce numéro a déjà un compte."
 
 
 @transaction.atomic
-def register_breeder(*, phone, full_name, password, zone, registered_by, user_id=None):
+def register_breeder(*, phone, full_name, password, zone, registered_by, user_id=None,
+                     consent_notice=None):
     """Crée le compte d'un éleveur inscrit par un agent de terrain (rôle "breeder" sur `zone`).
 
     Pas d'inscription libre : c'est l'agent, en face de l'éleveur, qui crée le compte et lui
@@ -209,7 +210,9 @@ def register_breeder(*, phone, full_name, password, zone, registered_by, user_id
         actor_user=registered_by,
         entity_table="app_user",
         entity_id=user.id,
-        details={"role": "breeder", "zone_id": str(zone.id) if zone else None},
+        details={"role": "breeder", "zone_id": str(zone.id) if zone else None,
+                 # Preuve de l'accord : version de la notice lue par l'agent (loi 2013-450).
+                 "consent_notice": consent_notice},
     )
     return user
 

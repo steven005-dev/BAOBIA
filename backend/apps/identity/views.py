@@ -22,6 +22,7 @@ from apps.geo.models import Zone
 from . import services
 from .models import Center, CenterMember, CenterSpecies, IdentitySupport, IdentityVerification, Label, TrackedUnit
 from .serializers import (
+    CONSENT_NOTICE_VERSION,
     BreederCreateSerializer,
     BreederRegisteredSerializer,
     CenterCreateSerializer,
@@ -212,6 +213,7 @@ class BreederRegisterView(APIView):
                 agent=request.user, phone=data["phone"], full_name=data["full_name"],
                 password=data["password"], center_name=data["center_name"], zone=zone,
                 species=species, user_id=data["id"], center_id=data["center_id"],
+                consent_notice=CONSENT_NOTICE_VERSION,
             )
         except AccountsError as exc:
             raise ValidationError({"detail": str(exc)}) from exc

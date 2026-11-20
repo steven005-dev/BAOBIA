@@ -151,6 +151,11 @@ export const messages = {
   // À VALIDER : inscription d'un éleveur par l'agent de terrain.
   eleveurInscrit: 'Éleveur inscrit.',
   remettreIdentifiants: "Donnez ce numéro et ce mot de passe à l'éleveur. Il s'en sert pour se connecter.",
+  // À VALIDER : notice lue à l'éleveur (loi 2013-450). Changer ce texte = changer
+  // CONSENT_NOTICE_VERSION dans backend/apps/identity/serializers.py.
+  noticeDonnees:
+    "BAOBIA garde votre nom, votre numéro et vos animaux pour suivre les maladies. Seuls les vétérinaires et les services de l'État de votre zone les voient. Les autres éleveurs ne voient jamais le nom de votre élevage. Vous pouvez demander à votre agent de voir ou de corriger vos informations.",
+  accordObligatoire: "L'accord de l'éleveur est obligatoire.",
   inscriptionEnAttente: "L'inscription partira toute seule au retour du réseau. Vous pouvez déjà donner le mot de passe.",
   // À VALIDER : boucle préimprimée (spec v1.4).
   boucleLue: 'Boucle lue.',
@@ -209,6 +214,8 @@ export const champs = {
   zone: 'Zone',
   especesElevees: 'Espèces élevées',
   nomEleveur: "Nom de l'éleveur",
+  accordEleveur: "L'éleveur a écouté et il est d'accord", // À VALIDER
+  lireEleveur: "À lire à l'éleveur", // À VALIDER
   // À VALIDER : boucle préimprimée (spec v1.4).
   scannerBoucle: 'Scanner la boucle',
   creerCode: 'Pas de boucle : créer un code',
