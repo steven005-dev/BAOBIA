@@ -28,6 +28,8 @@ export interface Report {
   center: { id: string; name: string; zone_id: string }
   report_kind: ReportKind
   affected_count: number
+  /** Dont morts (v1.4) ; malades = affected_count - dead_count. */
+  dead_count: number
   self_severity: 'low' | 'medium' | 'high'
   note: string | null
   status: ReportStatus
@@ -45,6 +47,7 @@ export interface NewReport {
   center_id: string
   report_kind: ReportKind
   affected_count: number
+  dead_count: number
   self_severity: 'low' | 'medium' | 'high'
   occurred_at: string
   symptom_codes: string[]
@@ -82,7 +85,9 @@ export interface AlertDetail extends AlertSummary {
     status: 'exposed' | 'excluded_negative' | 'monitoring' | 'cleared'
     depth: number
     last_contact_at: string | null
-    path: { step: number; from: string; to: string; occurred_at: string; reason: string }[]
+    path: { step: number; from: string; to: string; occurred_at: string; reason: string
+            /** declared = déclaré d'un seul côté ; disputed = contesté (spec v1.4, 9.6). */
+            movement_status?: string }[]
   }[]
 }
 

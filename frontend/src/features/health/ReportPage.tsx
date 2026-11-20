@@ -1,7 +1,8 @@
 /**
  * Signaler un cas (gabarit Formulaire en une action) : une question par écran, choix par
  * icônes, aucun texte à écrire. L'éleveur n'a pas à connaître le nom de la maladie (SA-03).
- * Étapes : élevage (s'il en a plusieurs) -> que se passe-t-il -> signes -> animaux -> nombre.
+ * Étapes : élevage (s'il en a plusieurs) -> que se passe-t-il -> signes -> animaux ->
+ * combien de morts -> combien de malades (spec v1.4, Y1 : comptés à part).
  * L'identifiant est créé une fois : un double envoi est sans effet (opération rejouable).
  * Hors ligne : gardé sur le téléphone, part tout seul au retour du réseau.
  */
@@ -54,7 +55,7 @@ const SEVERITY: Record<ReportKind, 'medium' | 'high'> = {
   abnormal_mortality: 'high',
 }
 
-type Step = 'center' | 'kind' | 'symptoms' | 'units' | 'count'
+type Step = 'center' | 'kind' | 'symptoms' | 'units' | 'dead' | 'sick'
 
 export function ReportPage() {
   const navigate = useNavigate()
@@ -67,7 +68,9 @@ export function ReportPage() {
   const [kind, setKind] = useState<ReportKind | null>(null)
   const [symptoms, setSymptoms] = useState<string[]>([])
   const [unitIds, setUnitIds] = useState<string[]>([])
-  const [count, setCount] = useState(1)
+  // null = pas encore touché : valeur proposée selon « Que se passe-t-il ? ».
+  const [deadInput, setDeadInput] = useState<number | null>(null)
+  const [sickInput, setSickInput] = useState<number | null>(null)
   const [stepIndex, setStepIndex] = useState(0)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -83,17 +86,21 @@ export function ReportPage() {
     ...(onlyCenter ? [] : (['center'] as Step[])),
     'kind', 'symptoms',
     ...(units.data && units.data.length > 0 ? (['units'] as Step[]) : []),
-    'count',
+    'dead', 'sick',
   ]
   const step = steps[Math.min(stepIndex, steps.length - 1)]
   const isLast = stepIndex >= steps.length - 1
 
-  // Le nombre touché ne peut pas être plus petit que les animaux choisis.
-  const affected = Math.max(count, unitIds.length)
+  // Morts et malades comptés à part. Le total (animaux touchés) est au moins 1 et au
+  // moins le nombre d'animaux choisis : les malades complètent si besoin.
+  const dead = deadInput ?? (kind && kind !== 'suspicion' ? 1 : 0)
+  const minSick = Math.max(0, Math.max(1, unitIds.length) - dead)
+  const sick = Math.max(sickInput ?? (kind === 'suspicion' ? 1 : 0), minSick)
+  const affected = dead + sick
 
   const canContinue =
     (step === 'center' && !!center) || (step === 'kind' && !!kind) ||
-    step === 'symptoms' || step === 'units' || (step === 'count' && affected >= 1)
+    step === 'symptoms' || step === 'units' || step === 'dead' || (step === 'sick' && affected >= 1)
 
   const send = async () => {
     if (!center || !kind) return
@@ -105,6 +112,7 @@ export function ReportPage() {
         center_id: center,
         report_kind: kind,
         affected_count: affected,
+        dead_count: dead,
         self_severity: SEVERITY[kind],
         occurred_at: new Date().toISOString(),
         symptom_codes: symptoms,
@@ -227,9 +235,20 @@ export function ReportPage() {
         </div>
       )}
 
-      {step === 'count' && (
-        <NumberStepper label={sante.combienTouches} value={affected} onChange={setCount}
-                       min={Math.max(1, unitIds.length)} max={10000} />
+      {step === 'dead' && (
+        <div className="flex flex-col gap-2">
+          <p className="text-body text-muted-foreground">{sante.combienMortsAide}</p>
+          <NumberStepper label={sante.combienMorts} value={dead} onChange={setDeadInput}
+                         min={0} max={10000} />
+        </div>
+      )}
+
+      {step === 'sick' && (
+        <div className="flex flex-col gap-2">
+          <p className="text-body text-muted-foreground">{sante.combienMaladesAide}</p>
+          <NumberStepper label={sante.combienMalades} value={sick} onChange={setSickInput}
+                         min={minSick} max={10000} />
+        </div>
       )}
 
       {error && <Banner variant="error">{error}</Banner>}

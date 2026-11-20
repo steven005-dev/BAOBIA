@@ -30,10 +30,11 @@ function ReportRow({ report }: { report: Report }) {
       >
         <div className="flex flex-1 flex-col gap-1">
           <span className="text-card-title font-bold text-foreground">
-            {typesSignalement[report.report_kind]} · {report.affected_count}
+            {typesSignalement[report.report_kind]}
           </span>
           <span className="text-small text-muted-foreground">
             {report.center.name} · {new Date(report.occurred_at).toLocaleDateString('fr-FR')}
+            {' · '}{sante.morts} {report.dead_count} · {sante.malades} {report.affected_count - report.dead_count}
           </span>
           <ReportStatusBadge status={report.status} className="self-start" />
         </div>

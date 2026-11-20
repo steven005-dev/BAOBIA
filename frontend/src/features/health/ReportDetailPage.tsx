@@ -127,7 +127,8 @@ export function ReportDetailPage() {
           <dt className="font-bold">{mots.elevage}</dt><dd>{r.center.name}</dd>
           <dt className="font-bold">{sante.signaleLe}</dt>
           <dd>{new Date(r.occurred_at).toLocaleString('fr-FR')}</dd>
-          <dt className="font-bold">{sante.animauxTouches}</dt><dd>{r.affected_count}</dd>
+          <dt className="font-bold">{sante.morts}</dt><dd>{r.dead_count}</dd>
+          <dt className="font-bold">{sante.malades}</dt><dd>{r.affected_count - r.dead_count}</dd>
           <dt className="font-bold">{mots.symptomes}</dt>
           <dd>{r.symptoms.map((s) => s.label_fr).join(', ') || '—'}</dd>
         </dl>

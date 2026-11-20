@@ -43,6 +43,12 @@ function ExposureCard({ exposure }: { exposure: Exposure }) {
               · {new Date(step.occurred_at).toLocaleDateString('fr-FR')} ·{' '}
               {raisonsExposition[step.reason] ?? step.reason}
             </span>
+            {step.movement_status === 'declared' && (
+              <span className="font-bold text-warning">· {alertesTextes.unSeulCote}</span>
+            )}
+            {step.movement_status === 'disputed' && (
+              <span className="font-bold text-warning">· {alertesTextes.conteste}</span>
+            )}
           </li>
         ))}
       </ol>
