@@ -159,6 +159,7 @@ export const messages = {
   inscriptionEnAttente: "L'inscription partira toute seule au retour du réseau. Vous pouvez déjà donner le mot de passe.",
   // À VALIDER : boucle préimprimée (spec v1.4).
   boucleLue: 'Boucle lue.',
+  motDePasseChange: 'Mot de passe changé.', // À VALIDER
   aucunSignalement: 'Aucun signalement pour cet animal.', // À VALIDER
   scannezLaBoucle: 'Scannez la boucle ou saisissez son code.',
 } as const
@@ -207,6 +208,7 @@ export const erreurs = {
   codeIncomplet: 'Le code doit avoir 9 caractères.',
   codeIncorrect: "Code incorrect. Vérifiez l'étiquette.",
   motDePasseVide: 'Écrivez votre mot de passe.',
+  motDePasseCourt: 'Au moins 8 caractères.', // À VALIDER
 } as const
 
 /** Libellés des champs et aides. */
@@ -214,6 +216,10 @@ export const champs = {
   telephone: 'Numéro de téléphone',
   telephoneAide: 'Exemple : 07 07 07 07 07',
   motDePasse: 'Mot de passe',
+  // À VALIDER : changer son mot de passe.
+  motDePasseActuel: 'Mot de passe actuel',
+  nouveauMotDePasse: 'Nouveau mot de passe',
+  nouveauMotDePasseAide: 'Au moins 8 caractères, pas trop simple.',
   codeEtiquette: "Code de l'étiquette",
   codeEtiquetteAide: '9 caractères, écrits sous le QR code',
   espece: 'Espèce',
@@ -254,4 +260,5 @@ export const titres = {
   inscrireEleveur: 'Inscrire un éleveur',
   ajouterSesAnimaux: 'Ajouter ses animaux',
   quelleEtiquette: 'Quelle étiquette ?', // À VALIDER
+  changerMotDePasse: 'Changer mon mot de passe', // À VALIDER
 } as const

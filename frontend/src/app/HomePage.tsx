@@ -3,17 +3,18 @@
  * mène à l'écran du module concerné. Pas de logique métier ici.
  */
 
-import { ArrowLeftRight, CirclePlus, Flag, LogOut, PackageCheck, QrCode, UserPlus } from 'lucide-react'
-import { Navigate } from 'react-router'
+import { ArrowLeftRight, CirclePlus, Flag, KeyRound, LogOut, PackageCheck, QrCode, UserPlus } from 'lucide-react'
+import { Navigate, useNavigate } from 'react-router'
 
 import { useAuth } from '@/auth/AuthProvider'
 import { BigChoiceTile } from '@/components/BigChoiceTile'
 import { Button } from '@/components/Button'
 import { UnreadMessages } from '@/features/notifications/UnreadMessages'
-import { mots } from '@/lib/vocabulaire'
+import { mots, titres } from '@/lib/vocabulaire'
 
 export function HomePage() {
   const { user, logout, hasRole } = useAuth()
+  const navigate = useNavigate()
   // Vétérinaire et autorité : pas d'Accueil terrain, on ouvre les alertes (charte, section 7).
   if (hasRole('veterinarian') || hasRole('authority')) return <Navigate to="/alertes" replace />
   return (
@@ -28,6 +29,9 @@ export function HomePage() {
         {hasRole('field_agent') && <BigChoiceTile to="/eleveurs/nouveau" icon={UserPlus} label={mots.inscrire} />}
         {hasRole('field_agent') && <BigChoiceTile to="/etiquettes" icon={QrCode} label={mots.etiquettes} />}
       </div>
+      <Button variant="ghost" icon={KeyRound} onClick={() => navigate('/mot-de-passe')} className="self-center">
+        {titres.changerMotDePasse}
+      </Button>
       <Button variant="ghost" icon={LogOut} onClick={() => void logout()} className="self-center">
         {mots.quitter}
       </Button>
