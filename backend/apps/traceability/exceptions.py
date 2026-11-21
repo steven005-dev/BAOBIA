@@ -23,6 +23,11 @@ class InvalidConfirmationCodeError(TraceabilityError):
     pass
 
 
+class OperationConflictError(TraceabilityError):
+    """Levée lorsqu'un identifiant d'opération est rejoué avec un autre contenu (409)."""
+    pass
+
+
 class MovementNotReceivableError(TraceabilityError):
     """Levée lorsque le mouvement ne peut pas être reçu par cet élevage."""
     pass

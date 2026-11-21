@@ -13,24 +13,36 @@ from apps.traceability.exceptions import (
     InvalidConfirmationCodeError,
     InvalidMovementDataError,
     MovementNotReceivableError,
+    OperationConflictError,
     UnitAlreadyLockedError,
     UnitNotAtOriginCenterError,
 )
-from apps.traceability.models import Movement
-from apps.traceability.models import MovementConfirmationCode
+from apps.traceability.models import Movement, MovementConfirmationCode, StatusEvent
 from apps.traceability.serializers import (
     MovementConfirmSerializer,
     MovementCreateSerializer,
     MovementDetailSerializer,
+    MarketEntrySerializer,
+    MarketExitSerializer,
+    MovementReasonSerializer,
+    MovementRefuseSerializer,
     DestinationShareCreateSerializer,
     DestinationShareResolveSerializer,
     DestinationShareResultSerializer,
     ResolvedDestinationSerializer,
+    UnitEventCreateSerializer,
+    UnitEventReadSerializer,
 )
 from apps.traceability.services import (
+    cancel_movement,
     confirm_movement_receipt,
+    contest_movement,
+    declare_market_entry,
+    declare_market_exit,
     declare_movement,
     generate_confirmation_code,
+    record_unit_event,
+    refuse_movement_receipt,
 )
 from django.utils import timezone
 
@@ -110,7 +122,8 @@ class MovementListCreateView(APIView):
         center_id = self.get_center_id(request)
         movements = (
             Movement.objects.select_related("from_center", "to_center")
-            .prefetch_related("items__unit", "status_events", "confirmations")
+            .prefetch_related("items__unit", "status_events", "confirmations__created_by",
+                              "discrepancies__unit")
             .filter(Q(from_center_id=center_id) | Q(to_center_id=center_id))
             .order_by("-occurred_at", "-id")[:50]
         )
@@ -234,9 +247,180 @@ class MovementConfirmView(APIView):
                 code=data["code"],
                 confirmation_id=data["id"],
                 created_by=request.user,
+                occurred_at=data.get("occurred_at"),
+                items_received=data.get("items_received"),
             )
-        except InvalidConfirmationCodeError as error:
+        except OperationConflictError as error:
+            return Response({"detail": str(error)}, status=status.HTTP_409_CONFLICT)
+        except (InvalidConfirmationCodeError, InvalidMovementDataError) as error:
             raise ValidationError({"detail": str(error)}) from error
         except MovementNotReceivableError as error:
             raise NotFound(str(error)) from error
         return Response(MovementDetailSerializer(movement).data, status=status.HTTP_200_OK)
+
+
+class _MovementActionView(APIView):
+    """Action sur un mouvement, sous l'accès de l'élevage indiqué dans `center_id`."""
+
+    permission_classes = [HasCenterAccess.for_scope("move")]
+    serializer_class = MovementReasonSerializer
+
+    def get_center_id(self, request):
+        return request.data.get("center_id")
+
+    def act(self, request, pk, data):
+        raise NotImplementedError
+
+    def post(self, request, pk):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            movement = self.act(request, pk, serializer.validated_data)
+        except InvalidMovementDataError as error:
+            raise ValidationError({"detail": str(error)}) from error
+        except MovementNotReceivableError as error:
+            raise NotFound(str(error)) from error
+        return Response(MovementDetailSerializer(movement).data, status=status.HTTP_200_OK)
+
+
+class MovementRefuseView(_MovementActionView):
+    """Le destinataire refuse la réception : mouvement contesté (MV-05, MV-09)."""
+
+    serializer_class = MovementRefuseSerializer
+
+    def act(self, request, pk, data):
+        return refuse_movement_receipt(
+            movement_id=pk, receiver_center_id=data["center_id"], created_by=request.user,
+            reason=data["reason"], confirmation_id=data.get("id"),
+            occurred_at=data.get("occurred_at"),
+        )
+
+
+class MovementCancelView(_MovementActionView):
+    """L'élevage de départ annule un départ pas encore reçu (MV-05)."""
+
+    def act(self, request, pk, data):
+        return cancel_movement(
+            movement_id=pk, center_id=data["center_id"], created_by=request.user,
+            reason=data["reason"], occurred_at=data.get("occurred_at"),
+        )
+
+
+class MovementContestView(_MovementActionView):
+    """Une des deux parties conteste un mouvement reçu ; BAOBIA ne tranche pas (MV-09)."""
+
+    def act(self, request, pk, data):
+        return contest_movement(
+            movement_id=pk, center_id=data["center_id"], created_by=request.user,
+            reason=data["reason"], occurred_at=data.get("occurred_at"),
+        )
+
+
+class _MarketView(APIView):
+    """Passage au marché (R2, spec 9.11) : membre du marché ou mandat `move` dessus."""
+
+    permission_classes = [HasCenterAccess.for_scope("move")]
+
+    def get_center_id(self, request):
+        return request.data.get("market_id")
+
+    def market(self, data):
+        market = Center.objects.filter(pk=data["market_id"]).first()
+        if market is None:
+            raise NotFound("Marché introuvable.")
+        return market
+
+
+class MarketEntryView(_MarketView):
+    """Entrée au marché déclarée par le marché seul, sans code (Q1)."""
+
+    def post(self, request):
+        serializer = MarketEntrySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            movements, created = declare_market_entry(
+                market=self.market(data), label_codes=data["label_codes"],
+                created_by=request.user, entry_id=data["id"],
+                occurred_at=data.get("occurred_at"),
+            )
+        except (OperationConflictError, UnitAlreadyLockedError) as error:
+            return Response({"detail": str(error)}, status=status.HTTP_409_CONFLICT)
+        except InvalidMovementDataError as error:
+            raise ValidationError({"detail": str(error)}) from error
+        return Response(
+            {"movements": MovementDetailSerializer(movements, many=True).data},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class MarketExitView(_MarketView):
+    """Sortie du marché : vers un élevage inscrit (avec code) ou hors système (Q3)."""
+
+    def post(self, request):
+        serializer = MarketExitSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        to_center = (Center.objects.filter(pk=data["to_center_id"]).first()
+                     if data.get("to_center_id") else None)
+        try:
+            movement, code, created = declare_market_exit(
+                market=self.market(data), label_codes=data["label_codes"],
+                created_by=request.user, exit_id=data["id"], to_center=to_center,
+                to_party_note=data.get("to_party_note"), occurred_at=data.get("occurred_at"),
+            )
+        except (OperationConflictError, UnitAlreadyLockedError) as error:
+            return Response({"detail": str(error)}, status=status.HTTP_409_CONFLICT)
+        except (InvalidMovementDataError, UnitNotAtOriginCenterError) as error:
+            raise ValidationError({"detail": str(error)}) from error
+        body = MovementDetailSerializer(movement).data
+        body["confirmation_code"] = code
+        body["out_of_system"] = to_center is None
+        return Response(body, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+class UnitEventListCreateView(APIView):
+    """Événements de vie des unités d'un élevage : décès, abattage, vol... (MV-02).
+
+    MV-13 : vol et disparition ne sont montrés qu'à la personne qui les a déclarés ;
+    les professionnels habilités les consultent par leur propre espace.
+    """
+
+    def get_permissions(self):
+        scope = "declare" if self.request.method == "POST" else "move"
+        return [HasCenterAccess.for_scope(scope)()]
+
+    def get_center_id(self, request):
+        if request.method == "POST":
+            return request.data.get("center_id")
+        return request.query_params.get("center_id")
+
+    def get(self, request):
+        events = StatusEvent.objects.filter(
+            unit__current_center_id=self.get_center_id(request)
+        ).filter(Q(visibility__in=("owner", "all")) | Q(created_by=request.user))
+        unit_id = request.query_params.get("unit_id")
+        if unit_id:
+            events = events.filter(unit_id=unit_id)
+        events = events.order_by("-occurred_at")[:100]
+        return Response(UnitEventReadSerializer(events, many=True).data)
+
+    def post(self, request):
+        serializer = UnitEventCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            event, created = record_unit_event(
+                unit_id=data["unit_id"], center_id=data["center_id"],
+                event_type=data["event_type"], created_by=request.user,
+                occurred_at=data.get("occurred_at"), event_id=data["id"],
+                note=data.get("note") or None,
+            )
+        except (OperationConflictError, UnitAlreadyLockedError) as error:
+            return Response({"detail": str(error)}, status=status.HTTP_409_CONFLICT)
+        except (InvalidMovementDataError, UnitNotAtOriginCenterError) as error:
+            raise ValidationError({"detail": str(error)}) from error
+        return Response(
+            UnitEventReadSerializer(event).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
