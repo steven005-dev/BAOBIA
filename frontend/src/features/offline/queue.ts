@@ -129,20 +129,21 @@ export function installMovementQueue(): void {
   if (installed || typeof window === 'undefined') return
   installed = true
 
-  const retryPending = () => {
-    void db.operations
-      .where('status')
-      .anyOf('pending', 'sending')
-      .each((operation) => void sendOperation(operation.id))
+  const retryPending = async () => {
+    // Lire d'abord les identifiants, puis envoyer hors de la lecture : un envoi lancé
+    // depuis `.each()` hériterait de sa transaction en lecture seule et ses écritures
+    // (« sending », « sent ») seraient refusées (ReadOnlyError) au retour du réseau.
+    const ids = await db.operations.where('status').anyOf('pending', 'sending').primaryKeys()
+    ids.forEach((id) => void sendOperation(String(id)))
   }
 
-  window.addEventListener('online', retryPending)
-  window.addEventListener('focus', retryPending)
+  window.addEventListener('online', () => void retryPending())
+  window.addEventListener('focus', () => void retryPending())
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') retryPending()
+    if (document.visibilityState === 'visible') void retryPending()
   })
   void refreshPendingCount()
-  retryPending()
+  void retryPending()
 }
 
 export function subscribeOperation(
