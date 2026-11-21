@@ -23,9 +23,32 @@ export interface CatalogItem {
   icon: string | null
 }
 
+/** Piste de maladie (apps/health/leads.py) : aide au vétérinaire, jamais un diagnostic. */
+export interface DiseaseLead {
+  disease: { code: string; label_fr: string; is_notifiable: boolean }
+  strength: 'strong' | 'medium' | 'weak'
+  strength_label: string
+  major_found: number
+  major_total: number
+  explanation: string[]
+  spread: string
+  incubation_days: [number, number]
+  zoonosis: boolean
+  samples: { nature: string; conditioning: string }[]
+}
+
+export interface Leads {
+  items: DiseaseLead[]
+  profiles_version: number
+  validated: boolean
+  lab_note: string
+  warning: string
+}
+
 export interface Report {
   id: string
-  center: { id: string; name: string; zone_id: string }
+  /** zone_name : vétérinaire et autorité seulement. */
+  center: { id: string; name: string; zone_id: string; zone_name?: string }
   report_kind: ReportKind
   affected_count: number
   /** Dont morts (v1.4) ; malades = affected_count - dead_count. */
@@ -37,7 +60,10 @@ export interface Report {
   created_at: string
   is_simulated: boolean
   symptoms: CatalogItem[]
-  subjects: { unit_id: string; condition: string; species_code: string; local_name: string | null }[]
+  /** code (étiquette) : vétérinaire et autorité seulement. */
+  subjects: { unit_id: string; condition: string; species_code: string; local_name: string | null; code?: string | null }[]
+  /** Pistes de maladie : vétérinaire et autorité seulement. */
+  leads?: Leads
   /** Seulement pour un vétérinaire ou une autorité de la zone. */
   reviews?: { id: string; decision: Decision; disease: CatalogItem | null; note: string | null;
               vet_name: string; occurred_at: string }[]
@@ -79,7 +105,12 @@ export interface AlertSummary {
 export interface AlertDetail extends AlertSummary {
   rule: { version: number; lookback_days: number; lookforward_days: number; max_depth: number;
           include_unconfirmed: boolean; experimental: boolean }
-  reports: { id: string; occurred_at: string; affected_count: number; status: ReportStatus }[]
+  reports: { id: string; occurred_at: string; created_at: string; affected_count: number
+             status: ReportStatus }[]
+  /** District (CI-D-…) du foyer : ouvre la carte dessus. */
+  map_district: string | null
+  /** Journal de l'alerte (alert_event), du plus ancien au plus récent. */
+  events: { type: string; at: string; payload: Record<string, unknown> }[]
   exposures: {
     center: { id: string; name: string }
     status: 'exposed' | 'excluded_negative' | 'monitoring' | 'cleared'

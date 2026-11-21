@@ -6,7 +6,7 @@
  * Seul un vétérinaire habilité valide (RG-08) : le serveur le vérifie de toute façon.
  */
 
-import { ArrowLeft, CircleX, CircleHelp, ShieldCheck, Siren, TriangleAlert } from 'lucide-react'
+import { ArrowLeft, CircleX, CircleHelp, FlaskConical, ShieldCheck, Siren, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 
@@ -23,10 +23,11 @@ import { useToast } from '@/components/Toast'
 import { useResource } from '@/features/identity/useResource'
 import { ApiError } from '@/lib/api'
 import {
-  decisionsVeterinaire, erreurs, messages, mots, sante, typesSignalement,
+  decisionsVeterinaire, erreurs, messages, mots, pistesTextes, sante, typesSignalement,
 } from '@/lib/vocabulaire'
 
 import { healthApi, type Decision } from './api'
+import { DiseaseLeads } from './DiseaseLeads'
 import { ReportStatusBadge } from './ReportStatusBadge'
 
 const DECISIONS: { value: Decision; icon: typeof ShieldCheck }[] = [
@@ -133,6 +134,13 @@ export function ReportDetailPage() {
           <dd>{r.symptoms.map((s) => s.label_fr).join(', ') || '—'}</dd>
         </dl>
       </Card>
+
+      {r.leads && <DiseaseLeads leads={r.leads} />}
+      {r.leads && (
+        <Button variant="secondary" icon={FlaskConical} onClick={() => navigate(`/sante/${r.id}/laboratoire`)}>
+          {pistesTextes.ficheLabo}
+        </Button>
+      )}
 
       {r.reviews && r.reviews.length > 0 && (
         <Card title={mots.historique}>
