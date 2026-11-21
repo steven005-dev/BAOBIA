@@ -146,6 +146,8 @@ class MapFlowsApiTests(AlertScenarioMixin, TestCase):
         self.assertEqual(flows[0]["confidence"], "one_side")  # le plus récent d'abord
         self.assertTrue({"from", "to", "animals", "count"} <= set(flows[0]))
         self.assertEqual(flows[0]["animals"][0]["species"], "cattle")
+        # Confiance donnée par traceability.movement_confidence (règle de Romuald, R1).
+        self.assertEqual({f["confidence"] for f in flows}, {"confirmed", "one_side"})
 
     def test_longer_period_and_bad_value(self):
         self.client.force_authenticate(user=self.vet)

@@ -82,7 +82,7 @@ export function boxFor(bounds: [[number, number], [number, number]]): ViewBox {
 
 /** Style d'un flux selon sa confiance : trait plein, tirets ou pointillés (jamais la couleur seule). */
 export const FLOW_STYLE: Record<FlowConfidence, { color: string; dash?: string }> = {
-  sure: { color: '#175CD3' },
+  confirmed: { color: '#175CD3' },
   one_side: { color: '#175CD3', dash: '7 5' },
   disputed: { color: '#9C2A56', dash: '1.5 4' },
 }

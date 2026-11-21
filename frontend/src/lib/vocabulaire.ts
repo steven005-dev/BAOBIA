@@ -376,7 +376,7 @@ export const fluxTextes = {
   sansEtiquette: 'sans étiquette',
   liste: 'Mouvements affichés',
   confiance: {
-    sure: 'Confirmé des deux côtés',
+    confirmed: 'Confirmé des deux côtés',
     one_side: "Déclaré d'un seul côté",
     disputed: 'Contesté',
   },

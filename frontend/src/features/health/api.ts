@@ -107,7 +107,8 @@ export interface MapPoint {
   type: string
 }
 
-export type FlowConfidence = 'sure' | 'one_side' | 'disputed'
+/** Confiance d'un mouvement (traceability.movement_confidence). */
+export type FlowConfidence = 'confirmed' | 'one_side' | 'disputed'
 
 export interface FlowPlace {
   name: string

@@ -22,6 +22,7 @@ from apps.geo.models import ZoneStat
 from apps.identity.models import Center
 from apps.identity.services import accessible_centers, active_label
 from apps.traceability.models import Movement
+from apps.traceability.services import CONFIDENCE_BY_STATUS, movement_confidence
 
 from . import services
 from .models import Alert
@@ -207,8 +208,7 @@ class MapZonesView(APIView):
         })
 
 
-# Confiance d'un mouvement (spec v1.4, 9.6 et 9.11) : déduite de son statut.
-FLOW_CONFIDENCE = {"confirmed": "sure", "partial": "sure", "declared": "one_side", "disputed": "disputed"}
+# Confiance d'un mouvement : règle du module traceability (Romuald, R1), pas une copie ici.
 FLOW_DAYS = (7, 30, 90, 365)
 
 
@@ -228,7 +228,7 @@ class MapFlowsView(APIView):
         description=(
             "Mouvements entre deux élevages dont l'un est dans une zone couverte par "
             "l'utilisateur, sur les `days` derniers jours (7, 30, 90 ou 365 ; 30 par défaut). "
-            "Pour chacun : origine, destination, date, confiance (sure = confirmé des deux côtés, "
+            "Pour chacun : origine, destination, date, confiance (confirmed = confirmé des deux côtés, "
             "one_side = déclaré d'un seul côté, disputed = contesté) et les animaux ou lots "
             "(espèce, code d'étiquette). Annulés et expirés exclus."
         ),
@@ -243,7 +243,7 @@ class MapFlowsView(APIView):
         days = days if days in FLOW_DAYS else 30
         covered = services._covered_zone_ids(request.user)
         movements = (
-            Movement.objects.filter(to_center__isnull=False, status__in=list(FLOW_CONFIDENCE),
+            Movement.objects.filter(to_center__isnull=False, status__in=list(CONFIDENCE_BY_STATUS),
                                     occurred_at__gte=timezone.now() - timedelta(days=days))
             .filter(Q(from_center__zone_id__in=covered) | Q(to_center__zone_id__in=covered))
             .select_related("from_center__zone", "to_center__zone")
@@ -272,7 +272,7 @@ class MapFlowsView(APIView):
             flows.append({
                 "id": m.id, "occurred_at": m.occurred_at, "received_at": m.received_at,
                 "movement_type": m.movement_type, "status": m.status,
-                "confidence": FLOW_CONFIDENCE[m.status],
+                "confidence": movement_confidence(m),
                 "from": _flow_place(m.from_center), "to": _flow_place(m.to_center),
                 "animals": animals,
                 "count": sum(a["quantity"] for a in animals),
