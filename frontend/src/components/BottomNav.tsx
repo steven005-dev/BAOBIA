@@ -39,8 +39,8 @@ export function NavBadge({ count, className }: { count?: number; className?: str
 }
 
 export function BottomNav({ items, className }: { items: NavItem[]; className?: string }) {
-  if (import.meta.env.DEV && items.length > 5) {
-    console.warn('BottomNav : 4 entrées métier et « Mon compte » au plus (charte, principe 9).')
+  if (import.meta.env.DEV && items.length > 4) {
+    console.warn("BottomNav : 4 entrées au plus (charte, principe 9) ; « Mon compte » est dans l'en-tête.")
   }
   return (
     <nav
@@ -51,7 +51,7 @@ export function BottomNav({ items, className }: { items: NavItem[]; className?: 
       )}
     >
       <ul className="mx-auto flex h-nav max-w-mobile items-stretch">
-        {items.slice(0, 5).map(({ to, label, shortLabel, icon: Icon, end, emphasis, badge }) => (
+        {items.slice(0, 4).map(({ to, label, shortLabel, icon: Icon, end, emphasis, badge }) => (
           <li key={to} className="flex flex-1">
             <NavLink
               to={to}
