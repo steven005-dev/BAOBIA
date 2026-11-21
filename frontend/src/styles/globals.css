@@ -28,6 +28,15 @@
   --info: #175CD3;     --info-bg: #EAF2FC;
   --warning: #8A4B08;  --warning-bg: #FFF4DF;
 
+  /* profils : marque de l'espace de chaque utilisateur (À VALIDER par le chef).
+     Teintes hors des 5 états sanitaires (pas de vert, jaune, orange, rouge, gris) ;
+     toujours avec l'icône et le mot du profil, jamais la couleur seule. */
+  --role-breeder: #7A4E2D;       --role-breeder-bg: #F5EDE6;       /* terre */
+  --role-field-agent: #0F5E6B;   --role-field-agent-bg: #E6F2F4;   /* bleu canard */
+  --role-trader: #5B3F8C;        --role-trader-bg: #EFEAF6;        /* violet */
+  --role-veterinarian: #1D4E89;  --role-veterinarian-bg: #E8EFF8;  /* bleu */
+  --role-authority: #3A3F58;     --role-authority-bg: #ECEDF2;     /* ardoise */
+
   --font-main: "Atkinson Hyperlegible", system-ui, sans-serif;
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
   --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-12: 48px;
@@ -89,6 +98,12 @@
   --color-error: var(--error);  --color-error-bg: var(--error-bg);
   --color-info: var(--info);  --color-info-bg: var(--info-bg);
   --color-warning: var(--warning);  --color-warning-bg: var(--warning-bg);
+  /* profils : bg-role-veterinarian, text-role-veterinarian, bg-role-veterinarian-bg... */
+  --color-role-breeder: var(--role-breeder);  --color-role-breeder-bg: var(--role-breeder-bg);
+  --color-role-field-agent: var(--role-field-agent);  --color-role-field-agent-bg: var(--role-field-agent-bg);
+  --color-role-trader: var(--role-trader);  --color-role-trader-bg: var(--role-trader-bg);
+  --color-role-veterinarian: var(--role-veterinarian);  --color-role-veterinarian-bg: var(--role-veterinarian-bg);
+  --color-role-authority: var(--role-authority);  --color-role-authority-bg: var(--role-authority-bg);
   --radius-sm: var(--radius-sm); --radius-md: var(--radius-md); --radius-lg: var(--radius-lg); --radius-xl: var(--radius-xl);
 
   /* ---- Ajouts du socle ---- */

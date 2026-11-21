@@ -72,7 +72,10 @@ class SeedDemoTests(TestCase):
     def test_expected_demo_content(self):
         self.assertEqual(sorted(User.objects.values_list("phone", flat=True)), DEMO_PHONES)
         self.assertEqual(Zone.objects.filter(parent__isnull=True).count(), 1)
-        self.assertEqual(Zone.objects.filter(parent__code="DEMO-CI").count(), 2)
+        self.assertEqual(Zone.objects.filter(parent__code="DEMO-CI").count(), 14)  # districts
+        self.assertEqual(Zone.objects.get(code="DEMO-NORD").parent.code, "CI-R-POR")
+        self.assertEqual(Zone.objects.get(code="DEMO-SUD").parent.code, "CI-R-GBE")
+        self.assertFalse(Center.objects.filter(latitude__isnull=True).exists())
         self.assertEqual(Organization.objects.filter(kind="veterinary_service").count(), 1)
         self.assertEqual(Center.objects.count(), 4)
         members = [CenterMember.objects.filter(center=c, ends_at__isnull=True).count()
@@ -105,7 +108,9 @@ class SeedDemoTests(TestCase):
     def test_everything_is_simulated(self):
         for model in (User, Organization, Habilitation, Center, TrackedUnit):
             self.assertFalse(model.objects.filter(is_simulated=False).exists(), model.__name__)
-        self.assertFalse(Zone.objects.exclude(code__startswith="DEMO-").exists())
+        # Seules autres zones : les districts et régions officiels de Côte d'Ivoire (carte).
+        self.assertFalse(Zone.objects.exclude(code__startswith="DEMO-")
+                         .exclude(code__startswith="CI-").exists())
 
     def test_password_from_env_works(self):
         self.assertTrue(User.objects.get(phone="+2250000000004").check_password(DEMO_PASSWORD))

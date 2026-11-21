@@ -16,6 +16,7 @@ from .serializers import (
     LoginSerializer,
     LogoutSerializer,
     MeSerializer,
+    PasswordChangeSerializer,
     RefreshSerializer,
     TokenPairSerializer,
 )
@@ -113,6 +114,28 @@ class LogoutView(APIView):
         serializer.is_valid(raise_exception=True)
         if not services.logout(request.user, serializer.validated_data["refresh"]):
             raise ValidationError({"detail": "Jeton invalide."})
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PasswordChangeView(APIView):
+    throttle_classes = [LoginIPThrottle]
+
+    @extend_schema(
+        tags=[TAG],
+        summary="Changer mon mot de passe",
+        description="En ligne seulement (jamais dans la file hors ligne). 400 si le mot de passe "
+                    "actuel est faux ou si le nouveau est trop simple.",
+        request=PasswordChangeSerializer,
+        responses={204: None, 400: ErrorSerializer, 401: ErrorSerializer, 429: ErrorSerializer},
+    )
+    def post(self, request):
+        serializer = PasswordChangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            services.change_password(request.user, serializer.validated_data["current_password"],
+                                     serializer.validated_data["new_password"])
+        except services.AccountsError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

@@ -68,6 +68,7 @@ export const mots = {
   cacher: 'Cacher',
   plus: 'Plus',
   moins: 'Moins',
+  inscrire: 'Inscrire', // À VALIDER : l'agent inscrit un éleveur
 } as const
 
 /** Les 5 états sanitaires (carte, badges, maquette 3D). */
@@ -77,6 +78,16 @@ export const etatsSanitaires = {
   exposure: 'Contact possible',
   alert: 'Alerte validée',
   unknown: 'Pas assez de données',
+} as const
+
+/** Noms des profils, affichés dans la marque de l'espace (en-tête, barre latérale).
+ *  À VALIDER : absents de la charte. */
+export const profils = {
+  breeder: 'Éleveur',
+  field_agent: 'Agent de terrain',
+  trader: 'Commerçant',
+  veterinarian: 'Vétérinaire',
+  authority: 'Autorité',
 } as const
 
 /** Les 3 niveaux d'alerte (charte, section 8 : AlertLevelBadge). */
@@ -137,6 +148,20 @@ export const messages = {
   etiquettesRemises: 'Étiquettes remises.',
   aucuneEtiquette: 'Aucune étiquette ajoutée.',
   etiquetteDejaDansLaListe: 'Cette étiquette est déjà dans la liste.',
+  // À VALIDER : inscription d'un éleveur par l'agent de terrain.
+  eleveurInscrit: 'Éleveur inscrit.',
+  remettreIdentifiants: "Donnez ce numéro et ce mot de passe à l'éleveur. Il s'en sert pour se connecter.",
+  // À VALIDER : notice lue à l'éleveur (loi 2013-450). Changer ce texte = changer
+  // CONSENT_NOTICE_VERSION dans backend/apps/identity/serializers.py.
+  noticeDonnees:
+    "BAOBIA garde votre nom, votre numéro et vos animaux pour suivre les maladies. Seuls les vétérinaires et les services de l'État de votre zone les voient. Les autres éleveurs ne voient jamais le nom de votre élevage. Vous pouvez demander à votre agent de voir ou de corriger vos informations.",
+  accordObligatoire: "L'accord de l'éleveur est obligatoire.",
+  inscriptionEnAttente: "L'inscription partira toute seule au retour du réseau. Vous pouvez déjà donner le mot de passe.",
+  // À VALIDER : boucle préimprimée (spec v1.4).
+  boucleLue: 'Boucle lue.',
+  motDePasseChange: 'Mot de passe changé.', // À VALIDER
+  aucunSignalement: 'Aucun signalement pour cet animal.', // À VALIDER
+  scannezLaBoucle: 'Scannez la boucle ou saisissez son code.',
 } as const
 
 /**
@@ -167,6 +192,7 @@ export const erreurs = {
   codeIncomplet: 'Le code doit avoir 9 caractères.',
   codeIncorrect: "Code incorrect. Vérifiez l'étiquette.",
   motDePasseVide: 'Écrivez votre mot de passe.',
+  motDePasseCourt: 'Au moins 8 caractères.', // À VALIDER
 } as const
 
 /** Libellés des champs et aides. */
@@ -174,6 +200,10 @@ export const champs = {
   telephone: 'Numéro de téléphone',
   telephoneAide: 'Exemple : 07 07 07 07 07',
   motDePasse: 'Mot de passe',
+  // À VALIDER : changer son mot de passe.
+  motDePasseActuel: 'Mot de passe actuel',
+  nouveauMotDePasse: 'Nouveau mot de passe',
+  nouveauMotDePasseAide: 'Au moins 8 caractères, pas trop simple.',
   codeEtiquette: "Code de l'étiquette",
   codeEtiquetteAide: '9 caractères, écrits sous le QR code',
   espece: 'Espèce',
@@ -190,6 +220,12 @@ export const champs = {
   nomElevage: "Nom de l'élevage",
   zone: 'Zone',
   especesElevees: 'Espèces élevées',
+  nomEleveur: "Nom de l'éleveur",
+  accordEleveur: "L'éleveur a écouté et il est d'accord", // À VALIDER
+  lireEleveur: "À lire à l'éleveur", // À VALIDER
+  // À VALIDER : boucle préimprimée (spec v1.4).
+  scannerBoucle: 'Scanner la boucle',
+  creerCode: 'Pas de boucle : créer un code',
 } as const
 
 /** Titres d'écran. */
@@ -205,4 +241,124 @@ export const titres = {
   pourquoiChanger: "Pourquoi changer l'étiquette ?",
   ajouterElevage: 'Ajouter un élevage',
   remettreEtiquettes: 'Remettre des étiquettes',
+  inscrireEleveur: 'Inscrire un éleveur',
+  ajouterSesAnimaux: 'Ajouter ses animaux',
+  quelleEtiquette: 'Quelle étiquette ?', // À VALIDER
+  changerMotDePasse: 'Changer mon mot de passe', // À VALIDER
+} as const
+
+/**
+ * À VALIDER : module santé, alertes et carte (Yéo). Mots simples, sans nom de maladie
+ * pour l'éleveur ; « Contact possible », jamais « contaminé ».
+ */
+export const sante = {
+  titreSignaler: 'Signaler un cas',
+  quelElevage: 'Quel élevage ?',
+  queSePasseTIl: 'Que se passe-t-il ?',
+  quelsSignes: 'Quels signes voyez-vous ?',
+  quelsSignesAide: 'Touchez tous les signes que vous voyez. Vous pouvez passer.',
+  quelsAnimaux: 'Quels animaux ?',
+  quelsAnimauxAide: 'Touchez les animaux malades. Vous pouvez passer.',
+  combienTouches: "Combien d'animaux sont touchés ?",
+  // À VALIDER (spec v1.4, Y1) : morts et malades comptés à part.
+  combienMorts: 'Combien de morts ?',
+  combienMortsAide: "Mettez 0 si aucun animal n'est mort.",
+  combienMalades: 'Combien de malades ?',
+  combienMaladesAide: 'Animaux vivants qui ont des signes.',
+  morts: 'Morts',
+  malades: 'Malades',
+  mesSignalements: 'Mes signalements',
+  aExaminer: 'À examiner',
+  aucunSignalement: 'Aucun signalement',
+  aucunSignalementAide: 'Si un animal semble malade, touchez Signaler.',
+  signaleLe: 'Signalé le',
+  animauxTouches: 'Animaux touchés',
+  decisionVeterinaire: 'Décision du vétérinaire',
+  maladieRetenue: 'Maladie retenue',
+  motif: 'Motif',
+  motifAide: 'Obligatoire pour refuser.',
+  decisionEnregistree: 'Décision enregistrée.',
+  aucuneRegle: 'Aucune règle sanitaire pour cette maladie.',
+} as const
+
+export const typesSignalement = {
+  suspicion: 'Animal malade',
+  death: 'Animal mort',
+  abnormal_mortality: 'Plusieurs morts',
+} as const
+
+export const etatsSignalement = {
+  submitted: 'Reçu',
+  under_review: 'En examen',
+  validated: 'Validé',
+  rejected: 'Refusé',
+  closed: 'Clôturé',
+} as const
+
+export const decisionsVeterinaire = {
+  request_info: 'Demander des informations',
+  retain_suspicion: 'Garder la suspicion',
+  raise_level2: 'Passer au niveau 2',
+  validate_level3: 'Valider (niveau 3)',
+  dismiss: 'Refuser',
+  close: 'Clôturer',
+} as const
+
+export const alertesTextes = {
+  aucuneAlerte: 'Aucune alerte',
+  aucuneAlerteAide: 'Les alertes de votre zone apparaîtront ici.',
+  mesMessages: 'Mes messages',
+  aucunMessage: 'Aucun message',
+  elevagesContact: 'Élevages en contact possible',
+  elevagesEcartes: 'Élevages écartés',
+  ecarte: 'Écarté',
+  aucunContact: 'Aucun élevage en contact possible.',
+  chemin: 'Chemin',
+  foyer: 'Élevage signalé',
+  regle: 'Règle appliquée',
+  regleExperimentale: 'Valeurs de démonstration, à valider par un vétérinaire.',
+  jours: 'jours',
+  profondeur: 'Profondeur',
+  confianceReduite: "Confiance réduite : un mouvement est contesté ou déclaré d'un seul côté.",
+  // À VALIDER (spec v1.4, 9.6) : statut d'un mouvement du chemin, vu par le vétérinaire.
+  unSeulCote: "Transfert déclaré d'un seul côté",
+  conteste: 'Transfert contesté',
+  ouverteLe: 'Ouverte le',
+  valideePar: 'Validée par',
+  pasUnDiagnostic: 'Contact possible ne veut pas dire malade.',
+} as const
+
+export const raisonsExposition: Record<string, string> = {
+  sent_from_focus: "Animaux partis de l'élevage signalé",
+  sent_after_exposure: 'Animaux partis après le contact',
+  outside_window: 'Hors de la période à risque',
+  unconfirmed_not_counted: 'Transfert pas encore confirmé',
+  movement_cancelled: 'Transfert annulé',
+  movement_expired: 'Transfert expiré',
+}
+
+export const carteTextes = {
+  titre: 'Carte par zones',
+  legende: 'Légende',
+  toutesEspeces: 'Toutes',
+  elevagesDansZone: 'élevages',
+  animauxDansZone: 'animaux',
+  mesElevages: 'Mes élevages',
+  aucuneZone: 'Aucune zone à afficher',
+  majLe: 'Mis à jour le',
+  pasDeNom: "Aucun nom d'élevage n'est affiché.",
+  // À VALIDER : carte de Côte d'Ivoire (districts, régions, points des élevages).
+  titreCi: "Carte sanitaire de Côte d'Ivoire",
+  districts: 'Districts',
+  regions: 'Régions',
+  voirRegions: 'Voir ses régions',
+  retourPays: 'Tout le pays',
+  touchezZone: 'Touchez une zone pour voir son état.',
+  pointElevage: 'Un élevage',
+  pointMarche: 'Un marché',
+  pointGroupe: "Plusieurs élevages (le nombre est écrit dans le rond)",
+  pointsReserves: 'Les points des élevages sont visibles par le vétérinaire et l’Autorité seulement.',
+  aucunElevage: 'Aucun élevage enregistré dans cette zone.',
+  listeZones: 'Liste des zones',
+  sourceTraces: 'Limites : geoBoundaries (CC BY 4.0).',
 } as const

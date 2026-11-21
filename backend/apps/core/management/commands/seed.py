@@ -24,6 +24,7 @@ from django.utils import timezone
 from apps.accounts import services as accounts_services
 from apps.accounts.models import Habilitation, Organization, Role, User
 from apps.core.models import Species
+from apps.geo import services as geo_services
 from apps.geo.models import Zone
 from apps.identity import services as identity_services
 from apps.identity.models import Center, Label, LabelBatch, TrackedUnit
@@ -65,6 +66,16 @@ DEMO_CENTERS = (
     ("C", "Élevage C (simulé)", "farm", "south", "breeder3", (), ("sheep", "poultry")),
     ("M", "Marché (simulé)", "market", "south", "breeder3", (), ("cattle", "sheep", "goat")),
 )
+
+# Position simulée des élevages (carte) : A et B dans le Poro (vers Korhogo),
+# C et le marché dans le Gbêkê (vers Bouaké, grand marché de bétail).
+DEMO_POSITIONS = {
+    "A": ("9.512300", "-5.701800"), "B": ("9.395600", "-5.548200"),
+    "C": ("7.781400", "-5.112600"), "M": ("7.693900", "-5.030700"),
+}
+# Sous-zones de démo rattachées aux vraies régions (niveau 3, sous la région).
+DEMO_SUBZONES = (("north", "DEMO-NORD", "Zone Nord (simulée)", "CI-R-POR"),
+                 ("south", "DEMO-SUD", "Zone Sud (simulée)", "CI-R-GBE"))
 
 DEMO_ANIMALS = (
     # n°, centre, espèce, sexe, race, étiquetée
@@ -164,11 +175,11 @@ class Command(BaseCommand):
             code="DEMO-CI", defaults={"level": 0, "name": "Pays de démonstration (simulé)"}
         )
         self._count("zone DEMO-CI", created)
+        ci_zones = geo_services.load_ci_zones(root)  # 14 districts et 33 régions (carte)
         zones = {"root": root}
-        for key, code, name in (("north", "DEMO-NORD", "Zone Nord (simulée)"),
-                                ("south", "DEMO-SUD", "Zone Sud (simulée)")):
-            zones[key], created = Zone.objects.get_or_create(
-                code=code, defaults={"level": 1, "name": name, "parent": root}
+        for key, code, name, region in DEMO_SUBZONES:
+            zones[key], created = Zone.objects.update_or_create(
+                code=code, defaults={"level": 3, "name": name, "parent": ci_zones[region]}
             )
             self._count(f"zone {code}", created)
 
@@ -246,6 +257,10 @@ class Command(BaseCommand):
                     starts_at=now,
                 )
                 self._count(f"centre {key}", True)
+            if center.latitude is None and key in DEMO_POSITIONS:
+                lat, lon = DEMO_POSITIONS[key]
+                Center.objects.filter(pk=center.pk).update(latitude=lat, longitude=lon,
+                                                           location_source="manual")
             for member_key, member_role in others:
                 identity_services.add_center_member(
                     center, users[member_key], member_role, starts_at=now

@@ -7,6 +7,10 @@ ne sont jamais acceptés en entrée.
 
 from rest_framework import serializers
 
+CONSENT_REQUIRED = "L'accord de l'éleveur est obligatoire."
+# Version de la notice lue à l'éleveur (texte : frontend, vocabulaire.ts, messages.noticeDonnees).
+CONSENT_NOTICE_VERSION = "2026-11-20"
+
 CENTER_TYPES = ("farm", "market", "slaughterhouse", "checkpoint", "other")
 SEXES = ("male", "female", "unknown")
 BIRTH_PRECISIONS = ("day", "month", "year", "estimated")
@@ -46,6 +50,36 @@ class CenterCreateSerializer(serializers.Serializer):
     zone_id = serializers.UUIDField()
     center_type = serializers.ChoiceField(choices=CENTER_TYPES, default="farm")
     species_ids = serializers.ListField(child=serializers.UUIDField(), required=False, default=list)
+
+
+class BreederCreateSerializer(serializers.Serializer):
+    """Agent de terrain : inscrire un éleveur et son premier élevage."""
+
+    id = serializers.UUIDField(help_text="UUID du compte, créé sur l'appareil. Renvoyer le même = sans effet.")
+    full_name = serializers.CharField(max_length=120)
+    phone = serializers.CharField(max_length=40, help_text="Ex. 07 07 07 07 07 ou +2250707070707.")
+    password = serializers.CharField(
+        max_length=128, write_only=True, trim_whitespace=False,
+        help_text="Créé sur le téléphone de l'agent et remis à l'éleveur.",
+    )
+    center_id = serializers.UUIDField(help_text="UUID de l'élevage, créé sur l'appareil.")
+    center_name = serializers.CharField(max_length=160)
+    zone_id = serializers.UUIDField()
+    species_ids = serializers.ListField(child=serializers.UUIDField(), allow_empty=False)
+    consent = serializers.BooleanField(
+        help_text="L'agent a lu la notice à l'éleveur, qui accepte (loi 2013-450). Obligatoire : true.",
+    )
+
+    def validate_consent(self, value):
+        if value is not True:
+            raise serializers.ValidationError(CONSENT_REQUIRED)
+        return value
+
+
+class BreederSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    full_name = serializers.CharField()
+    phone = serializers.CharField()
 
 
 class CenterDetailSerializer(serializers.Serializer):
@@ -206,3 +240,10 @@ class LabelBatchSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     quantity = serializers.IntegerField()
     codes = serializers.ListField(child=serializers.CharField(), help_text="Codes à imprimer.")
+
+
+class BreederRegisteredSerializer(serializers.Serializer):
+    """Réponse à l'inscription d'un éleveur (sans le mot de passe)."""
+
+    breeder = BreederSerializer()
+    center = CenterDetailSerializer()

@@ -15,8 +15,8 @@ Fonctions de lecture :
 - authorities_for_zone(zone_id, at=None, include_ancestors=True) -> list[User]
 
 Fonctions d'écriture (journalisées dans audit_log) :
-- grant_role, verify_habilitation, create_mandate
-- authenticate_by_phone, issue_tokens, refresh_access, logout
+- grant_role, verify_habilitation, create_mandate, register_breeder (inscription par un agent)
+- authenticate_by_phone, issue_tokens, refresh_access, logout, change_password
 """
 
 from datetime import date, datetime
@@ -173,6 +173,70 @@ def verify_habilitation(habilitation, verifier, at=None):
         },
     )
     return habilitation
+
+
+PHONE_TAKEN = "Ce numéro a déjà un compte."
+
+
+@transaction.atomic
+def register_breeder(*, phone, full_name, password, zone, registered_by, user_id=None,
+                     consent_notice=None):
+    """Crée le compte d'un éleveur inscrit par un agent de terrain (rôle "breeder" sur `zone`).
+
+    Pas d'inscription libre : c'est l'agent, en face de l'éleveur, qui crée le compte et lui
+    remet son mot de passe. Lève AccountsError si le numéro a déjà un compte ou si le mot
+    de passe est refusé. Journalisé "user.register" (acteur : l'agent).
+    """
+    from django.contrib.auth.password_validation import validate_password
+
+    User = get_user_model()
+    try:
+        phone = normalize_phone(phone)
+    except ValidationError as exc:
+        raise AccountsError(exc.messages[0]) from exc
+    if User.objects.filter(phone=phone).exists():
+        raise AccountsError(PHONE_TAKEN)
+    kwargs = {"id": user_id} if user_id else {}
+    user = User(phone=phone, full_name=full_name.strip(), **kwargs)
+    try:
+        validate_password(password, user)
+    except ValidationError as exc:
+        raise AccountsError(" ".join(exc.messages)) from exc
+    user.set_password(password)
+    user.save()
+    grant_role(user, "breeder", zone=zone, granted_by=registered_by)
+    record_event(
+        "user.register",
+        actor_user=registered_by,
+        entity_table="app_user",
+        entity_id=user.id,
+        details={"role": "breeder", "zone_id": str(zone.id) if zone else None,
+                 # Preuve de l'accord : version de la notice lue par l'agent (loi 2013-450).
+                 "consent_notice": consent_notice},
+    )
+    return user
+
+
+WRONG_PASSWORD = "Mot de passe actuel incorrect."
+
+
+def change_password(user, current_password, new_password):
+    """Change le mot de passe (ex. l'éleveur remplace celui que l'agent lui a remis).
+
+    Lève AccountsError si le mot de passe actuel est faux ou si le nouveau est refusé.
+    Journalisé "auth.password_change" (jamais le mot de passe).
+    """
+    from django.contrib.auth.password_validation import validate_password
+
+    if not user.check_password(current_password):
+        raise AccountsError(WRONG_PASSWORD)
+    try:
+        validate_password(new_password, user)
+    except ValidationError as exc:
+        raise AccountsError(" ".join(exc.messages)) from exc
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+    record_event("auth.password_change", actor_user=user, entity_id=user.pk)
 
 
 def create_mandate(agent, granted_by, scope, *, starts_at=None, ends_at=None, mandate_id=None):

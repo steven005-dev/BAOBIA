@@ -1,36 +1,41 @@
 /**
  * Ajouter un animal ou un lot (gabarit Formulaire en une action) : une question par écran.
- * Étapes : espèce -> animal ou lot (si l'espèce permet les deux) -> nombre (lot).
- * Le code de l'étiquette est CRÉÉ PAR LE TÉLÉPHONE (personne ne le saisit) ; la fiche
- * l'affiche ensuite en grand pour faire l'étiquette physique.
+ * Étapes : espèce -> animal ou lot (si l'espèce permet les deux) -> nombre (lot) -> étiquette.
+ * Étiquette (spec v1.4, 9.10) : voie principale = SCANNER LA BOUCLE PRÉIMPRIMÉE remise par l'agent ;
+ * secours = code CRÉÉ PAR LE TÉLÉPHONE, que la fiche affiche ensuite pour faire l'étiquette.
  * L'identifiant et le code sont créés une seule fois : un double envoi est sans effet.
  */
 
-import { ArrowLeft, ArrowRight, CirclePlus, PawPrint, Users } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CirclePlus, PawPrint, QrCode, ScanQrCode, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 
 import { Banner } from '@/components/Banner'
 import { Button } from '@/components/Button'
 import { ChoiceGrid } from '@/components/ChoiceGrid'
+import { CodeInput } from '@/components/CodeInput'
+import { Field } from '@/components/Field'
 import { Loader } from '@/components/Loader'
 import { NumberStepper } from '@/components/NumberStepper'
 import { useToast } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
-import { generateShortCode } from '@/lib/shortCode'
+import { generateShortCode, isValidShortCode, normalizeShortCode } from '@/lib/shortCode'
 import { champs, erreurs, messages, mots, titres } from '@/lib/vocabulaire'
 
 import { identityApi, newUuid, type Species, type UnitKind } from './api'
 import { LabelToPrint } from './LabelToPrint'
+import { QrScanner } from './QrScanner'
 import { speciesIcon } from './speciesIcon'
 import { useResource } from './useResource'
 
-type Step = 'species' | 'kind' | 'size'
+type Step = 'species' | 'kind' | 'size' | 'label'
+type LabelMode = 'tag' | 'generate'
 
 function stepsFor(species: Species | undefined, kind: UnitKind): Step[] {
   const steps: Step[] = ['species']
   if (species?.tracking_mode === 'both') steps.push('kind')
   if (kind === 'lot') steps.push('size')
+  steps.push('label')
   return steps
 }
 
@@ -49,6 +54,8 @@ export function AddUnitPage() {
   const [kindChoice, setKindChoice] = useState<UnitKind | null>(null)
   const [size, setSize] = useState(1)
   const [code, setCode] = useState(generateShortCode)
+  const [labelMode, setLabelMode] = useState<LabelMode>('tag')
+  const [tagCode, setTagCode] = useState('')
   const [stepIndex, setStepIndex] = useState(0)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -63,7 +70,8 @@ export function AddUnitPage() {
   const canContinue =
     (step === 'species' && !!chosen) ||
     step === 'kind' ||
-    (step === 'size' && size >= 1)
+    (step === 'size' && size >= 1) ||
+    (step === 'label' && (labelMode === 'generate' || isValidShortCode(tagCode)))
 
   const back = () => {
     setError(null)
@@ -83,8 +91,9 @@ export function AddUnitPage() {
       ...(kind === 'lot' ? { size } : {}),
     })
     try {
-      let result = await identityApi.addUnit(unitId, unit(code))
-      if (result.status === 'check' && result.error?.includes('déjà posée')) {
+      const useTag = labelMode === 'tag'
+      let result = await identityApi.addUnit(unitId, unit(useTag ? tagCode : code))
+      if (!useTag && result.status === 'check' && result.error?.includes('déjà posée')) {
         // Code déjà pris (doublon, en pratique impossible) : on en crée un autre et on réessaie
         // une fois. Le même identifiant d'animal est gardé : rien n'a été créé au premier essai.
         const fresh = generateShortCode()
@@ -108,7 +117,7 @@ export function AddUnitPage() {
 
   const next = () => {
     if (!canContinue) {
-      setError(messages.champManquant)
+      setError(step === 'label' ? messages.scannezLaBoucle : messages.champManquant)
       return
     }
     setError(null)
@@ -121,9 +130,9 @@ export function AddUnitPage() {
       <div className="flex flex-col gap-6">
         <h1 className="text-title font-bold text-foreground">{titres.ajouterAnimal}</h1>
         <Banner variant="info" title={messages.enAttente}>
-          {messages.gardeSurTelephone} {messages.etiquetteDejaImprimable}
+          {messages.gardeSurTelephone} {labelMode === 'generate' && messages.etiquetteDejaImprimable}
         </Banner>
-        <LabelToPrint code={code} species={chosen.label_fr} />
+        {labelMode === 'generate' && <LabelToPrint code={code} species={chosen.label_fr} />}
         <Button icon={PawPrint} onClick={() => navigate(`/centres?elevage=${centerId}`, { replace: true })}>
           {mots.animaux}
         </Button>
@@ -175,6 +184,42 @@ export function AddUnitPage() {
         <NumberStepper label={titres.combienAnimaux} value={size} onChange={setSize} min={1} max={10000} />
       )}
 
+      {step === 'label' && (
+        <div className="flex flex-col gap-4">
+          <ChoiceGrid
+            label={titres.quelleEtiquette}
+            value={labelMode}
+            onChange={(value) => {
+              setLabelMode(value as LabelMode)
+              setError(null)
+            }}
+            options={[
+              { value: 'tag', label: champs.scannerBoucle, icon: ScanQrCode },
+              { value: 'generate', label: champs.creerCode, icon: QrCode },
+            ]}
+          />
+          {labelMode === 'tag' && (
+            <>
+              <QrScanner
+                onCode={(raw) => {
+                  const value = normalizeShortCode(raw)
+                  if (!isValidShortCode(value)) return setError(messages.etiquetteNonReconnue)
+                  setTagCode(value)
+                  setError(null)
+                  toast.show(messages.boucleLue, 'success')
+                }}
+              />
+              <Field
+                label={champs.codeEtiquette}
+                help={champs.codeEtiquetteAide}
+                error={tagCode.length === 9 && !isValidShortCode(tagCode) ? erreurs.codeIncorrect : null}
+              >
+                <CodeInput value={tagCode} onValueChange={setTagCode} />
+              </Field>
+            </>
+          )}
+        </div>
+      )}
 
       {error && <Banner variant="error">{error}</Banner>}
 

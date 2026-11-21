@@ -1,7 +1,7 @@
 # BAOBIA : le projet, son contexte et son architecture
 
 > Document d'entrée pour toute personne (ou tout agent IA) qui rejoint le projet. À lire **avant** les autres documents.
-> Version 1.2 - 17 novembre 2026 (code d'étiquette créé par le téléphone ; 1.1 : regroupement de zone). Prototype présenté à SELAB 2026 (Abidjan), présentation prévue vers le 20 novembre 2026 (règles détaillées du concours non confirmées).
+> Version 1.2 - 17 novembre 2026 (code d'étiquette créé par le téléphone ; 1.1 : regroupement de zone). Prototype présenté à SELAB 2026 (Abidjan), présentation le **dimanche 22 novembre 2026**. Changements de conception du 19/11 : voir `MODIFICATIONS_CONCEPTION.md`.
 
 ---
 
@@ -215,12 +215,12 @@ Le fichier `.github/CODEOWNERS` applique ces responsabilités. Méthode de trava
 | Choix techniques détaillés | Fiche technique (PDF) |
 | La base de données : tables, contraintes, règles de code | **`BAOBIA_DB_SPEC.md`** (source de vérité) et `BAOBIA_MCD_MLD.pdf` |
 | L'interface : couleurs, composants, vocabulaire | `BAOBIA_UI_GUIDELINES.md` et la charte graphique (PDF) |
-| Les commandes (Git, Django, npm) | `GUIDE_COMMANDES.md` |
+| Les commandes (Git, Django, npm) | `commande.md` |
 | Comment on travaille ensemble | `work_method.md` |
 | Démarrer comme développeur | Guide de démarrage développeur (PDF) |
 | La maquette 3D | Dossier maquette 3D (PDF) |
 
-**Ordre de lecture conseillé pour un nouveau développeur :** ce fichier -> `GUIDE_COMMANDES.md` -> `work_method.md` -> `BAOBIA_DB_SPEC.md` (ses applications) -> la charte si on touche à l'interface.
+**Ordre de lecture conseillé pour un nouveau développeur :** ce fichier -> `MODIFICATIONS_CONCEPTION.md` -> `commande.md` -> `work_method.md` -> `BAOBIA_DB_SPEC.md` (ses applications) -> la charte si on touche à l'interface.
 
 ## 13. Décisions déjà prises (ne pas rediscuter sans raison)
 
@@ -232,11 +232,11 @@ Le fichier `.github/CODEOWNERS` applique ces responsabilités. Méthode de trava
 | Connexion par numéro de téléphone | Public cible. |
 | UUID créés côté appareil | Hors ligne sans collision. |
 | Règles sanitaires en table versionnée | Les changer ne demande pas de redéploiement. |
-| Code d'étiquette créé par le téléphone à l'ajout de l'animal | Aucune saisie (moins d'erreurs), marche hors ligne, pas de stock d'étiquettes pré-imprimées à gérer. |
+| Boucles préimprimées distribuées par l'agent (voie principale, 19/11) ; code créé par le téléphone en secours | Une étiquette imprimée sur place ne tient pas sur le terrain ; le code du téléphone reste utile hors ligne et sans stock. |
 | Regroupement par règles explicables, IA secondaire | Chaque alerte doit dire pourquoi elle existe ; l'IA ne pose aucun diagnostic et seul un vétérinaire habilité valide. |
 | Aucune valeur légale | Prototype ; évite toute confusion avec un document officiel. |
 | Simplicité d'interface avant tout | Utilisateurs peu lettrés. |
 
 ## 14. Calendrier indicatif
 
-Dates à recaler selon l'avancement réel. Gel des nouvelles fonctions le **18 novembre** (seulement des corrections ensuite), répétition générale le 19, présentation vers le **20 novembre 2026**. Si le temps manque, on sacrifie dans cet ordre : tableau de bord d'administration, détail de zone enrichi, carnet sanitaire complet, indicateur de complétude. On ne sacrifie jamais le parcours de la section 6.
+Répétition générale le **samedi 21 novembre**, présentation le **dimanche 22 novembre 2026**. Priorités : voir `MODIFICATIONS_CONCEPTION.md`. Si le temps manque, on sacrifie dans cet ordre : tableau de bord d'administration, détail de zone enrichi, carnet sanitaire complet, indicateur de complétude. On ne sacrifie jamais le parcours de la section 6.

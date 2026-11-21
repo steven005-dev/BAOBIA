@@ -7,6 +7,7 @@ import { CircleHelp } from 'lucide-react'
 import { createBrowserRouter, type RouteObject } from 'react-router'
 
 import { LoginPage } from '@/auth/LoginPage'
+import { PasswordPage } from '@/auth/PasswordPage'
 import { RequireAuth } from '@/auth/RequireAuth'
 import { EmptyState } from '@/components/EmptyState'
 import { alertsRoutes } from '@/features/alerts/routes'
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <HomePage /> },
+      { path: 'mot-de-passe', element: <PasswordPage /> },
       ...identityRoutes,
       ...movementsRoutes,
       ...healthRoutes,
