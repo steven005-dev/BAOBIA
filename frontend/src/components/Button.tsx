@@ -19,17 +19,17 @@ import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
   [
-    'inline-flex items-center justify-center gap-2 rounded-md px-5 text-button font-bold',
-    'select-none transition-colors',
+    'inline-flex items-center justify-center gap-2 rounded-lg px-5 font-display text-button font-bold',
+    'select-none transition-all active:scale-[0.98]',
     'disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground',
   ],
   {
     variants: {
       variant: {
         primary:
-          'h-touch-primary bg-primary text-primary-foreground hover:bg-primary-hover active:bg-primary-hover',
+          'h-touch-primary bg-brand-gradient text-primary-foreground shadow-card hover:shadow-raised',
         secondary:
-          'h-touch-secondary border-2 border-primary bg-surface text-primary hover:bg-accent active:bg-accent',
+          'h-touch-secondary border-2 border-primary/25 bg-surface text-primary shadow-card hover:border-primary hover:bg-accent',
         danger:
           'h-touch-secondary bg-destructive text-destructive-foreground active:brightness-90',
         ghost: 'h-touch px-3 text-primary hover:bg-accent active:bg-accent',

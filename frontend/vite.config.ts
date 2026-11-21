@@ -31,7 +31,15 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },
-    server: { https, proxy },
+    // Tunnel ngrok (test sur téléphone hors du Wi-Fi) : Vite bloque sinon les adresses inconnues.
+    server: { https, proxy, allowedHosts: ['.ngrok-free.app', '.ngrok-free.dev', '.ngrok.app', '.ngrok.io'] },
     preview: { https, proxy },
+    // Préparer toutes les bibliothèques ensemble au démarrage : sinon lucide-react peut être
+    // préparé à part avec sa propre copie de React (« Invalid hook call », écran blanc).
+    optimizeDeps: {
+      include: ['react', 'react/jsx-runtime', 'react/jsx-dev-runtime', 'react-dom', 'react-dom/client',
+        'react-router', 'lucide-react', 'd3-geo', 'dexie', 'qrcode', 'class-variance-authority', 'clsx',
+        'tailwind-merge'],
+    },
   }
 })
