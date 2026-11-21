@@ -10,6 +10,7 @@ Accès aux centres (utilisé par accounts.permissions.HasCenterAccess) :
 - accessible_centers(user, at=None, scope=None), user_can_access_center(...)
 Écriture :
 - create_center, add_center_member, grant_mandate, register_breeder_with_center (agent)
+- center_contacts(center_ids, at=None) : membres et agents mandatés, à prévenir
 - register_animal, register_lot, create_label_batch, bind_label, replace_label
 - set_current_center (appelée par traceability à la double confirmation)
 - record_verification (contrôle d'identité à un scan)
@@ -114,6 +115,22 @@ def _mandate_links(user, at, scope=None):
     if scope:
         links = links.filter(mandate__scope__in=(scope, "all"))
     return links
+
+
+def center_contacts(center_ids, at=None):
+    """Personnes à prévenir pour des centres : membres actifs (détenteur, co-détenteur,
+    employé) et agents de terrain qui ont un mandat actif sur ces centres (ils aident les
+    éleveurs sans smartphone). Utilisateurs actifs seulement, sans doublon."""
+    at = at or timezone.now()
+    from django.contrib.auth import get_user_model
+
+    center_ids = list(center_ids)
+    members = _active(CenterMember.objects.filter(center_id__in=center_ids), at)         .values_list("user_id", flat=True)
+    agents = MandateCenter.objects.filter(
+        center_id__in=center_ids, mandate__starts_at__lte=at, mandate__revoked_at__isnull=True,
+    ).filter(Q(mandate__ends_at__isnull=True) | Q(mandate__ends_at__gt=at))         .values_list("mandate__agent_user_id", flat=True)
+    ids = set(members) | set(agents)
+    return list(get_user_model().objects.filter(pk__in=ids, is_active=True))
 
 
 def accessible_centers(user, at=None, scope=None):

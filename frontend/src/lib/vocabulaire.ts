@@ -57,6 +57,7 @@ export const mots = {
   fermer: 'Fermer',
   profil: 'Profil',
   quitter: 'Quitter',
+  deconnexion: 'Déconnexion', // À VALIDER : remplace « Quitter » pour se déconnecter (Mon compte)
   continuer: 'Continuer',
   etiquettes: 'Étiquettes', // À VALIDER (pluriel d'« Étiquette »)
   imprimer: 'Imprimer', // À VALIDER : imprimer l'étiquette d'un animal
@@ -183,7 +184,37 @@ export const textesNotifications: Record<string, string> = {
   // À VALIDER : animal déclaré disparu ou volé, scanné dans un marché (guide des ajouts, 3).
   'declared_missing.seen':
     'Un animal que vous avez déclaré a été vu dans un marché. Contactez votre service vétérinaire ou la gendarmerie.',
+  // À VALIDER (21/11) : messages à tous les acteurs. {count}, {species}, {zone}, {disease}
+  // sont remplacés par l'application (features/notifications/text.ts).
+  'report.to_review': 'Nouveau signalement à examiner : {count} animal(aux) touché(s){species}.',
+  'alert.authority_validated': 'Alerte validée par un vétérinaire : {disease}, zone {zone}.',
+  'alert.authority_closed': 'Alerte close : {disease}, zone {zone}.',
+  'movement.to_confirm': 'Des animaux arrivent chez vous ({count}). Confirmez la réception.',
+  'movement.declared_by_other': 'Un départ de vos animaux ({count}) a été déclaré par un autre élevage. Vérifiez.',
+  'movement.confirmed': 'Votre envoi ({count}) a été reçu et confirmé.',
+  'movement.disputed': 'Un mouvement ({count}) est contesté. Vérifiez-le.',
+  'movement.cancelled': 'Un envoi prévu chez vous ({count}) a été annulé.',
 }
+
+/** À VALIDER : message à l'éleveur après la décision du vétérinaire sur son signalement. */
+export const textesDecisionSignalement: Record<string, string> = {
+  request_info: 'Le vétérinaire demande des informations sur votre signalement.',
+  retain_suspicion: 'Le vétérinaire garde votre signalement en surveillance.',
+  raise_level2: 'Le vétérinaire suit de près votre signalement.',
+  validate_level3: 'Le vétérinaire a confirmé votre signalement. Suivez ses consignes.',
+  dismiss: 'Le vétérinaire a examiné votre signalement : aucune maladie retenue.',
+  close: 'Votre signalement est clôturé.',
+}
+
+/** À VALIDER : centre de messages (tous les profils). */
+export const messagesTextes = {
+  titre: 'Messages',
+  ouvrir: 'Messages',
+  nonLus: (n: number) => (n > 1 ? `${n} messages non lus` : `${n} message non lu`),
+  aucun: 'Aucun message pour le moment.',
+  toutLire: 'Tout marquer comme lu',
+  nouveau: 'Nouveau',
+} as const
 
 /** Messages d'erreur du client API et de la connexion (À VALIDER, ton de la charte). */
 export const erreurs = {
@@ -269,6 +300,7 @@ export const pistesTextes = {
   incubation: 'Incubation',
   jours: 'jours',
   zoonose: 'Transmissible à l’humain : gants et masque pour les prélèvements.',
+  alerteGenerale: 'Signe d’alerte :',
   declarationObligatoire: 'Déclaration obligatoire',
   prelevements: 'Prélèvements conseillés',
   ficheLabo: 'Fiche pour le laboratoire',
@@ -324,6 +356,18 @@ export const sante = {
   motifAide: 'Obligatoire pour refuser.',
   decisionEnregistree: 'Décision enregistrée.',
   aucuneRegle: 'Aucune règle sanitaire pour cette maladie.',
+  // À VALIDER : confirmations (interface « pro »).
+  recuTitre: 'Signalement reçu',
+  recuTexte: 'Le vétérinaire de votre zone va l’examiner. Vous verrez sa décision ici.',
+  recuEtapes: 'Et ensuite ?',
+  etapeRecu: 'Reçu',
+  etapeEnExamen: 'Le vétérinaire examine',
+  etapeDecision: 'Il décide et vous prévient',
+  voirMonSignalement: 'Voir mon signalement',
+  confirmerValidationTitre: 'Valider au niveau 3 ?',
+  confirmerValidationTexte: 'L’alerte sera validée. Les élevages en contact possible seront prévenus tout de suite, par un message neutre.',
+  confirmerRefusTitre: 'Refuser ce signalement ?',
+  confirmerRefusTexte: 'L’éleveur verra que le signalement est refusé, avec votre motif.',
 } as const
 
 export const typesSignalement = {
@@ -382,6 +426,39 @@ export const alertesTextes = {
   etapeAnnule: 'Annulé',
   etapeAVenir: 'Pas encore',
   apres: 'après le signalement',
+  // À VALIDER : interface « pro » (chiffres clés, liste).
+  enContact: 'En contact possible',
+  ecartes: 'Écartés',
+  delai: 'Délai de validation',
+  foyerCourt: 'Foyer',
+  miseAJour: 'Mis à jour automatiquement',
+} as const
+
+/** Page et onglet « Mon compte » (À VALIDER). */
+export const profilTextes = {
+  titre: 'Mon compte',
+  ongletCourt: 'Compte',
+  telephone: 'Numéro de téléphone',
+  zone: 'Zone',
+  organisation: 'Organisation',
+  habValide: 'Habilitation valide',
+  habValideAide: 'Vous pouvez valider les alertes de votre zone.',
+  habAbsente: "Pas d'habilitation valide",
+  habAbsenteAide: "Vous pouvez consulter, mais pas valider. Contactez l'autorité vétérinaire.",
+  mesElevages: 'Mes élevages',
+  acces: {
+    holder: 'Détenteur',
+    co_holder: 'Co-détenteur',
+    worker: 'Employé',
+    mandate: 'Mandat',
+  },
+} as const
+
+/** Dates relatives (À VALIDER). */
+export const tempsTextes = {
+  aLInstant: "à l'instant",
+  ilYa: 'il y a',
+  hier: 'hier',
 } as const
 
 export const raisonsExposition: Record<string, string> = {

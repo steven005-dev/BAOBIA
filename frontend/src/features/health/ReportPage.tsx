@@ -8,7 +8,7 @@
  */
 
 import {
-  Activity, ArrowLeft, ArrowRight, Droplet, Droplets, Flag, Footprints, HeartPulse, PawPrint,
+  Activity, ArrowLeft, ArrowRight, CircleCheck, Droplet, Droplets, Flag, Footprints, HeartPulse, PawPrint,
   ScanFace, Skull, Thermometer, UtensilsCrossed, Warehouse, Wind, type LucideIcon,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -75,6 +75,7 @@ export function ReportPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [queued, setQueued] = useState(false)
+  const [received, setReceived] = useState(false)
 
   // Un seul élevage : choisi d'office, pas de question.
   const onlyCenter = centers.data?.length === 1 ? (centers.data[0]?.id ?? null) : null
@@ -124,7 +125,7 @@ export function ReportPage() {
       })
       if (result.status === 'sent') {
         toast.show(messages.signalementEnvoye, 'success')
-        navigate(`/sante/${reportId}`, { replace: true })
+        setReceived(true)
       } else if (result.status === 'check') {
         setError(result.error ?? erreurs.saisie)
       } else {
@@ -151,6 +152,43 @@ export function ReportPage() {
     setError(null)
     if (stepIndex === 0) navigate(-1)
     else setStepIndex(stepIndex - 1)
+  }
+
+  // Écran de fin : on rassure et on dit ce qui va se passer (3 étapes).
+  if (received) {
+    const next = [sante.etapeRecu, sante.etapeEnExamen, sante.etapeDecision]
+    return (
+      <div className="flex flex-col items-center gap-6 pt-4 text-center">
+        <span className="flex size-24 items-center justify-center rounded-full bg-success-bg text-success shadow-card">
+          <CircleCheck aria-hidden className="size-14" strokeWidth={2.5} />
+        </span>
+        <div className="flex flex-col gap-2">
+          <h1 className="text-title font-bold text-foreground">{sante.recuTitre}</h1>
+          <p className="text-body text-muted-foreground">{sante.recuTexte}</p>
+        </div>
+        <section className="w-full rounded-lg border border-border bg-surface p-4 text-left shadow-card">
+          <h2 className="pb-3 text-card-title font-bold text-foreground">{sante.recuEtapes}</h2>
+          <ol className="flex flex-col gap-3">
+            {next.map((label, index) => (
+              <li key={label} className="flex items-center gap-3 text-body">
+                <span className={`flex size-8 shrink-0 items-center justify-center rounded-full font-bold tabular-nums ${index === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                  {index + 1}
+                </span>
+                <span className={index === 0 ? 'font-bold text-foreground' : 'text-muted-foreground'}>{label}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+        <div className="flex w-full flex-col gap-3">
+          <Button icon={Flag} onClick={() => navigate(`/sante/${reportId}`, { replace: true })}>
+            {sante.voirMonSignalement}
+          </Button>
+          <Button variant="secondary" icon={ArrowLeft} onClick={() => navigate('/', { replace: true })}>
+            {mots.accueil}
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   if (queued) {
@@ -253,7 +291,9 @@ export function ReportPage() {
 
       {error && <Banner variant="error">{error}</Banner>}
 
-      <div className="flex flex-col gap-3">
+      {/* Boutons collés en bas, au-dessus de la navigation : toujours visibles, même sur
+          un petit téléphone (en-tête + bandeau de profil). */}
+      <div className="sticky bottom-[calc(var(--nav-height)+env(safe-area-inset-bottom))] -mx-4 flex flex-col gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0">
         <Button icon={isLast ? Flag : ArrowRight} onClick={next} loading={sending}>
           {isLast ? mots.signaler : mots.continuer}
         </Button>

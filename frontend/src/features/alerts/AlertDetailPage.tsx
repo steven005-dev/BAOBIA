@@ -16,9 +16,10 @@ import { Banner } from '@/components/Banner'
 import { Button } from '@/components/Button'
 import { Card } from '@/components/Card'
 import { DemoDataNotice } from '@/components/DemoDataNotice'
-import { Loader } from '@/components/Loader'
+import { useAuth } from '@/auth/AuthProvider'
 import { StatusBadge } from '@/components/StatusBadge'
 import { healthApi, type AlertDetail } from '@/features/health/api'
+import { ListSkeleton } from '@/features/health/ListSkeleton'
 import { useResource } from '@/features/identity/useResource'
 import { alertesTextes, mots, raisonsExposition } from '@/lib/vocabulaire'
 
@@ -45,11 +46,17 @@ function Timeline({ alert: a }: { alert: AlertDetail }) {
   ]
   return (
     <Card title={alertesTextes.chronologie} icon={Clock}>
-      <ol className="flex flex-col gap-3">
-        {steps.map((step) => (
+      <ol className="flex flex-col">
+        {steps.map((step, index) => (
           <li key={step.label} className="flex gap-3">
-            <span aria-hidden className={`mt-1.5 size-3 shrink-0 rounded-full border-2 border-primary ${step.at ? 'bg-primary' : 'bg-surface'}`} />
-            <div className="flex flex-col">
+            {/* Point de l'étape, puis trait vertical jusqu'à la suivante (frise). */}
+            <span aria-hidden className="flex w-4 shrink-0 flex-col items-center">
+              <span className={`mt-1 size-4 shrink-0 rounded-full border-2 border-primary ${step.at ? 'bg-primary' : 'bg-surface'}`} />
+              {index < steps.length - 1 && (
+                <span className={`w-0.5 flex-1 ${steps[index + 1]?.at ? 'bg-primary' : 'bg-border'}`} />
+              )}
+            </span>
+            <div className="flex flex-col pb-4">
               <span className={`text-body font-bold ${step.at ? 'text-foreground' : 'text-muted-foreground'}`}>{step.label}</span>
               <span className="text-small text-muted-foreground">
                 {step.at
@@ -64,6 +71,15 @@ function Timeline({ alert: a }: { alert: AlertDetail }) {
         ))}
       </ol>
     </Card>
+  )
+}
+
+function StatTile({ value, label, className }: { value: number | string; label: string; className?: string }) {
+  return (
+    <div className={`flex flex-col gap-1 rounded-lg border border-l-4 border-border bg-surface p-3 shadow-card ${className ?? ''}`}>
+      <span className="font-display text-number font-bold tabular-nums text-foreground">{value}</span>
+      <span className="text-caption font-bold text-muted-foreground">{label}</span>
+    </div>
   )
 }
 
@@ -82,12 +98,12 @@ function ExposureCard({ exposure }: { exposure: Exposure }) {
       </div>
       <ol className="flex flex-col gap-1 text-small text-foreground">
         {exposure.path.map((step) => (
-          <li key={step.step} className="flex flex-wrap items-center gap-1">
-            <span className="font-bold">{step.from}</span>
-            <ArrowRight aria-hidden className="size-icon-small" />
-            <span className="font-bold">{step.to}</span>
+          <li key={step.step} className="flex flex-wrap items-center gap-1.5">
+            <span className="rounded-full bg-muted px-2.5 py-0.5 font-bold">{step.from}</span>
+            <ArrowRight aria-hidden className="size-icon-small text-muted-foreground" />
+            <span className="rounded-full bg-muted px-2.5 py-0.5 font-bold">{step.to}</span>
             <span className="text-muted-foreground">
-              · {new Date(step.occurred_at).toLocaleDateString('fr-FR')} ·{' '}
+              {new Date(step.occurred_at).toLocaleDateString('fr-FR')} ·{' '}
               {raisonsExposition[step.reason] ?? step.reason}
             </span>
             {step.movement_status === 'declared' && (
@@ -111,15 +127,18 @@ function ExposureCard({ exposure }: { exposure: Exposure }) {
 export function AlertDetailPage() {
   const { alertId = '' } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const alert = useResource(() => healthApi.alert(alertId), alertId)
 
-  if (alert.loading) return <Loader />
+  if (alert.loading) return <ListSkeleton rows={2} />
   if (alert.error) return <Banner variant="error">{alert.error.message}</Banner>
   const a = alert.data
   if (!a) return null
 
   const exposed = a.exposures.filter((e) => e.status === 'exposed')
   const excluded = a.exposures.filter((e) => e.status === 'excluded_negative')
+  const reported = a.reports.map((r) => r.created_at).sort()[0]
+  const validationDelay = reported && a.validated_at ? delay(reported, a.validated_at) : null
 
   return (
     <div className="flex flex-col gap-6">
@@ -136,27 +155,19 @@ export function AlertDetailPage() {
           {a.validated_by && ` · ${alertesTextes.valideePar} ${a.validated_by}`}
         </p>
       </div>
-      {a.is_simulated && <DemoDataNotice />}
+      {!user?.is_simulated && a.is_simulated && <DemoDataNotice />}
       {a.confidence === 'reduced' && <Banner variant="warning">{alertesTextes.confianceReduite}</Banner>}
 
-      {a.map_district && (
-        <Button variant="secondary" icon={MapIcon}
-                onClick={() => navigate(`/carte?district=${encodeURIComponent(a.map_district ?? '')}`)}>
-          {alertesTextes.voirCarte}
-        </Button>
-      )}
+      {/* Chiffres clés : ce qu'on doit comprendre en un coup d'œil. */}
+      <div className="grid grid-cols-3 gap-3">
+        <StatTile value={exposed.length} label={alertesTextes.enContact} className="border-l-health-exposure-line" />
+        <StatTile value={excluded.length} label={alertesTextes.ecartes} className="border-l-success" />
+        <StatTile value={validationDelay ?? '—'} label={alertesTextes.delai} className="border-l-primary" />
+      </div>
 
-      <Timeline alert={a} />
-
-      <Card title={alertesTextes.regle} icon={Scale}>
-        <p className="text-body">
-          {a.rule.lookback_days} {alertesTextes.jours} · {alertesTextes.profondeur} {a.rule.max_depth} · v{a.rule.version}
-        </p>
-        {a.rule.experimental && (
-          <p className="text-small text-muted-foreground">{alertesTextes.regleExperimentale}</p>
-        )}
-      </Card>
-
+      {/* Ordinateur : élevages à gauche, carte, chronologie et règle à droite. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+      <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-3">
         <h2 className="flex items-center gap-2 text-subtitle font-bold text-foreground">
           <TriangleAlert aria-hidden className="size-icon" />
@@ -177,6 +188,26 @@ export function AlertDetailPage() {
           <ul className="flex flex-col gap-3">{excluded.map((e) => <ExposureCard key={e.center.id} exposure={e} />)}</ul>
         </section>
       )}
+      </div>
+
+      <aside className="flex flex-col gap-6 lg:sticky lg:top-24">
+        {a.map_district && (
+          <Button variant="secondary" icon={MapIcon}
+                  onClick={() => navigate(`/carte?district=${encodeURIComponent(a.map_district ?? '')}`)}>
+            {alertesTextes.voirCarte}
+          </Button>
+        )}
+        <Timeline alert={a} />
+        <Card title={alertesTextes.regle} icon={Scale}>
+          <p className="text-body">
+            {a.rule.lookback_days} {alertesTextes.jours} · {alertesTextes.profondeur} {a.rule.max_depth} · v{a.rule.version}
+          </p>
+          {a.rule.experimental && (
+            <p className="text-small text-muted-foreground">{alertesTextes.regleExperimentale}</p>
+          )}
+        </Card>
+      </aside>
+      </div>
     </div>
   )
 }

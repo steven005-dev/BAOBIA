@@ -77,6 +77,6 @@ class DemoNotificationTests(TestCase):
     def test_mark_read(self):
         note = Notification.objects.get(user=self.breeder3, message_code="exposure.contact_possible")
         self.client.force_authenticate(user=self.breeder3)
-        self.assertEqual(self.client.get("/api/notifications/unread-count/").json()["unread"], 1)
+        before = self.client.get("/api/notifications/unread-count/").json()["unread"]
         self.client.post("/api/notifications/read/", {"ids": [str(note.id)]}, format="json")
-        self.assertEqual(self.client.get("/api/notifications/unread-count/").json()["unread"], 0)
+        self.assertEqual(self.client.get("/api/notifications/unread-count/").json()["unread"], before - 1)

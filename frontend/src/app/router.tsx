@@ -15,10 +15,12 @@ import { healthRoutes } from '@/features/health/routes'
 import { identityRoutes } from '@/features/identity/routes'
 import { mapRoutes } from '@/features/map/routes'
 import { movementsRoutes } from '@/features/movements/routes'
+import { notificationsRoutes } from '@/features/notifications/routes'
 import { messages } from '@/lib/vocabulaire'
 
 import { AppLayout } from './AppLayout'
 import { HomePage } from './HomePage'
+import { ProfilePage } from './ProfilePage'
 
 // Page de démonstration des composants : en développement seulement (absente du build).
 const devRoutes: RouteObject[] = import.meta.env.DEV
@@ -38,11 +40,13 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: 'mot-de-passe', element: <PasswordPage /> },
+      { path: 'profil', element: <ProfilePage /> },
       ...identityRoutes,
       ...movementsRoutes,
       ...healthRoutes,
       ...alertsRoutes,
       ...mapRoutes,
+      ...notificationsRoutes,
       { path: '*', element: <EmptyState icon={CircleHelp} title={messages.pageIntrouvable} /> },
     ],
   },

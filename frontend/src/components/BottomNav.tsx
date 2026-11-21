@@ -20,11 +20,27 @@ export interface NavItem {
   /** Actif seulement sur ce chemin exact (pour "/"). */
   end?: boolean
   emphasis?: boolean
+  /** Libellé plus court pour la navigation basse du téléphone (ex. « Compte »). */
+  shortLabel?: string
+  /** Barre latérale : entrée placée en bas (ex. « Mon compte »). */
+  bottom?: boolean
+  /** Nombre à traiter (ex. signalements à examiner) : pastille sur l'icône, masquée à 0. */
+  badge?: number
+}
+
+/** Pastille de compteur (navigation basse et latérale). Le nombre est aussi lu à voix haute. */
+export function NavBadge({ count, className }: { count?: number; className?: string }) {
+  if (!count) return null
+  return (
+    <span className={cn('inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-caption font-bold tabular-nums leading-5', className)}>
+      {count > 99 ? '99+' : count}
+    </span>
+  )
 }
 
 export function BottomNav({ items, className }: { items: NavItem[]; className?: string }) {
   if (import.meta.env.DEV && items.length > 4) {
-    console.warn('BottomNav : 4 entrées au plus (charte, principe 9).')
+    console.warn("BottomNav : 4 entrées au plus (charte, principe 9) ; « Mon compte » est dans l'en-tête.")
   }
   return (
     <nav
@@ -35,7 +51,7 @@ export function BottomNav({ items, className }: { items: NavItem[]; className?: 
       )}
     >
       <ul className="mx-auto flex h-nav max-w-mobile items-stretch">
-        {items.slice(0, 4).map(({ to, label, icon: Icon, end, emphasis }) => (
+        {items.slice(0, 4).map(({ to, label, shortLabel, icon: Icon, end, emphasis, badge }) => (
           <li key={to} className="flex flex-1">
             <NavLink
               to={to}
@@ -51,14 +67,15 @@ export function BottomNav({ items, className }: { items: NavItem[]; className?: 
                 <>
                   <span
                     className={cn(
-                      'flex h-9 w-14 items-center justify-center rounded-full transition-colors',
+                      'relative flex h-9 w-14 items-center justify-center rounded-full transition-colors',
                       isActive && !emphasis && 'bg-accent',
                       emphasis && 'size-12 -mt-5 bg-brand-gradient text-primary-foreground shadow-raised ring-4 ring-surface',
                     )}
                   >
                     <Icon aria-hidden className="size-icon" strokeWidth={isActive ? 2.5 : 2} />
+                    <NavBadge count={badge} className="absolute -top-1 -right-1 bg-primary text-primary-foreground ring-2 ring-surface" />
                   </span>
-                  <span>{label}</span>
+                  <span>{shortLabel ?? label}</span>
                 </>
               )}
             </NavLink>

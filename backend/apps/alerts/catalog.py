@@ -22,5 +22,5 @@ DEMO_RULES = {
         "escalation_hours": 24,
     }
     for code in ("fmd", "lsd", "cbpp", "ppr", "trypanosomosis", "brucellosis", "asf",
-                 "avian_influenza")
+                 "avian_influenza", "newcastle", "anthrax", "rift_valley_fever", "rabies")
 }

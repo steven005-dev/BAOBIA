@@ -1117,7 +1117,11 @@ Quand plusieurs situations s'appliquent à une zone, l'état le plus grave l'emp
 
 **6. Réouverture** (proposition, à valider par le chef de projet). Après un `dismiss`, seuls les signalements **postérieurs à la décision** comptent pour ce couple (zone, espèce), sinon les mêmes signalements redéclencheraient aussitôt l'alerte. Si le seuil est de nouveau atteint dans la fenêtre, l'alerte infirmée est rouverte (`status = 'open'`, `alert_event` `reopened`, nouveaux signalements ajoutés par `alert_report`, nouvelle `escalation_due_at`) plutôt que dupliquée.
 
-**Décision D11 à trancher par le chef de projet : désaccord entre vétérinaires.** Proposition par défaut : la **première décision** d'un vétérinaire habilité de la zone fait foi ; les décisions suivantes sont enregistrées (`alert_review`) sans changer l'état ; un désaccord (décisions différentes sur la même alerte) est signalé à l'autorité de la zone. Ne pas coder d'autre règle avant décision.
+**Décision D11 (tranchée le 21/11/2026 par le chef de projet) : désaccord entre vétérinaires.** La **première décision** d'un vétérinaire habilité de la zone fait foi ; les décisions suivantes sont enregistrées (`alert_review`) sans changer l'état ; un désaccord (décisions différentes sur la même alerte) est signalé à l'autorité de la zone (message `alert.review_disagreement`, déjà au catalogue des notifications).
+
+**Signalement « compatible » (tranché le 21/11/2026 par le chef de projet).** Deux signalements sont comptés ensemble pour un regroupement s'ils ont : la **même zone** (`center.zone_id`), la **même espèce**, une date d'observation dans les `cluster_window_days` derniers jours, **et au moins une piste de maladie commune de force « forte » ou « moyenne »** (`apps/health/leads.py`, fiches `disease_profiles.py`). L'alerte de zone porte cette maladie suspectée (`alert.disease_id`) et l'explique au vétérinaire. Un signalement sans piste forte ou moyenne n'entre dans aucun regroupement (il reste examiné un par un).
+
+**Calendrier :** à coder **après la présentation du 22/11** (détection, création, notification, décision, relance, réouverture : points 1 à 6 ci-dessus).
 
 **Valeurs de démonstration** : `cluster_window_days`, `cluster_min_reports`, `cluster_min_ratio` et `escalation_hours` sont expérimentales et **à faire valider par un vétérinaire**.
 

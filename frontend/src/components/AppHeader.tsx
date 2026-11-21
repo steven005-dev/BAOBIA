@@ -10,6 +10,7 @@
  */
 
 import { ArrowLeft, LogOut, Volume2 } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 import type { Profile } from '@/lib/profiles'
 import { cn } from '@/lib/utils'
@@ -27,13 +28,17 @@ export interface AppHeaderProps {
   onLogout?: () => void
   /** Profil connecté : bandeau couleur, icône et mot, sur tous les écrans. */
   profile?: Profile | null
+  /** Élément ajouté à droite (ex. la cloche des messages, fournie par l'application). */
+  extra?: ReactNode
+  /** Nom de l'écran affiché dans l'en-tête sur ordinateur (le logo est dans la barre latérale). */
+  desktopTitle?: string
   className?: string
 }
 
 const headerButton =
-  'flex h-touch shrink-0 items-center gap-1.5 rounded-full px-3 text-caption font-bold text-primary-foreground hover:bg-on-brand-soft active:bg-on-brand-soft'
+  'flex h-touch shrink-0 items-center gap-1.5 rounded-full px-2 text-caption font-bold text-primary-foreground hover:bg-on-brand-soft active:bg-on-brand-soft sm:px-3'
 
-export function AppHeader({ title, onBack, onListen, onLogout, profile, className }: AppHeaderProps) {
+export function AppHeader({ title, onBack, onListen, onLogout, profile, extra, desktopTitle, className }: AppHeaderProps) {
   return (
     <header className={cn('sticky top-0 z-40 bg-brand-gradient pt-[env(safe-area-inset-top)] text-primary-foreground shadow-card', className)}>
       <div className="mx-auto flex min-h-touch-primary items-center gap-2 px-4 py-1">
@@ -43,10 +48,12 @@ export function AppHeader({ title, onBack, onListen, onLogout, profile, classNam
             {mots.retour}
           </button>
         )}
-        <p className="flex min-w-0 flex-1 items-center gap-2.5 truncate font-display text-card-title font-bold tracking-wide">
+        <p className="flex min-w-9 flex-1 items-center gap-2.5 truncate font-display text-card-title font-bold tracking-wide">
           {/* Sans titre : le logo (le nom aussi dès qu'il y a la place) ; sur ordinateur, la barre latérale l'a déjà. */}
           {!title && <img src="/baobia-icon.svg" alt={APP_NAME} className="size-9 shrink-0 rounded-md ring-1 ring-on-brand-line lg:hidden" />}
           <span className={title ? 'truncate' : 'hidden truncate sm:inline lg:hidden'}>{title ?? APP_NAME}</span>
+          {/* Ordinateur : nom de l'écran courant au lieu d'un en-tête vide. */}
+          {!title && desktopTitle && <span className="hidden truncate lg:inline">{desktopTitle}</span>}
         </p>
         <OfflineIndicator />
         {/* Place de l'aide audio (charte, principe 10) : réservée même vide. */}
@@ -58,6 +65,7 @@ export function AppHeader({ title, onBack, onListen, onLogout, profile, classNam
             </button>
           )}
         </div>
+        {extra}
         {onLogout && (
           <button type="button" onClick={onLogout} className={headerButton}>
             <LogOut aria-hidden className="size-icon" />
@@ -65,7 +73,8 @@ export function AppHeader({ title, onBack, onListen, onLogout, profile, classNam
           </button>
         )}
       </div>
-      {profile && <ProfileBar profile={profile} />}
+      {/* Sur ordinateur, la pastille de la barre latérale montre déjà le profil. */}
+      {profile && <ProfileBar profile={profile} className="lg:hidden" />}
     </header>
   )
 }
