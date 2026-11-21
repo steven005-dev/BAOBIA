@@ -6,25 +6,27 @@
  * l'Autorité (serveur). Sous la carte, la même information en liste (petit écran, lecteur d'écran).
  */
 
-import { ArrowLeft, Layers, Map as MapIcon, Warehouse, ZoomIn } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Layers, Map as MapIcon, Route, Warehouse, ZoomIn } from 'lucide-react'
 import { useMemo, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'react-router'
 
+import { useAuth } from '@/auth/AuthProvider'
 import { Banner } from '@/components/Banner'
 import { Button } from '@/components/Button'
 import { Card } from '@/components/Card'
 import { ChoiceGrid } from '@/components/ChoiceGrid'
 import { Loader } from '@/components/Loader'
 import { StatusBadge } from '@/components/StatusBadge'
-import { healthApi, type ZoneState } from '@/features/health/api'
+import { healthApi, type MapFlow, type ZoneState } from '@/features/health/api'
 import { identityApi } from '@/features/identity/api'
 import { speciesIcon } from '@/features/identity/speciesIcon'
 import { useResource } from '@/features/identity/useResource'
 import { HEALTH_STATE_ORDER, HEALTH_STATES, type HealthState } from '@/lib/healthStates'
-import { carteTextes, champs } from '@/lib/vocabulaire'
+import { formatShortCode } from '@/lib/shortCode'
+import { carteTextes, champs, fluxTextes } from '@/lib/vocabulaire'
 
 import { CiMap } from './CiMap'
-import { SHAPES } from './shapes'
+import { FLOW_STYLE, SHAPES } from './shapes'
 
 /** Motifs de la charte (section 2), pour la légende et la liste. */
 const PATTERNS: Record<HealthState, CSSProperties> = {
@@ -52,6 +54,57 @@ function Swatch({ state }: { state: HealthState }) {
   )
 }
 
+const FLOW_DAYS = [7, 30, 90, 365]
+
+/** Trait d'exemple d'un flux (légende et fiche). */
+function FlowSwatch({ confidence }: { confidence: MapFlow['confidence'] }) {
+  const style = FLOW_STYLE[confidence]
+  return (
+    <svg aria-hidden viewBox="0 0 40 12" className="h-4 w-10 shrink-0">
+      <path d="M2,6 H32" stroke={style.color} strokeWidth="3" strokeLinecap="round"
+            strokeDasharray={style.dash?.split(' ').map((v) => Number(v) * 3).join(' ')} />
+      <path d="M31,1 L39,6 L31,11 z" fill={style.color} />
+    </svg>
+  )
+}
+
+function day(iso: string) {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+function FlowCard({ flow }: { flow: MapFlow }) {
+  return (
+    <Card title={`${fluxTextes.mouvementDu} ${day(flow.occurred_at)}`} icon={Route}>
+      <p className="flex items-center gap-2 text-body font-bold">
+        <FlowSwatch confidence={flow.confidence} /> {fluxTextes.confiance[flow.confidence]}
+        <span className="font-normal text-muted-foreground">· {fluxTextes.types[flow.movement_type] ?? flow.movement_type}</span>
+      </p>
+      <div className="flex flex-wrap items-center gap-2 text-body">
+        <span><span className="text-muted-foreground">{fluxTextes.de} </span><b>{flow.from.name}</b> ({flow.from.zone})</span>
+        <ArrowRight aria-hidden className="size-icon-small" />
+        <span><span className="text-muted-foreground">{fluxTextes.vers} </span><b>{flow.to.name}</b> ({flow.to.zone})</span>
+      </div>
+      <div>
+        <p className="text-small font-bold">{fluxTextes.animaux} ({flow.count})</p>
+        <ul className="mt-1 flex flex-col gap-1">
+          {flow.animals.map((a, i) => {
+            const Icon = speciesIcon(a.species)
+            return (
+              <li key={i} className="flex flex-wrap items-center gap-2 rounded-md bg-surface-secondary px-2 py-1 text-small">
+                <Icon aria-hidden className="size-icon-small" />
+                <span className="font-bold">{a.species_label}{a.kind === 'lot' ? ` × ${a.quantity}` : ''}</span>
+                {a.local_name && <span>« {a.local_name} »</span>}
+                {a.sex && fluxTextes.sexes[a.sex] && <span>{fluxTextes.sexes[a.sex]}</span>}
+                <span className="font-mono">{a.code ? formatShortCode(a.code) : fluxTextes.sansEtiquette}</span>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    </Card>
+  )
+}
+
 function ZoneFacts({ zone }: { zone: ZoneState | undefined }) {
   if (!zone) return <p className="text-small text-muted-foreground">{carteTextes.aucunElevage}</p>
   if (zone.is_masked) return null
@@ -71,8 +124,24 @@ export function MapPage() {
   const startFocus = initialDistrict && DISTRICT_CODES.has(initialDistrict) ? initialDistrict : null
   const [focus, setFocus] = useState<string | null>(startFocus)
   const [selected, setSelected] = useState<string | null>(startFocus)
+  const { hasRole } = useAuth()
+  const professional = hasRole('veterinarian') || hasRole('authority')
+  const [showFlows, setShowFlows] = useState(true)
+  const [days, setDays] = useState(30)
+  const [selectedFlow, setSelectedFlow] = useState<string | null>(null)
   const speciesList = useResource(identityApi.species, 'especes')
   const map = useResource(() => healthApi.map(species === ALL ? undefined : species), species)
+  const flowsOn = professional && showFlows
+  const flowsRes = useResource(
+    () => healthApi.flows(days, species === ALL ? undefined : species),
+    flowsOn ? `${days}-${species}` : null,
+  )
+  const flows = flowsOn ? (flowsRes.data?.flows ?? []) : []
+  const currentFlow = flows.find((f) => f.id === selectedFlow)
+  const selectFlow = (id: string) => {
+    setSelectedFlow(id)
+    setSelected(null)
+  }
 
   const states = useMemo(
     () => new Map((map.data?.zones ?? []).map((z) => [z.zone.code, z] as const)),
@@ -81,6 +150,7 @@ export function MapPage() {
 
   const onSelect = (code: string) => {
     setSelected(code)
+    setSelectedFlow(null)
     // Toucher un district (vue du pays ou district voisin) : on zoome sur ses régions.
     if (DISTRICT_CODES.has(code) && level === 'districts') setFocus(code)
   }
@@ -137,18 +207,39 @@ export function MapPage() {
               </>
             )}
           </div>
+          {professional && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant={showFlows ? 'primary' : 'ghost'} icon={Route} aria-pressed={showFlows}
+                      onClick={() => { setShowFlows((v) => !v); setSelectedFlow(null) }}>
+                {fluxTextes.afficher}
+              </Button>
+              {showFlows && (
+                <div role="group" aria-label={fluxTextes.periode} className="flex flex-wrap gap-1">
+                  {FLOW_DAYS.map((n) => (
+                    <button key={n} type="button" aria-pressed={days === n}
+                            onClick={() => { setDays(n); setSelectedFlow(null) }}
+                            className={`min-h-11 rounded-md border-2 px-3 text-small font-bold ${days === n ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-surface text-foreground'}`}>
+                      {fluxTextes.jours(n)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {map.loading && !map.data ? (
             <Loader />
           ) : (
             map.data && (
               <CiMap states={states} data={map.data} focus={focus} level={level}
-                     selected={selected} onSelect={onSelect} />
+                     selected={selected} onSelect={onSelect}
+                     flows={flows} selectedFlow={selectedFlow} onSelectFlow={selectFlow} />
             )
           )}
           <p className="text-caption text-muted-foreground">{carteTextes.touchezZone}</p>
         </Card>
 
         <div className="grid gap-4 sm:grid-cols-2">
+          {currentFlow && <FlowCard flow={currentFlow} />}
           {selected && (
             <Card title={NAMES.get(selected) ?? selected}>
               <StatusBadge state={selectedZone?.state ?? 'unknown'} size="large" className="self-start" />
@@ -185,6 +276,11 @@ export function MapPage() {
                   </li>
                 </>
               )}
+              {flows.length > 0 && (Object.keys(fluxTextes.confiance) as MapFlow['confidence'][]).map((c) => (
+                <li key={c} className="flex items-center gap-2 text-small">
+                  <FlowSwatch confidence={c} /> {fluxTextes.confiance[c]}
+                </li>
+              ))}
               {(map.data?.my_centers ?? []).some((c) => c.latitude) && (
                 <li className="flex items-center gap-2 text-small">
                   <svg aria-hidden viewBox="0 0 20 20" className="size-8"><circle cx="10" cy="10" r="7" fill="var(--focus)" stroke="#fff" strokeWidth="2.5" /></svg>
@@ -198,6 +294,26 @@ export function MapPage() {
           </Card>
         </div>
       </div>
+
+      {flowsOn && (
+        <section className="flex flex-col gap-3" aria-label={fluxTextes.liste}>
+          <h2 className="text-subtitle font-bold text-foreground">{fluxTextes.liste} ({flows.length})</h2>
+          {flowsRes.data && flows.length === 0 && <p className="text-body text-muted-foreground">{fluxTextes.aucun}</p>}
+          <ul className="flex flex-col gap-2">
+            {flows.map((f) => (
+              <li key={f.id}>
+                <button type="button" onClick={() => selectFlow(f.id)}
+                        className={`flex w-full flex-wrap items-center gap-2 rounded-lg border-2 bg-surface px-3 py-2 text-left text-small ${selectedFlow === f.id ? 'border-focus' : 'border-border'}`}>
+                  <FlowSwatch confidence={f.confidence} />
+                  <span className="font-bold">{day(f.occurred_at)}</span>
+                  <span>{f.from.name}</span><ArrowRight aria-hidden className="size-icon-small" /><span>{f.to.name}</span>
+                  <span className="text-muted-foreground">· {f.count} {f.animals[0]?.species_label.toLowerCase()}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="flex flex-col gap-3" aria-label={carteTextes.listeZones}>
         <h2 className="text-subtitle font-bold text-foreground">{carteTextes.listeZones}</h2>

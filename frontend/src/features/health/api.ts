@@ -112,6 +112,30 @@ export interface MapPoint {
   type: string
 }
 
+export type FlowConfidence = 'sure' | 'one_side' | 'disputed'
+
+export interface FlowPlace {
+  name: string
+  zone: string
+  type: string
+  latitude: string | null
+  longitude: string | null
+}
+
+export interface MapFlow {
+  id: string
+  occurred_at: string
+  received_at: string | null
+  movement_type: string
+  status: string
+  confidence: FlowConfidence
+  from: FlowPlace
+  to: FlowPlace
+  animals: { kind: 'animal' | 'lot'; species: string; species_label: string; code: string | null;
+             local_name: string | null; sex: string | null; quantity: number }[]
+  count: number
+}
+
 export interface MapData {
   zones: ZoneState[]
   my_centers: { id: string; name: string; zone_id: string; latitude: string | null; longitude: string | null }[]
@@ -151,6 +175,10 @@ export const healthApi = {
 
   alerts: () => api.get<AlertSummary[]>('/alerts/'),
   alert: (id: string) => api.get<AlertDetail>(`/alerts/${id}/`),
+  /** Flux des animaux : vétérinaire et autorité seulement. */
+  flows: (days: number, species?: string) =>
+    api.get<{ days: number; flows: MapFlow[] }>(
+      `/map/flows/?days=${days}${species ? `&species=${encodeURIComponent(species)}` : ''}`),
   map: (species?: string) =>
     api.get<MapData>(`/map/zones/${species ? `?species=${encodeURIComponent(species)}` : ''}`),
 }

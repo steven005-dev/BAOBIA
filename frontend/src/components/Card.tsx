@@ -24,12 +24,16 @@ export interface CardProps {
 
 export function Card({ title, icon: Icon, aside, footer, children, className }: CardProps) {
   return (
-    <section className={cn('flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-card', className)}>
+    <section className={cn('flex flex-col gap-3 rounded-xl border border-border/60 bg-card p-5 text-card-foreground shadow-card', className)}>
       {(title || aside) && (
         <header className="flex flex-wrap items-center justify-between gap-2">
           {title && (
-            <h3 className="flex items-center gap-2 text-card-title font-bold">
-              {Icon && <Icon aria-hidden className="size-icon shrink-0 text-primary" />}
+            <h3 className="flex items-center gap-3 text-card-title font-bold">
+              {Icon && (
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent text-primary">
+                  <Icon aria-hidden className="size-icon" />
+                </span>
+              )}
               {title}
             </h3>
           )}

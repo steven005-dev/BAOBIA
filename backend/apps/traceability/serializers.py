@@ -1,4 +1,6 @@
 import uuid
+from datetime import timedelta
+
 from rest_framework import serializers
 
 from apps.identity.models import Center, TrackedUnit
@@ -8,12 +10,19 @@ from apps.traceability.models import (
     MovementDiscrepancy,
     MovementItem,
     MovementStatusEvent,
+    StatusEvent,
 )
+from apps.traceability.services import UNIT_EVENT_TYPES, confirmation_mode
 
 
 class MovementItemInputSerializer(serializers.Serializer):
     unit_id = serializers.UUIDField()
     quantity_sent = serializers.IntegerField(default=1, min_value=1)
+
+
+class ReceivedItemSerializer(serializers.Serializer):
+    unit_id = serializers.UUIDField()
+    quantity_received = serializers.IntegerField(min_value=0)
 
 
 class MovementItemReadSerializer(serializers.ModelSerializer):
@@ -31,18 +40,58 @@ class MovementStatusEventSerializer(serializers.ModelSerializer):
         fields = ("id", "status", "reason", "occurred_at", "created_at")
 
 
+# Au-delà, une date envoyée par le téléphone dans le futur signale une horloge fausse.
+CLOCK_TOLERANCE = timedelta(minutes=10)
+
+
+def is_clock_suspect(occurred_at, created_at):
+    return bool(occurred_at and created_at and occurred_at > created_at + CLOCK_TOLERANCE)
+
+
 class MovementConfirmationSerializer(serializers.ModelSerializer):
+    mode = serializers.SerializerMethodField(
+        help_text="direct : membre de l'élevage ; assisted : agent mandaté (MV-04)."
+    )
+    entered_by_name = serializers.CharField(source="created_by.full_name", read_only=True)
+    clock_suspect = serializers.SerializerMethodField()
+
     class Meta:
         model = MovementConfirmation
-        fields = ("id", "side", "decision", "occurred_at", "created_at")
+        fields = ("id", "side", "decision", "mode", "entered_by_name", "occurred_at",
+                  "created_at", "clock_suspect")
+
+    def get_mode(self, obj):
+        movement = obj.movement
+        center_id = movement.from_center_id if obj.side == "sender" else movement.to_center_id
+        return confirmation_mode(obj.created_by, center_id, at=obj.created_at)
+
+    def get_clock_suspect(self, obj):
+        return is_clock_suspect(obj.occurred_at, obj.created_at)
+
+
+class MovementDiscrepancySerializer(serializers.ModelSerializer):
+    unit_local_name = serializers.CharField(source="unit.local_name", read_only=True,
+                                            allow_null=True)
+
+    class Meta:
+        model = MovementDiscrepancy
+        fields = ("id", "unit", "unit_local_name", "kind", "quantity_expected",
+                  "quantity_found", "status", "occurred_at")
 
 
 class MovementDetailSerializer(serializers.ModelSerializer):
     items = MovementItemReadSerializer(many=True, read_only=True)
     status_events = MovementStatusEventSerializer(many=True, read_only=True)
     confirmations = MovementConfirmationSerializer(many=True, read_only=True)
+    discrepancies = MovementDiscrepancySerializer(many=True, read_only=True)
     from_center_name = serializers.CharField(source="from_center.name", read_only=True)
     to_center_name = serializers.CharField(source="to_center.name", read_only=True)
+    clock_suspect = serializers.SerializerMethodField(
+        help_text="Vrai si la date du téléphone est dans le futur (horloge fausse)."
+    )
+
+    def get_clock_suspect(self, obj):
+        return is_clock_suspect(obj.occurred_at, obj.created_at)
 
     class Meta:
         model = Movement
@@ -62,6 +111,8 @@ class MovementDetailSerializer(serializers.ModelSerializer):
             "items",
             "status_events",
             "confirmations",
+            "discrepancies",
+            "clock_suspect",
             "created_at",
         )
 
@@ -119,6 +170,78 @@ class MovementConfirmSerializer(serializers.Serializer):
     center_id = serializers.UUIDField()
     code = serializers.RegexField(r"^\d{6}$", write_only=True)
     occurred_at = serializers.DateTimeField(required=False)
+    items_received = ReceivedItemSerializer(
+        many=True, required=False, default=list, max_length=500,
+        help_text="Rapprochement (MV-06) : nombre reçu par unité ; absent = tout reçu.",
+    )
+
+
+class MovementRefuseSerializer(serializers.Serializer):
+    """Refus de réception par le destinataire (MV-05, MV-09)."""
+
+    id = serializers.UUIDField(required=False)
+    center_id = serializers.UUIDField()
+    reason = serializers.CharField(max_length=140)
+    occurred_at = serializers.DateTimeField(required=False)
+
+
+class MovementReasonSerializer(serializers.Serializer):
+    """Annulation (élevage de départ) ou contestation (une des deux parties)."""
+
+    center_id = serializers.UUIDField()
+    reason = serializers.CharField(max_length=140)
+    occurred_at = serializers.DateTimeField(required=False)
+
+
+class MarketEntrySerializer(serializers.Serializer):
+    """Entrée au marché (R2) : codes d'étiquettes scannés par l'agent du marché."""
+
+    id = serializers.UUIDField(help_text="UUID de l'opération créé sur le téléphone.")
+    market_id = serializers.UUIDField()
+    label_codes = serializers.ListField(
+        child=serializers.CharField(max_length=20), min_length=1, max_length=200
+    )
+    occurred_at = serializers.DateTimeField(required=False)
+
+
+class MarketExitSerializer(MarketEntrySerializer):
+    """Sortie du marché (R2) : vers un élevage inscrit ou un acheteur non inscrit."""
+
+    to_center_id = serializers.UUIDField(required=False, allow_null=True)
+    to_party_note = serializers.CharField(max_length=160, required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        to_id = attrs.get("to_center_id")
+        if to_id and not Center.objects.filter(id=to_id, status="active").exists():
+            raise serializers.ValidationError({"to_center_id": "Élevage acheteur introuvable."})
+        if not to_id and not (attrs.get("to_party_note") or "").strip():
+            raise serializers.ValidationError(
+                {"to_party_note": "Indiquez l'élevage acheteur ou décrivez l'acheteur."}
+            )
+        return attrs
+
+
+class UnitEventCreateSerializer(serializers.Serializer):
+    """Événement de vie d'une unité (MV-02). `id` créé par le téléphone."""
+
+    id = serializers.UUIDField()
+    center_id = serializers.UUIDField()
+    unit_id = serializers.UUIDField()
+    event_type = serializers.ChoiceField(choices=UNIT_EVENT_TYPES)
+    occurred_at = serializers.DateTimeField(required=False)
+    note = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+
+class UnitEventReadSerializer(serializers.ModelSerializer):
+    clock_suspect = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StatusEvent
+        fields = ("id", "unit", "event_type", "visibility", "payload", "occurred_at",
+                  "created_at", "clock_suspect")
+
+    def get_clock_suspect(self, obj):
+        return is_clock_suspect(obj.occurred_at, obj.created_at)
 
 
 class DestinationShareCreateSerializer(serializers.Serializer):

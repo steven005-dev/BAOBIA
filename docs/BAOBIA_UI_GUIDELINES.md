@@ -6,6 +6,25 @@ Version 1.1, 6 novembre 2026. Référence pour toute l'équipe, y compris la maq
 
 Pile : React, Vite, TypeScript, Tailwind CSS v4, shadcn/ui personnalisé, lucide-react.
 
+## Charte v2 « Savane moderne » (21 novembre 2026)
+
+Modernisation visuelle, **sans changer les règles d'usage** : une action principale par écran, icône et mot, gros boutons (60 px), les 5 états sanitaires inchangés (couleurs, contours, motifs).
+
+| Élément | v1 | v2 |
+|---|---|---|
+| Marque | aplat `#174A3B` | même vert en **dégradé** (`--gradient-brand` : `#0D2E25` → `#174A3B` → `#1F6450`), avec un **motif de losanges** très discret (`--motif`) ; classes `bg-brand-gradient`, `bg-hero` |
+| Fond | `#F7F8F5` | **sable** `#F5F2EA` ; surface 2 `#F0ECE2` ; bordure `#E2DCCE` |
+| Titres et boutons | Atkinson Hyperlegible | **Lexend** (500, 700 ; conçue pour la lisibilité), embarquée (hors ligne) ; le texte courant reste en Atkinson |
+| Rayons | 8 / 12 / 16 / 20 px | 10 / 14 / 20 / 28 px |
+| Ombres | une ombre plate | `--shadow-card` (douce) et `--shadow-raised` (survol, éléments en avant) |
+| Tuiles d'action | icône verte sur blanc | icône dans une **pastille de couleur**, une couleur par action : `brand`, `teal`, `indigo`, `violet`, `earth`, `slate` (`--tone-*`). **Jamais** une couleur d'état sanitaire. |
+| Logo | « BB » | **baobab** stylisé sur dégradé vert (`public/baobia-icon.svg`, aussi icône de la PWA) |
+| Accueil terrain | titre + tuiles | **bandeau d'accueil** (date, « Bonjour », profil), « Que voulez-vous faire ? », « Mon compte » en liste |
+| Ordinateur (vétérinaire, autorité) | barre latérale blanche, contenu 720 px | **barre latérale sombre** (dégradé), contenu jusqu'à 1152 px (carte, listes) |
+| Connexion | en-tête vert + formulaire | bandeau de marque (slogan, 4 piliers) et formulaire dans une carte ; moitié/moitié sur ordinateur |
+
+Les sections ci-dessous gardent les valeurs v1 quand elles n'ont pas changé ; en cas d'écart, `frontend/src/styles/globals.css` fait foi.
+
 ## 1. Principes
 
 1. **Une action principale par écran.** Elle est visible, nommée et accompagnée d'une icône.

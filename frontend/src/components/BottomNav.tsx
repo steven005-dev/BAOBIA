@@ -30,7 +30,7 @@ export function BottomNav({ items, className }: { items: NavItem[]; className?: 
     <nav
       aria-label="Navigation principale"
       className={cn(
-        'fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]',
+        'fixed inset-x-0 bottom-0 z-40 rounded-t-xl border-t border-border/60 bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-raised backdrop-blur',
         className,
       )}
     >
@@ -42,18 +42,18 @@ export function BottomNav({ items, className }: { items: NavItem[]; className?: 
               end={end}
               className={({ isActive }) =>
                 cn(
-                  'relative flex flex-1 flex-col items-center justify-center gap-1 text-caption',
-                  isActive ? 'bg-accent font-bold text-primary' : 'text-muted-foreground',
+                  'relative flex flex-1 flex-col items-center justify-center gap-1 font-display text-caption',
+                  isActive ? 'font-bold text-primary' : 'text-muted-foreground',
                 )
               }
             >
               {({ isActive }) => (
                 <>
-                  {isActive && <span aria-hidden className="absolute inset-x-3 top-0 h-1 rounded-b-sm bg-primary" />}
                   <span
                     className={cn(
-                      'flex size-10 items-center justify-center rounded-full',
-                      emphasis && 'bg-primary text-primary-foreground',
+                      'flex h-9 w-14 items-center justify-center rounded-full transition-colors',
+                      isActive && !emphasis && 'bg-accent',
+                      emphasis && 'size-12 -mt-5 bg-brand-gradient text-primary-foreground shadow-raised ring-4 ring-surface',
                     )}
                   >
                     <Icon aria-hidden className="size-icon" strokeWidth={isActive ? 2.5 : 2} />

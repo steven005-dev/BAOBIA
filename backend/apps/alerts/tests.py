@@ -27,7 +27,7 @@ from apps.notifications.models import Notification
 from apps.traceability.models import Movement, MovementItem
 
 from . import services
-from .models import Alert, AlertEvent, AlertExposure, AlertReview, DiseaseRule
+from .models import Alert, AlertEvent, AlertExposure, AlertReport, AlertReview, DiseaseRule
 
 
 class AlertScenarioMixin:
@@ -207,6 +207,65 @@ class ExposureEngineTests(AlertScenarioMixin, TestCase):
         health_services.review_report(report=report, vet=self.vet, decision="dismiss",
                                       note="Simulé : examen négatif")
         self.assertEqual(Alert.objects.get().status, "cancelled")
+
+
+class OneAlertPerFocusTests(AlertScenarioMixin, TestCase):
+    """Une seule alerte ouverte par foyer, maladie et espèce."""
+
+    def dismiss(self, report):
+        return health_services.review_report(report=report, vet=self.vet, decision="dismiss",
+                                             note="Pas de lien avec le foyer.")
+
+    def test_second_validated_report_joins_the_open_alert(self):
+        first, second = self.report_at_a(), self.report_at_a()
+        self.validate(first)
+        notifications = Notification.objects.count()
+        self.validate(second)
+        alert = Alert.objects.get()
+        self.assertEqual(
+            set(AlertReport.objects.filter(alert=alert).values_list("report_id", flat=True)),
+            {first.pk, second.pk})
+        self.assertEqual(alert.level, 3)
+        self.assertEqual(Notification.objects.count(), notifications)  # pas de 2e message
+        event = AlertEvent.objects.filter(alert=alert, event_type="reviewed")             .latest("occurred_at")
+        self.assertTrue(event.payload["attached"])
+
+    def test_level2_then_level3_on_another_report_raises_the_same_alert(self):
+        first, second = self.report_at_a(), self.report_at_a()
+        self.validate(first, decision="raise_level2")
+        self.validate(second)
+        alert = Alert.objects.get()
+        self.assertEqual((alert.level, alert.validated_by), (3, self.vet))
+
+    def test_dismissing_one_report_keeps_the_alert_open(self):
+        first, second = self.report_at_a(), self.report_at_a()
+        self.validate(first)
+        self.validate(second)
+        self.dismiss(second)
+        self.assertEqual(Alert.objects.get().status, "open")
+        self.dismiss(first)
+        self.assertEqual(Alert.objects.get().status, "cancelled")
+
+    def test_other_disease_opens_its_own_alert(self):
+        other = Disease.objects.create(code="lsd", label_fr="Dermatose nodulaire")
+        DiseaseRule.objects.create(
+            disease=other, version=1, lookback_days=21, lookforward_days=0, max_depth=2,
+            min_zone_effectif=2, include_unconfirmed=False,
+            valid_from=timezone.localdate() - timedelta(days=90), approved_by=self.vet,
+        )
+        self.validate(self.report_at_a())
+        health_services.review_report(report=self.report_at_a(), vet=self.vet,
+                                      decision="validate_level3", disease=other)
+        self.assertEqual(
+            sorted(Alert.objects.values_list("disease__code", flat=True)), ["fmd", "lsd"])
+
+    def test_closed_alert_is_not_reused(self):
+        first = self.report_at_a()
+        self.validate(first)
+        health_services.review_report(report=first, vet=self.vet, decision="close")
+        self.validate(self.report_at_a())
+        self.assertEqual(
+            sorted(Alert.objects.values_list("status", flat=True)), ["closed", "open"])
 
 
 class NeutralNotificationTests(AlertScenarioMixin, TestCase):
