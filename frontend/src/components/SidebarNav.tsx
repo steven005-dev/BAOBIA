@@ -12,7 +12,7 @@ import type { Profile } from '@/lib/profiles'
 import { cn } from '@/lib/utils'
 import { APP_NAME } from '@/lib/vocabulaire'
 
-import type { NavItem } from './BottomNav'
+import { NavBadge, type NavItem } from './BottomNav'
 import { ProfileChip } from './ProfileBar'
 
 export function SidebarNav({ items, profile, className }: { items: NavItem[]; profile?: Profile | null; className?: string }) {
@@ -22,8 +22,9 @@ export function SidebarNav({ items, profile, className }: { items: NavItem[]; pr
         <img src="/baobia-icon.svg" alt="" className="size-10 rounded-md ring-1 ring-on-brand-line" />
         {APP_NAME}
       </p>
+      {/* Repère du profil : on sait toujours dans quel espace on est. */}
       {profile && <ProfileChip profile={profile} className="mb-5" />}
-      {items.map(({ to, label, icon: Icon, end }) => (
+      {items.map(({ to, label, icon: Icon, end, badge, bottom }) => (
         <NavLink
           key={to}
           to={to}
@@ -31,12 +32,15 @@ export function SidebarNav({ items, profile, className }: { items: NavItem[]; pr
           className={({ isActive }) =>
             cn(
               'flex min-h-touch items-center gap-3 rounded-md border-l-4 px-3 font-display text-body transition-colors',
+              // « Mon compte » : en bas de la barre, séparé des écrans de travail.
+              bottom && 'mt-auto border-t border-t-on-brand-line pt-1',
               isActive ? 'border-brand-mint bg-on-brand-soft font-bold text-primary-foreground' : 'border-transparent text-on-brand-muted hover:bg-on-brand-soft hover:text-primary-foreground',
             )
           }
         >
           <Icon aria-hidden className="size-icon shrink-0" />
-          {label}
+          <span className="flex-1">{label}</span>
+          <NavBadge count={badge} className="bg-brand-mint text-brand-deep" />
         </NavLink>
       ))}
     </nav>

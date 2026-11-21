@@ -15,6 +15,8 @@ import { DemoDataNotice } from '@/components/DemoDataNotice'
 import { EmptyState } from '@/components/EmptyState'
 import { Loader } from '@/components/Loader'
 import { healthApi, type AlertSummary } from '@/features/health/api'
+import { depuis, useLiveResource } from '@/features/health/live'
+import { ListSkeleton } from '@/features/health/ListSkeleton'
 import { useResource } from '@/features/identity/useResource'
 import { notificationsApi } from '@/features/notifications/api'
 import { alertesTextes, mots, textesNotifications } from '@/lib/vocabulaire'
@@ -30,8 +32,10 @@ function AlertRow({ alert }: { alert: AlertSummary }) {
             {alert.disease?.label_fr ?? mots.alerte} · {alert.zone.name}
           </span>
           <span className="text-small text-muted-foreground">
-            {alertesTextes.elevagesContact} : {alert.exposed_count} · {alertesTextes.ouverteLe}{' '}
-            {new Date(alert.opened_at).toLocaleDateString('fr-FR')}
+            {alertesTextes.foyerCourt} : {alert.focus_center?.name ?? '—'} · {depuis(alert.opened_at)}
+          </span>
+          <span className="text-small font-bold tabular-nums text-foreground">
+            {alertesTextes.enContact} : {alert.exposed_count} · {alertesTextes.ecartes} : {alert.excluded_count}
           </span>
         </div>
         <ChevronRight aria-hidden className="size-icon text-muted-foreground" />
@@ -41,13 +45,15 @@ function AlertRow({ alert }: { alert: AlertSummary }) {
 }
 
 function ProfessionalAlerts() {
-  const alerts = useResource(healthApi.alerts, 'alertes')
-  if (alerts.loading) return <Loader />
+  const { user } = useAuth()
+  const alerts = useLiveResource(healthApi.alerts, 'alertes')
+  if (alerts.loading) return <ListSkeleton />
   if (alerts.error) return <Banner variant="error">{alerts.error.message}</Banner>
   const items = alerts.data ?? []
   return (
     <>
-      {items.some((a) => a.is_simulated) && <DemoDataNotice />}
+      {/* Compte de démonstration : le bandeau est déjà sous l'en-tête. */}
+      {!user?.is_simulated && items.some((a) => a.is_simulated) && <DemoDataNotice />}
       {items.length === 0
         ? <EmptyState icon={Siren} title={alertesTextes.aucuneAlerte} text={alertesTextes.aucuneAlerteAide} />
         : <ul className="flex flex-col gap-3">{items.map((a) => <AlertRow key={a.id} alert={a} />)}</ul>}

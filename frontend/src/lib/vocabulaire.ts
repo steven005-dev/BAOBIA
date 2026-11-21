@@ -57,6 +57,7 @@ export const mots = {
   fermer: 'Fermer',
   profil: 'Profil',
   quitter: 'Quitter',
+  deconnexion: 'Déconnexion', // À VALIDER : remplace « Quitter » pour se déconnecter (Mon compte)
   continuer: 'Continuer',
   etiquettes: 'Étiquettes', // À VALIDER (pluriel d'« Étiquette »)
   imprimer: 'Imprimer', // À VALIDER : imprimer l'étiquette d'un animal
@@ -352,6 +353,18 @@ export const sante = {
   motifAide: 'Obligatoire pour refuser.',
   decisionEnregistree: 'Décision enregistrée.',
   aucuneRegle: 'Aucune règle sanitaire pour cette maladie.',
+  // À VALIDER : confirmations (interface « pro »).
+  recuTitre: 'Signalement reçu',
+  recuTexte: 'Le vétérinaire de votre zone va l’examiner. Vous verrez sa décision ici.',
+  recuEtapes: 'Et ensuite ?',
+  etapeRecu: 'Reçu',
+  etapeEnExamen: 'Le vétérinaire examine',
+  etapeDecision: 'Il décide et vous prévient',
+  voirMonSignalement: 'Voir mon signalement',
+  confirmerValidationTitre: 'Valider au niveau 3 ?',
+  confirmerValidationTexte: 'L’alerte sera validée. Les élevages en contact possible seront prévenus tout de suite, par un message neutre.',
+  confirmerRefusTitre: 'Refuser ce signalement ?',
+  confirmerRefusTexte: 'L’éleveur verra que le signalement est refusé, avec votre motif.',
 } as const
 
 export const typesSignalement = {
@@ -410,6 +423,39 @@ export const alertesTextes = {
   etapeAnnule: 'Annulé',
   etapeAVenir: 'Pas encore',
   apres: 'après le signalement',
+  // À VALIDER : interface « pro » (chiffres clés, liste).
+  enContact: 'En contact possible',
+  ecartes: 'Écartés',
+  delai: 'Délai de validation',
+  foyerCourt: 'Foyer',
+  miseAJour: 'Mis à jour automatiquement',
+} as const
+
+/** Page et onglet « Mon compte » (À VALIDER). */
+export const profilTextes = {
+  titre: 'Mon compte',
+  ongletCourt: 'Compte',
+  telephone: 'Numéro de téléphone',
+  zone: 'Zone',
+  organisation: 'Organisation',
+  habValide: 'Habilitation valide',
+  habValideAide: 'Vous pouvez valider les alertes de votre zone.',
+  habAbsente: "Pas d'habilitation valide",
+  habAbsenteAide: "Vous pouvez consulter, mais pas valider. Contactez l'autorité vétérinaire.",
+  mesElevages: 'Mes élevages',
+  acces: {
+    holder: 'Détenteur',
+    co_holder: 'Co-détenteur',
+    worker: 'Employé',
+    mandate: 'Mandat',
+  },
+} as const
+
+/** Dates relatives (À VALIDER). */
+export const tempsTextes = {
+  aLInstant: "à l'instant",
+  ilYa: 'il y a',
+  hier: 'hier',
 } as const
 
 export const raisonsExposition: Record<string, string> = {

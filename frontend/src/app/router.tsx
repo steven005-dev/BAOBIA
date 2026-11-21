@@ -20,6 +20,7 @@ import { messages } from '@/lib/vocabulaire'
 
 import { AppLayout } from './AppLayout'
 import { HomePage } from './HomePage'
+import { ProfilePage } from './ProfilePage'
 
 // Page de démonstration des composants : en développement seulement (absente du build).
 const devRoutes: RouteObject[] = import.meta.env.DEV
@@ -39,6 +40,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: 'mot-de-passe', element: <PasswordPage /> },
+      { path: 'profil', element: <ProfilePage /> },
       ...identityRoutes,
       ...movementsRoutes,
       ...healthRoutes,
