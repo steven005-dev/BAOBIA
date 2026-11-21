@@ -91,7 +91,7 @@ export function ConfirmMovementReceiptPage() {
         type: 'movement.confirm',
         path: `/movements/${movementId.trim()}/confirm/`,
         method: 'POST',
-        body: { id, center_id: center.id, code },
+        body: { id, center_id: center.id, code, occurred_at: new Date().toISOString() },
       })
       setOperationId(id)
     } catch (submitError) {

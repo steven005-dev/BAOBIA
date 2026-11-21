@@ -85,7 +85,22 @@ const dexieQueue: OfflineQueue = {
     }
 
     // TR-05 : l'opération est durablement écrite avant toute tentative réseau.
-    await db.operations.put(row)
+    // Un même UUID déjà en attente, en cours d'envoi ou envoyé n'est jamais remplacé :
+    // le serveur a peut-être déjà reçu ce contenu, un autre donnerait 409. Seule une
+    // opération « À vérifier » (refusée) peut être renvoyée corrigée avec le même UUID.
+    const existing = await db.transaction('rw', db.operations, async () => {
+      const current = await db.operations.get(id)
+      if (current && current.status !== 'check') return current
+      await db.operations.put(row)
+      return undefined
+    })
+    if (existing) {
+      if (existing.status === 'sent') {
+        return { id, status: 'sent', response: existing.response }
+      }
+      void sendOperation(id)
+      return { id, status: 'pending' }
+    }
     notifyOperation(id)
     void refreshPendingCount()
     void sendOperation(id)

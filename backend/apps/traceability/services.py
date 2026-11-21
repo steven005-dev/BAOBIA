@@ -244,7 +244,7 @@ def confirm_movement_receipt(
 
             UnitOpenMovement.objects.filter(movement=movement).delete()
             movement.status = "confirmed"
-            movement.received_at = timezone.now()
+            movement.received_at = now
             movement.save(update_fields=["status", "received_at"])
             MovementStatusEvent.objects.create(
                 movement=movement,

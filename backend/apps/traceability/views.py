@@ -234,6 +234,7 @@ class MovementConfirmView(APIView):
                 code=data["code"],
                 confirmation_id=data["id"],
                 created_by=request.user,
+                occurred_at=data.get("occurred_at"),
             )
         except InvalidConfirmationCodeError as error:
             raise ValidationError({"detail": str(error)}) from error
