@@ -103,6 +103,26 @@ def _alert_for_report(report):
     )
 
 
+def _open_alert_for_focus(report, disease, species):
+    """Alerte ouverte du même foyer, pour la même maladie et la même espèce (règle de
+    l'alerte) : un 2e signalement validé y est rattaché au lieu d'ouvrir un doublon."""
+    species_q = Q(species=species) if species is not None else Q(species__isnull=True)
+    return (
+        Alert.objects.select_for_update()
+        .filter(species_q, trigger_kind="single_report", status__in=OPEN_STATUSES,
+                focus_center_id=report.center_id, disease=disease)
+        .order_by("opened_at")
+        .first()
+    )
+
+
+def _other_active_reports(alert, report):
+    """Autres signalements de l'alerte qui ne sont ni refusés ni clôturés."""
+    return AlertReport.objects.filter(alert=alert).exclude(report=report).filter(
+        report__status__in=("submitted", "under_review", "validated")
+    ).exists()
+
+
 def handle_report_review(report, review):
     """Fait évoluer l'alerte liée au signalement selon la décision du vétérinaire.
 
@@ -110,14 +130,22 @@ def handle_report_review(report, review):
       des seuls professionnels ; aucun message aux éleveurs.
     - validate_level3 : alerte niveau 3 (validée), expositions recalculées, messages
       neutres aux élevages exposés.
-    - dismiss : alerte ouverte annulée. close : alerte ouverte clôturée.
+    - dismiss : alerte ouverte annulée. close : alerte ouverte clôturée. Si l'alerte a
+      d'autres signalements encore actifs, elle reste ouverte (seul ce signalement sort).
     - request_info, retain_suspicion : rien ne change côté alertes.
+    Une seule alerte ouverte par foyer, maladie et espèce : un 2e signalement validé au
+    même élevage est rattaché à l'alerte ouverte (pas de doublon).
     Appelée dans la transaction de l'évaluation : une erreur annule l'évaluation.
     """
     vet = review.created_by
     alert = _alert_for_report(report)
 
     if review.decision in ("dismiss", "close"):
+        if alert and _other_active_reports(alert, report):
+            _event(alert, "reviewed", vet, {"review_id": str(review.pk),
+                                            "decision": review.decision,
+                                            "report_id": str(report.pk), "alert_kept": True})
+            return alert
         if alert:
             alert.status = "cancelled" if review.decision == "dismiss" else "closed"
             alert.closed_at = timezone.now()
@@ -136,6 +164,13 @@ def handle_report_review(report, review):
             return None  # suspicion renforcée sans maladie : pas encore d'alerte
         disease = alert.disease
     species = _report_species(report)
+
+    attached = False
+    if alert is None:
+        alert = _open_alert_for_focus(report, disease, species)
+        if alert is not None:
+            AlertReport.objects.create(alert=alert, report=report)
+            attached = True
 
     if alert is None:
         rule = current_rule(disease, species, at=report.occurred_at)
@@ -162,7 +197,8 @@ def handle_report_review(report, review):
                                   "updated_at"])
         _event(alert, "level_changed", vet, {"from": previous, "to": level})
 
-    _event(alert, "reviewed", vet, {"review_id": str(review.pk), "decision": review.decision})
+    _event(alert, "reviewed", vet, {"review_id": str(review.pk), "decision": review.decision,
+                                    "report_id": str(report.pk), "attached": attached})
     record_event("alert.level", actor_user=vet, entity_table="alert", entity_id=alert.pk,
                  details={"level": alert.level, "report_id": str(report.pk)})
     compute_exposures(alert, vet)
