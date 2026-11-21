@@ -326,6 +326,17 @@ export const alertesTextes = {
   ouverteLe: 'Ouverte le',
   valideePar: 'Validée par',
   pasUnDiagnostic: 'Contact possible ne veut pas dire malade.',
+  // À VALIDER : « Voir sur la carte » et chronologie de l'alerte.
+  voirCarte: 'Voir sur la carte',
+  chronologie: 'Chronologie',
+  etapeSignale: 'Signalé',
+  etapeExamine: 'Examiné par le vétérinaire',
+  etapeValide: 'Validé (niveau 3)',
+  etapePrevenus: 'Élevages prévenus',
+  etapeCloture: 'Clôturé',
+  etapeAnnule: 'Annulé',
+  etapeAVenir: 'Pas encore',
+  apres: 'après le signalement',
 } as const
 
 export const raisonsExposition: Record<string, string> = {

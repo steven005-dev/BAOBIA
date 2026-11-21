@@ -8,6 +8,7 @@
 
 import { ArrowLeft, ArrowRight, Layers, Map as MapIcon, Route, Warehouse, ZoomIn } from 'lucide-react'
 import { useMemo, useState, type CSSProperties } from 'react'
+import { useSearchParams } from 'react-router'
 
 import { useAuth } from '@/auth/AuthProvider'
 import { Banner } from '@/components/Banner'
@@ -117,8 +118,12 @@ function ZoneFacts({ zone }: { zone: ZoneState | undefined }) {
 export function MapPage() {
   const [species, setSpecies] = useState<string>(ALL)
   const [level, setLevel] = useState<'districts' | 'regions'>('districts')
-  const [focus, setFocus] = useState<string | null>(null)
-  const [selected, setSelected] = useState<string | null>(null)
+  // ?district=CI-D-… (depuis « Voir sur la carte » d'une alerte) : carte ouverte sur ce district.
+  const [params] = useSearchParams()
+  const initialDistrict = params.get('district')
+  const startFocus = initialDistrict && DISTRICT_CODES.has(initialDistrict) ? initialDistrict : null
+  const [focus, setFocus] = useState<string | null>(startFocus)
+  const [selected, setSelected] = useState<string | null>(startFocus)
   const { hasRole } = useAuth()
   const professional = hasRole('veterinarian') || hasRole('authority')
   const [showFlows, setShowFlows] = useState(true)
