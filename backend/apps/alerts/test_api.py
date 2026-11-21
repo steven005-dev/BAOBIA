@@ -97,6 +97,17 @@ class MapApiTests(AlertScenarioMixin, TestCase):
         self.assertEqual(parent["state"], "alert")
         self.assertGreaterEqual(parent["centers_count"], zones["TEST-DEP"]["centers_count"])
 
+    def test_parent_of_a_masked_zone_hides_its_counts(self):
+        """Sinon l'effectif d'une zone masquée se retrouve par soustraction depuis la zone mère."""
+        from apps.geo.models import ZoneStat
+
+        ZoneStat.objects.filter(zone=self.zone).update(is_masked=True, state="unknown")
+        self.client.force_authenticate(user=self.users["B"])
+        zones = {z["zone"]["code"]: z for z in self.client.get("/api/map/zones/").json()["zones"]}
+        parent = zones[self.region.code]
+        self.assertEqual((parent["centers_count"], parent["animals_count"]), (None, None))
+        self.assertFalse(parent["is_masked"])  # l'état de la zone mère reste affiché
+
     def test_farm_points_only_for_professionals(self):
         from apps.identity.models import Center
 
