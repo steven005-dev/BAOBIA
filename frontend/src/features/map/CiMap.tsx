@@ -11,10 +11,10 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 
-import type { MapData, ZoneState } from '@/features/health/api'
+import type { FlowConfidence, MapData, MapFlow, ZoneState } from '@/features/health/api'
 import { HEALTH_STATE_ORDER, HEALTH_STATES, type HealthState } from '@/lib/healthStates'
 
-import { boxFor, FULL, SHAPES, WIDTH, type ViewBox } from './shapes'
+import { boxFor, FLOW_STYLE, FULL, SHAPES, WIDTH, type ViewBox } from './shapes'
 
 /** viewBox animé (400 ms) : on voit le zoom se faire. */
 function useAnimatedBox(target: ViewBox) {
@@ -72,9 +72,14 @@ export interface CiMapProps {
   level: 'districts' | 'regions'
   selected: string | null
   onSelect: (code: string) => void
+  /** Flux des animaux (vétérinaire, autorité) ; vide = rien n'est dessiné. */
+  flows?: MapFlow[]
+  selectedFlow?: string | null
+  onSelectFlow?: (id: string) => void
 }
 
-export function CiMap({ states, data, focus, level, selected, onSelect }: CiMapProps) {
+export function CiMap({ states, data, focus, level, selected, onSelect, flows = [], selectedFlow = null,
+                        onSelectFlow }: CiMapProps) {
   const focusShape = focus ? SHAPES.districts.find((z) => z.code === focus) : undefined
   const target = useMemo(() => (focusShape ? boxFor(focusShape.bounds) : FULL), [focusShape])
   const box = useAnimatedBox(target)
@@ -101,6 +106,23 @@ export function CiMap({ states, data, focus, level, selected, onSelect }: CiMapP
     return { points, mine }
   }, [data])
   const clusters = clusterPoints(projected.points, 26 * k)
+
+  // Flux : courbe de l'origine à la destination ; plusieurs flux entre les mêmes lieux s'écartent.
+  const drawnFlows = useMemo(() => {
+    const seen = new Map<string, number>()
+    return flows.flatMap((f) => {
+      const a = f.from.latitude && f.from.longitude ? SHAPES.projection([Number(f.from.longitude), Number(f.from.latitude)]) : null
+      const b = f.to.latitude && f.to.longitude ? SHAPES.projection([Number(f.to.longitude), Number(f.to.latitude)]) : null
+      if (!a || !b) return []
+      const key = `${a[0].toFixed(0)}:${a[1].toFixed(0)}>${b[0].toFixed(0)}:${b[1].toFixed(0)}`
+      const n = seen.get(key) ?? 0
+      seen.set(key, n + 1)
+      const [dx, dy] = [b[0] - a[0], b[1] - a[1]]
+      const bend = 0.22 + 0.12 * n
+      const c: [number, number] = [(a[0] + b[0]) / 2 - dy * bend, (a[1] + b[1]) / 2 + dx * bend]
+      return [{ flow: f, d: `M${a[0]},${a[1]} Q${c[0]},${c[1]} ${b[0]},${b[1]}` }]
+    })
+  }, [flows])
 
   const stateOf = (code: string): HealthState => states.get(code)?.state ?? 'unknown'
   const keyHandler = (code: string) => (event: KeyboardEvent) => {
@@ -181,6 +203,38 @@ export function CiMap({ states, data, focus, level, selected, onSelect }: CiMapP
           </g>
         ),
       )}
+
+      {/* flux des animaux */}
+      {drawnFlows.length > 0 && (
+        <defs>
+          {(Object.keys(FLOW_STYLE) as FlowConfidence[]).map((conf) => (
+            <marker key={conf} id={`fleche-${conf}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4"
+                    markerHeight="4" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill={FLOW_STYLE[conf].color} />
+            </marker>
+          ))}
+        </defs>
+      )}
+      {drawnFlows.map(({ flow, d }) => {
+        const style = FLOW_STYLE[flow.confidence]
+        const width = (2.2 + Math.min(4, flow.count * 0.5)) * k
+        const dim = selectedFlow !== null && selectedFlow !== flow.id
+        const active = selectedFlow === flow.id
+        return (
+          <g key={flow.id} role="button" tabIndex={0} className="cursor-pointer outline-none"
+             aria-label={`${flow.from.name} vers ${flow.to.name}, ${flow.count}`}
+             opacity={dim ? 0.25 : 1}
+             onClick={() => onSelectFlow?.(flow.id)}
+             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectFlow?.(flow.id) } }}>
+            <title>{`${flow.from.name} → ${flow.to.name} : ${flow.count}`}</title>
+            <path d={d} fill="none" stroke="#FFFFFF" strokeWidth={width + 3 * k} strokeLinecap="round" />
+            <path d={d} fill="none" stroke={style.color} strokeWidth={active ? width * 1.6 : width}
+                  strokeDasharray={style.dash?.split(' ').map((v) => Number(v) * width).join(' ')}
+                  strokeLinecap="round" markerEnd={`url(#fleche-${flow.confidence})`} />
+            <path d={d} fill="none" stroke="transparent" strokeWidth={16 * k} />
+          </g>
+        )
+      })}
 
       {/* noms des zones */}
       {colored.map((z) => (

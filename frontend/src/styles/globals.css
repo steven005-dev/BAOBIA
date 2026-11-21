@@ -10,10 +10,26 @@
 /* ------------------------------------------------------------------ Charte (section 12) */
 :root {
   /* marque et neutres */
-  --brand: #174A3B;  --brand-hover: #123D31;  --brand-light: #E8F0EC;
-  --background: #F7F8F5;  --surface: #FFFFFF;  --surface-secondary: #EEF1ED;
-  --foreground: #17231B;  --text-secondary: #59665D;
-  --border: #D5DDD6;  --focus: #175CD3;
+  /* Charte v2 « Savane moderne » (21/11) : même vert, plus de profondeur, fond sable. */
+  --brand: #174A3B;  --brand-hover: #123D31;  --brand-light: #E3EFE8;
+  --brand-deep: #0D2E25;  --brand-bright: #2A7A5F;  --brand-mint: #9FD8BE;
+  --background: #F5F2EA;  --surface: #FFFFFF;  --surface-secondary: #F0ECE2;
+  --foreground: #17231B;  --text-secondary: #56605A;
+  --border: #E2DCCE;  --focus: #175CD3;
+  --on-brand-muted: rgba(255, 255, 255, 0.72);  --on-brand-soft: rgba(255, 255, 255, 0.12);
+  --on-brand-line: rgba(255, 255, 255, 0.18);
+  --gradient-brand: linear-gradient(135deg, #0D2E25 0%, #174A3B 52%, #1F6450 100%);
+  --gradient-hero: linear-gradient(140deg, #0D2E25 0%, #174A3B 45%, #2A7A5F 100%);
+  /* motif géométrique (losanges) très discret, posé sur le vert */
+  --motif: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M16 3 L29 16 L16 29 L3 16 Z' fill='none' stroke='%23ffffff' stroke-opacity='0.08' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='1.6' fill='%23ffffff' fill-opacity='0.10'/%3E%3C/svg%3E");
+
+  /* tons des tuiles d'action (hors des 5 états sanitaires : ni vert d'état, jaune, orange, rouge, gris) */
+  --tone-brand: #174A3B;   --tone-brand-bg: #E3EFE8;
+  --tone-teal: #0F5E6B;    --tone-teal-bg: #E2F1F3;
+  --tone-indigo: #3446A0;  --tone-indigo-bg: #E8EBF8;
+  --tone-violet: #6A3F98;  --tone-violet-bg: #F1EAF7;
+  --tone-earth: #7A4E2D;   --tone-earth-bg: #F5ECE3;
+  --tone-slate: #3A3F58;   --tone-slate-bg: #ECEDF2;
 
   /* 5 etats sanitaires : fond, texte, contour (ne pas modifier) */
   --health-normal: #287A45;    --health-normal-fg: #FFFFFF;  --health-normal-line: #1B5A33;
@@ -38,10 +54,11 @@
   --role-authority: #3A3F58;     --role-authority-bg: #ECEDF2;     /* ardoise */
 
   --font-main: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --font-display: "Lexend", "Atkinson Hyperlegible", system-ui, sans-serif;
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
   --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-12: 48px;
   --touch-min: 48px; --touch-primary: 60px;
-  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-xl: 20px;
+  --radius-sm: 10px; --radius-md: 14px; --radius-lg: 20px; --radius-xl: 28px;
 
   /* noms attendus par shadcn/ui */
   --card: var(--surface);  --card-foreground: var(--foreground);
@@ -62,13 +79,26 @@
   --content-mobile: 430px;            /* largeur de référence mobile max */
   --icon-button: 24px;  --icon-badge: 18px;  --icon-small: 16px;  --icon-empty: 48px;
   --border-normal: 1px;  --border-active: 2px;  --border-focus: 3px;
-  --shadow-card: 0 2px 8px rgba(23, 35, 27, 0.08);
-  --shadow-dialog: 0 8px 24px rgba(23, 35, 27, 0.16);
+  --shadow-card: 0 1px 2px rgba(13, 46, 37, 0.05), 0 8px 24px -6px rgba(13, 46, 37, 0.12);
+  --shadow-raised: 0 2px 4px rgba(13, 46, 37, 0.06), 0 18px 36px -10px rgba(13, 46, 37, 0.24);
+  --shadow-dialog: 0 12px 40px rgba(13, 46, 37, 0.22);
   --backdrop: rgba(23, 35, 27, 0.5);  /* fond derrière une fenêtre : texte principal à 50 % */
 }
 
 @theme inline {
   --font-sans: var(--font-main);
+  --font-display: var(--font-display);
+  --color-brand-deep: var(--brand-deep);  --color-brand-bright: var(--brand-bright);
+  --color-brand-mint: var(--brand-mint);
+  --color-on-brand-muted: var(--on-brand-muted);  --color-on-brand-soft: var(--on-brand-soft);
+  --color-on-brand-line: var(--on-brand-line);
+  --color-tone-brand: var(--tone-brand);  --color-tone-brand-bg: var(--tone-brand-bg);
+  --color-tone-teal: var(--tone-teal);  --color-tone-teal-bg: var(--tone-teal-bg);
+  --color-tone-indigo: var(--tone-indigo);  --color-tone-indigo-bg: var(--tone-indigo-bg);
+  --color-tone-violet: var(--tone-violet);  --color-tone-violet-bg: var(--tone-violet-bg);
+  --color-tone-earth: var(--tone-earth);  --color-tone-earth-bg: var(--tone-earth-bg);
+  --color-tone-slate: var(--tone-slate);  --color-tone-slate-bg: var(--tone-slate-bg);
+  --color-surface-secondary: var(--surface-secondary);
   --color-background: var(--background);  --color-foreground: var(--foreground);
   --color-card: var(--card);  --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);  --color-popover-foreground: var(--popover-foreground);
@@ -137,7 +167,16 @@
   --container-mobile: var(--content-mobile);
 
   --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
   --shadow-dialog: var(--shadow-dialog);
+}
+
+/* Fonds de la charte v2 : dégradé de la marque, avec ou sans motif. */
+@utility bg-brand-gradient {
+  background-image: var(--motif), var(--gradient-brand);
+}
+@utility bg-hero {
+  background-image: var(--motif), var(--gradient-hero);
 }
 
 /* ------------------------------------------------------------------ Base */
@@ -158,6 +197,11 @@
   }
   *, ::before, ::after {
     border-color: var(--border);
+  }
+  /* Titres en Lexend (lisible et moderne), texte courant en Atkinson Hyperlegible. */
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
   }
   /* Focus toujours visible au clavier : contour de 3 px (charte, section 4). */
   :focus-visible {
@@ -184,7 +228,8 @@ dialog::backdrop {
 @media print {
   @page { margin: 10mm; }
   body * { visibility: hidden; }
-  .print-label, .print-label * { visibility: visible; }
+  .print-label, .print-label *, .print-sheet, .print-sheet * { visibility: visible; }
+  .print-sheet { position: absolute; top: 0; left: 0; width: 100%; border: none; box-shadow: none; }
   .print-label {
     position: absolute;
     top: 0;

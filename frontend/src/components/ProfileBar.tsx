@@ -25,7 +25,7 @@ export function ProfileBar({ profile, className }: { profile: Profile; className
 export function ProfileChip({ profile, className }: { profile: Profile; className?: string }) {
   const { label, icon: Icon, soft } = profileStyles[profile.role]
   return (
-    <div className={cn('flex flex-col gap-0.5 rounded-md border-l-4 px-3 py-2', soft, className)}>
+    <div className={cn('flex flex-col gap-0.5 rounded-lg border-l-4 px-3 py-2 shadow-card', soft, className)}>
       <span className="flex items-center gap-2 text-small font-bold">
         <Icon aria-hidden className="size-icon-small shrink-0" />
         {label}

@@ -170,6 +170,8 @@ export const messages = {
  */
 export const textesNotifications: Record<string, string> = {
   'exposure.contact_possible': messages.contactPossibleEleveur,
+  // À VALIDER : fin de surveillance (alerte clôturée ou annulée), même ton neutre.
+  'exposure.ended': 'Fin de surveillance pour votre élevage. Si un animal semble malade, signalez-le.',
   'alert.validated': messages.alerteValidee,
   // À VALIDER : messages aux vétérinaires et à l'autorité (alerte de zone).
   'zone_cluster.review_requested': 'Plusieurs signalements dans votre zone. Votre avis est demandé.',
@@ -251,6 +253,43 @@ export const titres = {
  * À VALIDER : module santé, alertes et carte (Yéo). Mots simples, sans nom de maladie
  * pour l'éleveur ; « Contact possible », jamais « contaminé ».
  */
+/** À VALIDER : pistes de maladie et fiche de laboratoire (aide au vétérinaire). */
+export const pistesTextes = {
+  titre: 'Pistes de maladie',
+  aucune: 'Aucune piste : les signes cochés ne correspondent à aucune fiche maladie.',
+  fichesAValider: 'Fiches maladie à faire valider par un vétérinaire (version de démonstration).',
+  signesMajeurs: 'signes majeurs',
+  contagion: 'Contagion',
+  incubation: 'Incubation',
+  jours: 'jours',
+  zoonose: 'Transmissible à l’humain : gants et masque pour les prélèvements.',
+  declarationObligatoire: 'Déclaration obligatoire',
+  prelevements: 'Prélèvements conseillés',
+  ficheLabo: 'Fiche pour le laboratoire',
+  titreLabo: "Demande d'analyse de laboratoire",
+  imprimer: 'Imprimer',
+  maladieSuspectee: 'Maladie suspectée',
+  aPreciser: 'À préciser',
+  prelevementsFaits: 'Prélèvements faits',
+  nombre: 'Nombre',
+  demandeur: 'Vétérinaire demandeur',
+  elevage: 'Élevage',
+  zone: 'Zone',
+  dateObservation: "Date d'observation",
+  animauxPreleves: 'Animaux concernés',
+  etiquette: 'Étiquette',
+  espece: 'Espèce',
+  etat: 'État',
+  malade: 'malade',
+  mort: 'mort',
+  signes: 'Signes signalés par l’éleveur',
+  mortsMalades: 'Morts / malades',
+  reference: 'Référence BAOBIA',
+  signature: 'Signature et cachet du vétérinaire',
+  receptionLabo: 'Réception au laboratoire (date, heure, état des échantillons)',
+  donneesSimulees: 'Prototype : données simulées, aucune valeur légale.',
+} as const
+
 export const sante = {
   titreSignaler: 'Signaler un cas',
   quelElevage: 'Quel élevage ?',
@@ -326,6 +365,17 @@ export const alertesTextes = {
   ouverteLe: 'Ouverte le',
   valideePar: 'Validée par',
   pasUnDiagnostic: 'Contact possible ne veut pas dire malade.',
+  // À VALIDER : « Voir sur la carte » et chronologie de l'alerte.
+  voirCarte: 'Voir sur la carte',
+  chronologie: 'Chronologie',
+  etapeSignale: 'Signalé',
+  etapeExamine: 'Examiné par le vétérinaire',
+  etapeValide: 'Validé (niveau 3)',
+  etapePrevenus: 'Élevages prévenus',
+  etapeCloture: 'Clôturé',
+  etapeAnnule: 'Annulé',
+  etapeAVenir: 'Pas encore',
+  apres: 'après le signalement',
 } as const
 
 export const raisonsExposition: Record<string, string> = {
@@ -336,6 +386,15 @@ export const raisonsExposition: Record<string, string> = {
   movement_cancelled: 'Transfert annulé',
   movement_expired: 'Transfert expiré',
 }
+
+/** À VALIDER : accueil (charte v2). */
+export const accueilTextes = {
+  bonjour: 'Bonjour',
+  queVoulezVousFaire: 'Que voulez-vous faire ?',
+  monCompte: 'Mon compte',
+  piliers: ['Identifier', 'Tracer', 'Surveiller', 'Alerter'],
+  slogan: 'Retrouver vite le chemin des animaux, pour réagir vite et juste.',
+} as const
 
 export const carteTextes = {
   titre: 'Carte par zones',
@@ -361,4 +420,25 @@ export const carteTextes = {
   aucunElevage: 'Aucun élevage enregistré dans cette zone.',
   listeZones: 'Liste des zones',
   sourceTraces: 'Limites : geoBoundaries (CC BY 4.0).',
+} as const
+
+/** À VALIDER : flux des animaux sur la carte (vétérinaire, autorité). */
+export const fluxTextes = {
+  afficher: 'Flux des animaux',
+  periode: 'Période',
+  jours: (n: number) => (n === 365 ? '1 an' : `${n} jours`),
+  aucun: 'Aucun mouvement sur cette période.',
+  mouvementDu: 'Mouvement du',
+  de: 'De',
+  vers: 'Vers',
+  animaux: 'Animaux',
+  sansEtiquette: 'sans étiquette',
+  liste: 'Mouvements affichés',
+  confiance: {
+    sure: 'Confirmé des deux côtés',
+    one_side: "Déclaré d'un seul côté",
+    disputed: 'Contesté',
+  },
+  types: { transfer: 'Transfert', sale: 'Vente', slaughter: 'Abattage', temporary: 'Temporaire', return: 'Retour' } as Record<string, string>,
+  sexes: { male: 'mâle', female: 'femelle' } as Record<string, string>,
 } as const
