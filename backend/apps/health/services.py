@@ -294,6 +294,9 @@ def submit_report(
         details={"center_id": str(center.pk), "report_kind": report_kind,
                  "affected_count": affected_count, "dead_count": dead_count},
     )
+    # Les vétérinaires habilités de la zone sont prévenus (module notifications).
+    from apps.notifications.services import on_report_submitted
+    on_report_submitted(report)
     return report, True
 
 

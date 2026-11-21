@@ -5,7 +5,8 @@
 
 import { api } from '@/lib/api'
 
-export type NotificationKind = 'exposure' | 'alert' | 'zone_cluster_review' | 'escalation'
+export type NotificationKind =
+  | 'exposure' | 'alert' | 'zone_cluster_review' | 'escalation' | 'review' | 'report' | 'movement'
 
 export interface AppNotification {
   id: string

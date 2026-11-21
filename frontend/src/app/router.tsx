@@ -15,6 +15,7 @@ import { healthRoutes } from '@/features/health/routes'
 import { identityRoutes } from '@/features/identity/routes'
 import { mapRoutes } from '@/features/map/routes'
 import { movementsRoutes } from '@/features/movements/routes'
+import { notificationsRoutes } from '@/features/notifications/routes'
 import { messages } from '@/lib/vocabulaire'
 
 import { AppLayout } from './AppLayout'
@@ -43,6 +44,7 @@ export const router = createBrowserRouter([
       ...healthRoutes,
       ...alertsRoutes,
       ...mapRoutes,
+      ...notificationsRoutes,
       { path: '*', element: <EmptyState icon={CircleHelp} title={messages.pageIntrouvable} /> },
     ],
   },

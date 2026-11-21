@@ -180,7 +180,37 @@ export const textesNotifications: Record<string, string> = {
   'zone_cluster.review_requested': 'Plusieurs signalements dans votre zone. Votre avis est demandé.',
   'zone_cluster.escalated': 'Rappel : des signalements attendent toujours un avis.',
   'alert.review_disagreement': "Deux vétérinaires ne sont pas d'accord sur une alerte.",
+  // À VALIDER (21/11) : messages à tous les acteurs. {count}, {species}, {zone}, {disease}
+  // sont remplacés par l'application (features/notifications/text.ts).
+  'report.to_review': 'Nouveau signalement à examiner : {count} animal(aux) touché(s){species}.',
+  'alert.authority_validated': 'Alerte validée par un vétérinaire : {disease}, zone {zone}.',
+  'alert.authority_closed': 'Alerte close : {disease}, zone {zone}.',
+  'movement.to_confirm': 'Des animaux arrivent chez vous ({count}). Confirmez la réception.',
+  'movement.declared_by_other': 'Un départ de vos animaux ({count}) a été déclaré par un autre élevage. Vérifiez.',
+  'movement.confirmed': 'Votre envoi ({count}) a été reçu et confirmé.',
+  'movement.disputed': 'Un mouvement ({count}) est contesté. Vérifiez-le.',
+  'movement.cancelled': 'Un envoi prévu chez vous ({count}) a été annulé.',
 }
+
+/** À VALIDER : message à l'éleveur après la décision du vétérinaire sur son signalement. */
+export const textesDecisionSignalement: Record<string, string> = {
+  request_info: 'Le vétérinaire demande des informations sur votre signalement.',
+  retain_suspicion: 'Le vétérinaire garde votre signalement en surveillance.',
+  raise_level2: 'Le vétérinaire suit de près votre signalement.',
+  validate_level3: 'Le vétérinaire a confirmé votre signalement. Suivez ses consignes.',
+  dismiss: 'Le vétérinaire a examiné votre signalement : aucune maladie retenue.',
+  close: 'Votre signalement est clôturé.',
+}
+
+/** À VALIDER : centre de messages (tous les profils). */
+export const messagesTextes = {
+  titre: 'Messages',
+  ouvrir: 'Messages',
+  nonLus: (n: number) => (n > 1 ? `${n} messages non lus` : `${n} message non lu`),
+  aucun: 'Aucun message pour le moment.',
+  toutLire: 'Tout marquer comme lu',
+  nouveau: 'Nouveau',
+} as const
 
 /** Messages d'erreur du client API et de la connexion (À VALIDER, ton de la charte). */
 export const erreurs = {
