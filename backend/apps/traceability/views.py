@@ -22,6 +22,8 @@ from apps.traceability.serializers import (
     MovementConfirmSerializer,
     MovementCreateSerializer,
     MovementDetailSerializer,
+    MarketEntrySerializer,
+    MarketExitSerializer,
     MovementReasonSerializer,
     MovementRefuseSerializer,
     DestinationShareCreateSerializer,
@@ -35,6 +37,8 @@ from apps.traceability.services import (
     cancel_movement,
     confirm_movement_receipt,
     contest_movement,
+    declare_market_entry,
+    declare_market_exit,
     declare_movement,
     generate_confirmation_code,
     record_unit_event,
@@ -246,6 +250,8 @@ class MovementConfirmView(APIView):
                 occurred_at=data.get("occurred_at"),
                 items_received=data.get("items_received"),
             )
+        except OperationConflictError as error:
+            return Response({"detail": str(error)}, status=status.HTTP_409_CONFLICT)
         except (InvalidConfirmationCodeError, InvalidMovementDataError) as error:
             raise ValidationError({"detail": str(error)}) from error
         except MovementNotReceivableError as error:
@@ -308,6 +314,69 @@ class MovementContestView(_MovementActionView):
             movement_id=pk, center_id=data["center_id"], created_by=request.user,
             reason=data["reason"], occurred_at=data.get("occurred_at"),
         )
+
+
+class _MarketView(APIView):
+    """Passage au marché (R2, spec 9.11) : membre du marché ou mandat `move` dessus."""
+
+    permission_classes = [HasCenterAccess.for_scope("move")]
+
+    def get_center_id(self, request):
+        return request.data.get("market_id")
+
+    def market(self, data):
+        market = Center.objects.filter(pk=data["market_id"]).first()
+        if market is None:
+            raise NotFound("Marché introuvable.")
+        return market
+
+
+class MarketEntryView(_MarketView):
+    """Entrée au marché déclarée par le marché seul, sans code (Q1)."""
+
+    def post(self, request):
+        serializer = MarketEntrySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            movements, created = declare_market_entry(
+                market=self.market(data), label_codes=data["label_codes"],
+                created_by=request.user, entry_id=data["id"],
+                occurred_at=data.get("occurred_at"),
+            )
+        except (OperationConflictError, UnitAlreadyLockedError) as error:
+            return Response({"detail": str(error)}, status=status.HTTP_409_CONFLICT)
+        except InvalidMovementDataError as error:
+            raise ValidationError({"detail": str(error)}) from error
+        return Response(
+            {"movements": MovementDetailSerializer(movements, many=True).data},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class MarketExitView(_MarketView):
+    """Sortie du marché : vers un élevage inscrit (avec code) ou hors système (Q3)."""
+
+    def post(self, request):
+        serializer = MarketExitSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        to_center = (Center.objects.filter(pk=data["to_center_id"]).first()
+                     if data.get("to_center_id") else None)
+        try:
+            movement, code, created = declare_market_exit(
+                market=self.market(data), label_codes=data["label_codes"],
+                created_by=request.user, exit_id=data["id"], to_center=to_center,
+                to_party_note=data.get("to_party_note"), occurred_at=data.get("occurred_at"),
+            )
+        except (OperationConflictError, UnitAlreadyLockedError) as error:
+            return Response({"detail": str(error)}, status=status.HTTP_409_CONFLICT)
+        except (InvalidMovementDataError, UnitNotAtOriginCenterError) as error:
+            raise ValidationError({"detail": str(error)}) from error
+        body = MovementDetailSerializer(movement).data
+        body["confirmation_code"] = code
+        body["out_of_system"] = to_center is None
+        return Response(body, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
 class UnitEventListCreateView(APIView):

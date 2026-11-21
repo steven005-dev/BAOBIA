@@ -5,6 +5,7 @@ import uuid
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Case, CharField, Exists, OuterRef, Value, When
 from django.utils import timezone
@@ -30,6 +31,35 @@ from apps.traceability.models import (
     StatusEvent,
     UnitOpenMovement,
 )
+
+
+# Décision du chef de projet (21/11, Q2) : un verrou garde un animal d'être vendu deux
+# fois, mais un départ déclaré d'un seul côté ne doit jamais le bloquer pour toujours.
+# Après ce délai, le verrou se lève ; le mouvement reste `declared` (« probable ») et
+# compte toujours pour l'exposition (spec v1.4, 9.6).
+def lock_delay() -> timedelta:
+    return timedelta(hours=getattr(settings, "MOVEMENT_LOCK_HOURS", 72))
+
+
+def release_stale_locks(unit_ids, now=None) -> int:
+    """Lève les verrous des unités posés par un départ resté `declared` depuis plus que le
+    délai (heure du serveur). Retourne le nombre de verrous levés ; journalise chacun."""
+    now = now or timezone.now()
+    stale = list(
+        UnitOpenMovement.objects.filter(
+            unit_id__in=list(unit_ids), movement__status="declared",
+            since__lte=now - lock_delay(),
+        ).select_related("movement")
+    )
+    for lock in stale:
+        record_event(
+            action="movement.lock_released", entity_table="movement",
+            entity_id=lock.movement_id,
+            details={"unit_id": str(lock.unit_id), "after_hours": lock_delay().total_seconds() / 3600},
+        )
+    if stale:
+        UnitOpenMovement.objects.filter(pk__in=[lock.pk for lock in stale]).delete()
+    return len(stale)
 
 
 def generate_confirmation_code() -> Tuple[str, str]:
@@ -101,6 +131,9 @@ def declare_movement(
         for u_id in unit_ids:
             if u_id not in found_unit_ids:
                 raise InvalidMovementDataError(f"Unité {u_id} introuvable.")
+
+        # Q2 : un verrou posé par un départ resté « probable » se lève après le délai.
+        release_stale_locks(unit_ids)
 
         # (2) Vérifier la localisation actuelle dans le centre expéditeur
         from_center_id = from_center.id if hasattr(from_center, "id") else from_center
@@ -284,6 +317,20 @@ def confirm_movement_receipt(
                 "Ce départ ne peut plus être reçu (annulé, expiré ou contesté)."
             )
         sent, received = _received_quantities(movement, items_received)
+        # Q2 : le verrou a pu être levé après le délai et l'animal repartir ailleurs.
+        # BAOBIA ne déplace pas un animal en silence : la réception est « à vérifier ».
+        other_locks = set(
+            UnitOpenMovement.objects.filter(unit_id__in=list(sent))
+            .exclude(movement=movement).values_list("unit_id", flat=True)
+        )
+        for unit_id, item in sent.items():
+            if received[unit_id] > 0 and (
+                item.unit.current_center_id != movement.from_center_id
+                or item.unit_id in other_locks
+            ):
+                raise OperationConflictError(
+                    "Un animal de ce départ a été déplacé depuis : réception à vérifier."
+                )
 
         confirmation_code = movement.confirmation_codes.select_for_update().order_by("-expires_at").first()
         if confirmation_code is None:
@@ -535,6 +582,7 @@ def record_unit_event(*, unit_id, center_id, event_type, created_by, occurred_at
         raise InvalidMovementDataError("Unité introuvable.")
     if str(unit.current_center_id) != str(center_id):
         raise UnitNotAtOriginCenterError("Cette unité n'est pas dans cet élevage.")
+    release_stale_locks([unit.pk])
     if UnitOpenMovement.objects.filter(unit=unit).exists():
         raise UnitAlreadyLockedError("Cette unité est dans un départ pas encore reçu.")
 
@@ -557,3 +605,187 @@ def record_unit_event(*, unit_id, center_id, event_type, created_by, occurred_at
                  "mode": confirmation_mode(created_by, center_id)},
     )
     return event, True
+
+
+# ---------------------------------------------------------------------------
+# Passage au marché (R2, spec v1.4 9.11 ; décisions du chef de projet du 21/11)
+# ---------------------------------------------------------------------------
+
+OUT_OF_SYSTEM_REASON = "Sorti du système : acheteur non inscrit"
+
+
+def _market(center):
+    if center.center_type != "market":
+        raise InvalidMovementDataError("Cet élevage n'est pas un marché.")
+    if center.status != "active":
+        raise InvalidMovementDataError("Ce marché est fermé.")
+    return center
+
+
+def resolve_label_codes(codes):
+    """Codes d'étiquettes scannés ou saisis -> unités (par identity.services.scan_label).
+    Refuse un code inconnu, vierge, remplacé ou perdu, et un même animal deux fois."""
+    from apps.identity.services import normalize_short_code, scan_label
+
+    units = []
+    for raw in codes:
+        result, _label, unit = scan_label(raw)
+        if result != "found":
+            raise InvalidMovementDataError(
+                f"Étiquette {normalize_short_code(raw)} : non reconnue ou plus valable."
+            )
+        if unit.pk in {u.pk for u in units}:
+            raise InvalidMovementDataError("Un animal est scanné deux fois.")
+        units.append(unit)
+    if not units:
+        raise InvalidMovementDataError("Scannez au moins un animal.")
+    return units
+
+
+def _quantity(unit):
+    lot = getattr(unit, "lot", None) if unit.kind == "lot" else None
+    return lot.current_size if lot else 1
+
+
+@transaction.atomic
+def declare_market_entry(*, market, label_codes, created_by, entry_id, occurred_at=None,
+                         device=None):
+    """Entrée au marché déclarée par le marché seul, sans code (Q1).
+
+    Un mouvement par animal, élevage d'origine -> marché, d'identifiant dérivé de
+    `entry_id` (rejouer est sans effet). Le marché confirme la réception : l'animal compte
+    au marché tout de suite, sans verrou. L'origine n'a pas confirmé : le mouvement reste
+    `declared` (« probable ») et compte pour l'exposition avec une confiance réduite.
+    Retourne (mouvements, créé).
+    """
+    _market(market)
+    now = occurred_at or timezone.now()
+    units = resolve_label_codes(label_codes)
+    # Le mouvement du premier animal (ordre des identifiants) porte l'identifiant de
+    # l'opération ; les autres en dérivent. Ainsi un rejeu avec d'autres animaux se voit.
+    entry_uuid = uuid.UUID(str(entry_id))
+    ordered = sorted(units, key=lambda unit: str(unit.pk))
+    ids = {unit.pk: (entry_uuid if index == 0 else uuid.uuid5(entry_uuid, str(unit.pk)))
+           for index, unit in enumerate(ordered)}
+    if Movement.objects.filter(pk=entry_uuid).exists():
+        existing = {m.pk: m for m in Movement.objects.filter(pk__in=ids.values())
+                    .prefetch_related("items")}
+        same = len(existing) == len(ids) and all(
+            existing[movement_id].to_center_id == market.pk
+            and [item.unit_id for item in existing[movement_id].items.all()] == [unit_id]
+            for unit_id, movement_id in ids.items()
+        )
+        if not same:
+            raise OperationConflictError("Cette référence a déjà été utilisée pour une autre entrée.")
+        return [existing[ids[unit.pk]] for unit in ordered], False
+
+    locked = list(TrackedUnit.objects.select_for_update().filter(pk__in=list(ids)))
+    release_stale_locks(ids)
+    if UnitOpenMovement.objects.filter(unit_id__in=list(ids)).exists():
+        raise UnitAlreadyLockedError("Un animal est dans un départ pas encore reçu.")
+    simulated = bool(created_by.is_simulated or market.is_simulated)
+    movements = []
+    for unit in locked:
+        if unit.current_center_id is None:
+            raise InvalidMovementDataError("Un animal n'a pas d'élevage connu.")
+        if unit.current_center_id == market.pk:
+            raise InvalidMovementDataError("Un animal est déjà au marché.")
+        movement = Movement.objects.create(
+            id=ids[unit.pk], movement_type="sale", from_center_id=unit.current_center_id,
+            to_center=market, occurred_at=now, created_by=created_by, device=device,
+            is_simulated=simulated or unit.is_simulated,
+        )
+        quantity = _quantity(unit)
+        MovementItem.objects.create(movement=movement, unit=unit, quantity_sent=quantity,
+                                    quantity_received=quantity)
+        MovementStatusEvent.objects.create(
+            movement=movement, status="declared",
+            reason="Entrée au marché déclarée par le marché",
+            occurred_at=now, created_by=created_by, device=device,
+            is_simulated=movement.is_simulated,
+        )
+        MovementConfirmation.objects.create(
+            movement=movement, side="receiver", decision="confirm", occurred_at=now,
+            created_by=created_by, device=device, is_simulated=movement.is_simulated,
+        )
+        movement.received_at = now
+        movement.save(update_fields=["received_at"])
+        set_current_center(unit, market)
+        record_event(
+            action="movement.market_entry", actor_user=created_by, entity_table="movement",
+            entity_id=movement.pk, device=device,
+            details={"market_id": str(market.pk), "unit_id": str(unit.pk),
+                     "mode": confirmation_mode(created_by, market.pk)},
+        )
+        movements.append(movement)
+    return movements, True
+
+
+@transaction.atomic
+def declare_market_exit(*, market, label_codes, created_by, exit_id, to_center=None,
+                        to_party_note=None, occurred_at=None, device=None):
+    """Sortie du marché déclarée par le marché (R2).
+
+    - Vers un élevage inscrit : départ classique (`declare_movement`), avec code ; il reste
+      « probable » tant que l'acheteur ne confirme pas (verrou levé après le délai, Q2).
+    - Vers un acheteur non inscrit (Q3) : mouvement clos tout de suite, motif « sorti du
+      système » ; l'animal quitte le système (plus d'élevage courant) et reste retrouvable
+      dans l'historique. Il ne propage aucune exposition (pas de destination enregistrée).
+    Retourne (mouvement, code ou None, créé). Rejouer le même `exit_id` est sans effet.
+    """
+    _market(market)
+    if to_center is None and not (to_party_note or "").strip():
+        raise InvalidMovementDataError("Indiquez l'élevage acheteur ou une description de l'acheteur.")
+    units = resolve_label_codes(label_codes)
+
+    existing = Movement.objects.filter(pk=exit_id).first()
+    if existing is not None:
+        same = (
+            existing.from_center_id == market.pk
+            and existing.to_center_id == (to_center.pk if to_center else None)
+            and set(existing.items.values_list("unit_id", flat=True)) == {u.pk for u in units}
+        )
+        if not same:
+            raise OperationConflictError("Cette référence a déjà été utilisée pour une autre sortie.")
+        code = None
+        if to_center is not None and existing.status == "declared":
+            code = renew_confirmation_code(existing)
+        return existing, code, False
+
+    movement, code = declare_movement(
+        movement_id=exit_id, from_center=market, to_center=to_center, movement_type="sale",
+        items=[{"unit": unit, "quantity_sent": _quantity(unit)} for unit in units],
+        created_by=created_by, occurred_at=occurred_at, device=device,
+        to_party_note=(to_party_note or "").strip() or None,
+        is_simulated=bool(created_by.is_simulated or market.is_simulated),
+    )
+    if to_center is not None:
+        return movement, code, True
+
+    now = occurred_at or timezone.now()
+    _close_open_movement(movement)
+    for item in movement.items.select_related("unit"):
+        set_current_center(item.unit, None)
+    MovementStatusEvent.objects.create(
+        movement=movement, status="declared", reason=OUT_OF_SYSTEM_REASON, occurred_at=now,
+        created_by=created_by, device=device, is_simulated=movement.is_simulated,
+    )
+    record_event(
+        action="movement.market_exit", actor_user=created_by, entity_table="movement",
+        entity_id=movement.pk, device=device,
+        details={"market_id": str(market.pk), "out_of_system": True},
+    )
+    return movement, None, True
+
+
+def renew_confirmation_code(movement) -> str:
+    """Invalide les codes encore valables et en crée un nouveau (rejeu d'une déclaration)."""
+    now = timezone.now()
+    movement.confirmation_codes.filter(used_at__isnull=True, expires_at__gt=now).update(
+        expires_at=now
+    )
+    plain_code, code_hash = generate_confirmation_code()
+    MovementConfirmationCode.objects.create(
+        movement=movement, code_hash=code_hash, expires_at=now + timedelta(days=7),
+    )
+    return plain_code

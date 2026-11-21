@@ -22,7 +22,7 @@ import { submit, type OperationStatus } from '@/offline'
 import { identityApi } from '@/features/identity/api'
 import { useResource } from '@/features/identity/useResource'
 
-import { MOVEMENT_STATUS_LABELS, REASONS, movementApi, type Movement } from './api'
+import { REASONS, movementApi, movementStatusLabel, type Movement } from './api'
 
 type Action = 'cancel' | 'contest'
 
@@ -78,7 +78,7 @@ function MovementCard({ movement, centerId, onDone }: {
           {outgoing ? 'Départ vers' : 'Arrivée de'} {other}
         </p>
         <span className="rounded-full border-2 border-border px-3 text-caption font-bold text-foreground">
-          {MOVEMENT_STATUS_LABELS[movement.status]}
+          {movementStatusLabel(movement)}
         </span>
       </div>
       <p className="text-small text-muted-foreground">

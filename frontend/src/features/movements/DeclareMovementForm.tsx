@@ -9,6 +9,7 @@ import {
   KeyRound,
   PawPrint,
   ShoppingBag,
+  Store,
   Users,
   Warehouse,
 } from 'lucide-react'
@@ -245,6 +246,11 @@ export function DeclareMovementForm() {
       <Button type="button" icon={History} variant="ghost" onClick={() => navigate('/mouvements/historique')}>
         Mes mouvements
       </Button>
+      {centers.some((center) => center.center_type === 'market') && (
+        <Button type="button" icon={Store} variant="secondary" fullWidth onClick={() => navigate('/mouvements/marche')}>
+          Marché : entrées et sorties
+        </Button>
+      )}
 
       {centers.length > 1 ? (
         <Field label="Élevage de départ" required>

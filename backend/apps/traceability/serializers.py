@@ -193,6 +193,34 @@ class MovementReasonSerializer(serializers.Serializer):
     occurred_at = serializers.DateTimeField(required=False)
 
 
+class MarketEntrySerializer(serializers.Serializer):
+    """Entrée au marché (R2) : codes d'étiquettes scannés par l'agent du marché."""
+
+    id = serializers.UUIDField(help_text="UUID de l'opération créé sur le téléphone.")
+    market_id = serializers.UUIDField()
+    label_codes = serializers.ListField(
+        child=serializers.CharField(max_length=20), min_length=1, max_length=200
+    )
+    occurred_at = serializers.DateTimeField(required=False)
+
+
+class MarketExitSerializer(MarketEntrySerializer):
+    """Sortie du marché (R2) : vers un élevage inscrit ou un acheteur non inscrit."""
+
+    to_center_id = serializers.UUIDField(required=False, allow_null=True)
+    to_party_note = serializers.CharField(max_length=160, required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        to_id = attrs.get("to_center_id")
+        if to_id and not Center.objects.filter(id=to_id, status="active").exists():
+            raise serializers.ValidationError({"to_center_id": "Élevage acheteur introuvable."})
+        if not to_id and not (attrs.get("to_party_note") or "").strip():
+            raise serializers.ValidationError(
+                {"to_party_note": "Indiquez l'élevage acheteur ou décrivez l'acheteur."}
+            )
+        return attrs
+
+
 class UnitEventCreateSerializer(serializers.Serializer):
     """Événement de vie d'une unité (MV-02). `id` créé par le téléphone."""
 

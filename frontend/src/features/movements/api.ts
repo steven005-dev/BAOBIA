@@ -68,6 +68,16 @@ export const MOVEMENT_STATUS_LABELS: Record<MovementStatus, string> = {
   expired: 'Expiré',
 }
 
+/** Libellé affiché (spec v1.4) : un mouvement déclaré d'un seul côté est « probable » ;
+ *  une sortie vers un acheteur non inscrit est « sortie du système ». */
+export function movementStatusLabel(movement: Movement): string {
+  if (movement.status !== 'declared') return MOVEMENT_STATUS_LABELS[movement.status]
+  if (!movement.to_center) return 'Sorti du système'
+  return movement.confirmations.some((c) => c.side === 'receiver')
+    ? 'Probable : déclaré à l’arrivée seulement'
+    : 'Probable : en attente de l’autre partie'
+}
+
 /** Motifs proposés (choisir plutôt qu'écrire, UX-04). */
 export const REASONS = {
   refuse: ['Animaux non conformes', 'Pas d’accord sur la vente', 'Animaux non arrivés'],
