@@ -141,10 +141,17 @@ test.describe.serial('Plan de test : assistée, contestation, hors ligne, parcou
   test('8. hors ligne puis retour du réseau : la déclaration part toute seule', async ({ page }) => {
     await login(page, PHONES.breeder2)
     await page.goto('/mouvements')
+    // Attendre la fin du chargement avant de choisir B : sinon le choix est perdu et le
+    // départ part de l'Élevage A (celui de l'Animal 1 réservé à la démo).
     const source = page.getByLabel('Élevage de départ')
-    if (await source.count()) await source.selectOption({ label: 'Élevage B (simulé)' })
-    const animal = page.locator('section[aria-labelledby="units-heading"] button').first()
+    await expect(source).toBeVisible()
+    await source.selectOption({ label: 'Élevage B (simulé)' })
+    await expect(source).toHaveValue(/.+/)
+    // Nouveau style : chaque animal est montré par son code d'étiquette et son espèce.
+    const animal = page.locator('section[aria-labelledby="units-heading"] button')
+      .filter({ hasText: /Animal/ }).first()
     await expect(animal).toBeVisible()
+    await expect(page.locator('section[aria-labelledby="units-heading"]')).not.toContainText(DEMO_ANIMAL_CODE)
     await page.getByRole('button', { name: 'Vente' }).click()
     await page.context().setOffline(true)
     await animal.click()
