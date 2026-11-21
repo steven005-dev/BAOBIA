@@ -41,6 +41,8 @@ class NotificationError(Exception):
 MESSAGES = {
     # Éleveur dont l'élevage est exposé (charte : « Contact possible »).
     "exposure.contact_possible": ("exposure", ()),
+    # Même éleveur, quand l'alerte est clôturée ou annulée : fin de surveillance.
+    "exposure.ended": ("exposure", ()),
     # Éleveur : alerte validée par le vétérinaire dans sa zone.
     "alert.validated": ("alert", ("species",)),
     # Vétérinaires de la zone : regroupement de signalements à confirmer ou infirmer.

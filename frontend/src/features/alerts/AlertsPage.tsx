@@ -5,7 +5,7 @@
  *   jamais l'élevage d'origine.
  */
 
-import { ChevronRight, Siren, TriangleAlert } from 'lucide-react'
+import { ChevronRight, CircleCheck, Siren, TriangleAlert } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { useAuth } from '@/auth/AuthProvider'
@@ -63,16 +63,22 @@ function BreederMessages() {
   if (items.length === 0) return <EmptyState icon={Siren} title={alertesTextes.aucunMessage} />
   return (
     <ul className="flex flex-col gap-3">
-      {items.map((n) => (
-        <li key={n.id}>
-          <Banner variant="warning" title={new Date(n.created_at).toLocaleDateString('fr-FR')}>
-            <span className="inline-flex items-start gap-2">
-              <TriangleAlert aria-hidden className="size-icon shrink-0" />
-              {textesNotifications[n.message_code] ?? n.message_code}
-            </span>
-          </Banner>
-        </li>
-      ))}
+      {items.map((n) => {
+        // Fin de surveillance : message d'information, pas d'avertissement.
+        const ended = n.message_code === 'exposure.ended'
+        const Icon = ended ? CircleCheck : TriangleAlert
+        return (
+          <li key={n.id}>
+            <Banner variant={ended ? 'info' : 'warning'}
+                    title={new Date(n.created_at).toLocaleDateString('fr-FR')}>
+              <span className="inline-flex items-start gap-2">
+                <Icon aria-hidden className="size-icon shrink-0" />
+                {textesNotifications[n.message_code] ?? n.message_code}
+              </span>
+            </Banner>
+          </li>
+        )
+      })}
     </ul>
   )
 }

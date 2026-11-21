@@ -280,6 +280,45 @@ class NeutralNotificationTests(AlertScenarioMixin, TestCase):
         self.assertNotIn(self.users["D"].pk, notified)
 
 
+class EndOfSurveillanceTests(AlertScenarioMixin, TestCase):
+    """Point 5 : fin de surveillance aux élevages qui avaient reçu « Contact possible »."""
+
+    def ended(self):
+        return Notification.objects.filter(message_code="exposure.ended")
+
+    def test_closing_tells_the_notified_breeders(self):
+        report = self.report_at_a()
+        self.validate(report)
+        notified = set(Notification.objects.filter(
+            message_code="exposure.contact_possible").values_list("user_id", flat=True))
+        health_services.review_report(report=report, vet=self.vet, decision="close")
+        self.assertEqual(set(self.ended().values_list("user_id", flat=True)), notified)
+        for notification in self.ended():
+            self.assertEqual(notification.params, {})  # neutre : ni foyer ni lieu
+
+    def test_cancelling_after_notification_also_tells_them(self):
+        report = self.report_at_a()
+        self.validate(report)
+        health_services.review_report(report=report, vet=self.vet, decision="dismiss",
+                                      note="Examen négatif.")
+        self.assertEqual(self.ended().count(), 2)  # éleveurs de B et C
+
+    def test_nobody_told_at_level2_so_no_end_message(self):
+        report = self.report_at_a()
+        self.validate(report, decision="raise_level2")
+        health_services.review_report(report=report, vet=self.vet, decision="dismiss",
+                                      note="Examen négatif.")
+        self.assertFalse(Notification.objects.exists())
+
+    def test_alert_kept_open_sends_no_end_message(self):
+        first, second = self.report_at_a(), self.report_at_a()
+        self.validate(first)
+        self.validate(second)
+        health_services.review_report(report=second, vet=self.vet, decision="dismiss",
+                                      note="Sans lien.")
+        self.assertFalse(self.ended().exists())
+
+
 class ZoneStatTests(AlertScenarioMixin, TestCase):
     def test_zone_turns_to_alert_after_validation(self):
         self.validate(self.report_at_a())
