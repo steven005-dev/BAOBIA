@@ -31,7 +31,8 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },
-    server: { https, proxy },
+    // Tunnel ngrok (test sur téléphone hors du Wi-Fi) : Vite bloque sinon les adresses inconnues.
+    server: { https, proxy, allowedHosts: ['.ngrok-free.app', '.ngrok-free.dev', '.ngrok.app', '.ngrok.io'] },
     preview: { https, proxy },
   }
 })
