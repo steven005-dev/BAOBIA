@@ -1,0 +1,153 @@
+==============================================================
+FICHES MALADIES - ELEVAGE EN COTE D'IVOIRE
+Classement par animal. Signes que l'eleveur peut cocher.
+Source : fiches de l'Organisation mondiale de la sante animale (WOAH)
+[*] = fiche ajoutee ou completee, a faire confirmer par un veterinaire
+==============================================================
+
+SIGNE D'ALERTE GENERAL
+Plusieurs betes malades ou mortes en peu de temps : isoler les
+animaux, ne rien deplacer, appeler le veterinaire ou les
+services veterinaires de la zone.
+
+--------------------------------------------------------------
+INDEX PAR ANIMAL
+--------------------------------------------------------------
+BOVINS ................ Fievre aphteuse, Dermatose nodulaire,
+                        Peripneumonie bovine, Trypanosomose,
+                        Brucellose, Charbon [*], Rift [*]
+MOUTONS / CHEVRES ..... Fievre aphteuse, Peste des petits ruminants,
+                        Trypanosomose, Brucellose, Charbon [*], Rift [*]
+PORCS ................. Fievre aphteuse, Peste porcine africaine
+VOLAILLES ............. Grippe aviaire, Maladie de Newcastle [*]
+TOUS MAMMIFERES ....... Rage [*] (chiens, bovins, petits ruminants...)
+
+==============================================================
+FICHES
+==============================================================
+
+1. FIEVRE APHTEUSE
+Especes sensibles : bovins, moutons, chevres, porcs
+Signes majeurs    : bave et plaies dans la bouche ; boiterie ; fievre
+Signes evocateurs : ne mange plus
+A verifier        : aphtes sur la langue, les gencives, entre les onglons
+Morts habituels   : faibles
+Contagion         : rapide
+Incubation        : 2 a 14 jours
+
+2. DERMATOSE NODULAIRE
+Especes sensibles : bovins
+Signes majeurs    : boutons ou plaies sur la peau ; fievre
+Signes evocateurs : ne mange plus ; bave ; boiterie
+A verifier        : nodules fermes, ganglions gonfles
+Morts habituels   : faibles
+Contagion         : lente (insectes)
+Incubation        : 4 a 28 jours
+
+3. PERIPNEUMONIE BOVINE
+Especes sensibles : bovins
+Signes majeurs    : toux, respire mal ; fievre
+Signes evocateurs : ne mange plus ; mort soudaine
+A verifier        : douleur au thorax, tete tendue
+Morts habituels   : variables
+Contagion         : lente
+Incubation        : 21 a 180 jours
+
+4. PESTE DES PETITS RUMINANTS
+Especes sensibles : moutons, chevres
+Signes majeurs    : fievre ; diarrhee ; bave ; respire mal
+Signes evocateurs : ne mange plus ; mort soudaine
+A verifier        : ecoulements des yeux et du nez
+Morts habituels   : forts
+Contagion         : rapide
+Incubation        : 3 a 10 jours
+
+5. TRYPANOSOMOSE
+Especes sensibles : bovins, moutons, chevres
+Signes majeurs    : fievre ; ne mange plus
+Signes evocateurs : diarrhee
+A verifier        : amaigrissement, muqueuses pales
+Morts habituels   : variables
+Contagion         : lente (mouche tse-tse)
+Incubation        : 7 a 28 jours
+
+6. BRUCELLOSE
+Especes sensibles : bovins, moutons, chevres
+Signes majeurs    : aucun dans la liste
+Signes evocateurs : boiterie ; fievre
+A verifier        : avortements (signe principal)
+Morts habituels   : faibles
+Contagion         : lente
+Incubation        : 14 a 180 jours
+Attention         : maladie transmissible a l'homme (lait cru,
+                    produits d'avortement). Manipuler avec gants.
+
+7. PESTE PORCINE AFRICAINE
+Especes sensibles : porcs
+Signes majeurs    : fievre ; mort soudaine ; peau ; ne mange plus
+Signes evocateurs : diarrhee ; respire mal
+A verifier        : taches violettes sur les oreilles et le ventre
+Morts habituels   : forts
+Contagion         : rapide
+Incubation        : 4 a 19 jours
+
+8. GRIPPE AVIAIRE [*] (fiche completee)
+Especes sensibles : volailles
+Signes majeurs    : mort soudaine ; respire mal
+Signes evocateurs : ne mange plus ; diarrhee ; peau
+A verifier        : crete violacee, gonflement de la tete,
+                    baisse brutale de la ponte
+Morts habituels   : forts
+Contagion         : rapide
+Incubation        : 3 a 14 jours
+Attention         : peut toucher l'homme. Ne pas manipuler les
+                    oiseaux morts a mains nues.
+
+9. MALADIE DE NEWCASTLE [*]
+Especes sensibles : volailles
+Signes majeurs    : mort soudaine ; respire mal
+Signes evocateurs : ne mange plus ; diarrhee verdatre
+A verifier        : torticolis, paralysie, chute de ponte
+Morts habituels   : forts
+Contagion         : rapide
+Incubation        : 2 a 15 jours
+Remarque          : proche de la grippe aviaire, se previent
+                    par la vaccination.
+
+10. CHARBON BACTERIDIEN [*]
+Especes sensibles : bovins, moutons, chevres
+Signes majeurs    : mort soudaine ; fievre
+Signes evocateurs : ne mange plus ; gonflements
+A verifier        : sang noir qui sort par les orifices,
+                    cadavre qui gonfle vite
+Morts habituels   : forts
+Contagion         : par les spores du sol (pas de betes a betes)
+Incubation        : 1 a 14 jours
+Attention         : NE PAS OUVRIR LA CARCASSE. Dangereux pour
+                    l'homme. Appeler le veterinaire.
+
+11. FIEVRE DE LA VALLEE DU RIFT [*]
+Especes sensibles : bovins, moutons, chevres
+Signes majeurs    : fievre ; mort des jeunes
+Signes evocateurs : ne mange plus ; faiblesse
+A verifier        : avortements en nombre, jeunes qui meurent vite
+Morts habituels   : forts chez les jeunes
+Contagion         : par les moustiques et le sang
+Incubation        : 1 a 6 jours
+Attention         : transmissible a l'homme (sang, avortons).
+
+12. RAGE [*]
+Especes sensibles : tous les mammiferes (chiens surtout)
+Signes majeurs    : changement de comportement ; bave
+Signes evocateurs : agressivite ou grande tristesse ; paralysie
+A verifier        : morsure par un animal inconnu
+Morts habituels   : quasi tous les animaux atteints
+Contagion         : par morsure
+Incubation        : quelques semaines a plusieurs mois
+Attention         : mortelle pour l'homme. Apres morsure,
+                    laver a l'eau et au savon, aller a l'hopital.
+
+==============================================================
+Ce document aide a reperer les signes. Il ne remplace pas
+l'avis d'un veterinaire.
+==============================================================

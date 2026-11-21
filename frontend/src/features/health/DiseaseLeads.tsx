@@ -46,7 +46,9 @@ function LeadItem({ lead }: { lead: DiseaseLead }) {
         {pistesTextes.contagion} {lead.spread} · {pistesTextes.incubation} {lead.incubation_days[0]} à{' '}
         {lead.incubation_days[1]} {pistesTextes.jours}
       </p>
-      {lead.zoonosis && <Banner variant="warning">{pistesTextes.zoonose}</Banner>}
+      {(lead.caution || lead.zoonosis) && (
+        <Banner variant="warning">{lead.caution ?? pistesTextes.zoonose}</Banner>
+      )}
       <details className="text-small">
         <summary className="flex cursor-pointer items-center gap-1 font-bold text-primary">
           <FlaskConical aria-hidden className="size-icon-small" /> {pistesTextes.prelevements}
@@ -63,6 +65,7 @@ export function DiseaseLeads({ leads }: { leads: Leads }) {
   return (
     <Card title={pistesTextes.titre} icon={Stethoscope}>
       <p className="text-small text-muted-foreground">{leads.warning}</p>
+      <p className="text-small"><b>{pistesTextes.alerteGenerale}</b> {leads.general_alert}</p>
       {!leads.validated && <Banner variant="info">{pistesTextes.fichesAValider}</Banner>}
       {leads.items.length === 0 ? (
         <p className="text-body">{pistesTextes.aucune}</p>

@@ -263,6 +263,7 @@ export const pistesTextes = {
   incubation: 'Incubation',
   jours: 'jours',
   zoonose: 'Transmissible à l’humain : gants et masque pour les prélèvements.',
+  alerteGenerale: 'Signe d’alerte :',
   declarationObligatoire: 'Déclaration obligatoire',
   prelevements: 'Prélèvements conseillés',
   ficheLabo: 'Fiche pour le laboratoire',

@@ -14,12 +14,22 @@ Pour chaque maladie (code du catalogue, apps/health/catalog.py) :
 - spread : contagion rapide ou lente ;
 - incubation_days : (min, max) ;
 - zoonosis : transmissible à l'humain (précautions pour la personne qui prélève) ;
-- samples : prélèvements conseillés (nature, conditionnement).
+- samples : prélèvements conseillés (nature, conditionnement) ;
+- caution : consigne de prudence propre à la maladie (facultatif).
 Le laboratoire de référence est à confirmer par l'autorité vétérinaire (LAB_NOTE).
+
+Source de la version 2 (21/11) : docs/fiches_maladies_animales_CI.txt (12 fiches, d'après
+l'OMSA ; les fiches marquées [*] sont à faire confirmer par un vétérinaire). Les signes de
+ce fichier sans case pour l'éleveur (torticolis, avortements, changement de comportement...)
+sont dans missing_sign : le vétérinaire les vérifie sur place.
 """
 
-VERSION = 1
+VERSION = 2
 VALIDATED = False  # passe à True quand un vétérinaire a relu et signé les fiches
+# Signe d'alerte général (fichier des fiches) : rappelé au vétérinaire sur chaque signalement.
+GENERAL_ALERT = ("Plusieurs bêtes malades ou mortes en peu de temps : isoler les animaux, ne rien "
+                 "déplacer, prévenir les services vétérinaires de la zone.")
+
 LAB_NOTE = ("Laboratoire de référence à confirmer par l'autorité vétérinaire "
             "(en Côte d'Ivoire, le LANADA). Échantillons au froid (+4 °C), jamais congelés "
             "sauf indication du laboratoire.")
@@ -103,6 +113,7 @@ PROFILES = {
         "spread": "slow",
         "incubation_days": (14, 180),
         "zoonosis": True,
+        "caution": "Transmissible à l'homme (lait cru, produits d'avortement) : manipuler avec gants.",
         "samples": (
             ("Sang sur tube sec (sérologie)", "Au froid"),
             ("Avorton ou placenta", "Sac étanche, au froid ; gants et masque"),
@@ -126,17 +137,85 @@ PROFILES = {
         "species": ("poultry",),
         "major": ("sudden_death", "breathing"),
         "suggestive": ("not_eating", "diarrhea", "skin_lesions"),
-        "missing_sign": "Crête et barbillons violacés, chute de ponte",
+        "missing_sign": "Crête violacée, gonflement de la tête, baisse brutale de la ponte",
         "mortality": "high",
         "spread": "rapid",
-        "incubation_days": (1, 14),
+        "incubation_days": (3, 14),
         "zoonosis": True,
+        "caution": "Peut toucher l'homme : ne pas manipuler les oiseaux morts à mains nues.",
         "samples": (
             ("Écouvillons de la trachée et du cloaque", "Milieu de transport, au froid"),
             ("Cadavres entiers", "Sac étanche, au froid ; gants, masque, lunettes"),
         ),
     },
+    # --- Ajoutées le 21/11 (fiches 9 à 12 du fichier, marquées [*] : à confirmer) ---
+    "newcastle": {
+        "species": ("poultry",),
+        "major": ("sudden_death", "breathing"),
+        "suggestive": ("not_eating", "diarrhea"),
+        "missing_sign": "Torticolis, paralysie, chute de ponte, diarrhée verdâtre",
+        "mortality": "high",
+        "spread": "rapid",
+        "incubation_days": (2, 15),
+        "zoonosis": False,
+        "caution": "Proche de la grippe aviaire : à distinguer au laboratoire. Se prévient par la vaccination.",
+        "samples": (
+            ("Écouvillons de la trachée et du cloaque", "Milieu de transport, au froid"),
+            ("Cadavres entiers", "Sac étanche, au froid"),
+        ),
+    },
+    "anthrax": {
+        "species": ("cattle", "sheep", "goat"),
+        "major": ("sudden_death", "fever"),
+        "suggestive": ("not_eating",),
+        "missing_sign": "Sang noir qui sort par les orifices, cadavre qui gonfle vite, gonflements",
+        "mortality": "high",
+        "spread": "soil",
+        "incubation_days": (1, 14),
+        "zoonosis": True,
+        "caution": "NE PAS OUVRIR LA CARCASSE. Dangereux pour l'homme : seul le vétérinaire intervient.",
+        "samples": (
+            ("Sang prélevé à l'oreille ou à la queue, sans ouvrir le cadavre", "Tube étanche, au froid ; gants"),
+        ),
+    },
+    "rift_valley_fever": {
+        "species": ("cattle", "sheep", "goat"),
+        "major": ("fever", "sudden_death"),
+        "suggestive": ("not_eating",),
+        "missing_sign": "Avortements en nombre, jeunes qui meurent vite, grande faiblesse",
+        "mortality": "high",
+        "spread": "vector",
+        "incubation_days": (1, 6),
+        "zoonosis": True,
+        "caution": "Transmissible à l'homme (sang, avortons) : gants, masque, lunettes.",
+        "samples": (
+            ("Sang sur tube EDTA et sur tube sec", "Au froid ; gants"),
+            ("Avorton (foie)", "Sac étanche, au froid ; gants et masque"),
+        ),
+    },
+    "rabies": {
+        "species": ("cattle", "sheep", "goat", "pig"),
+        "major": ("mouth_drool",),
+        "suggestive": ("lameness",),
+        "missing_sign": "Changement de comportement (agressivité ou grande tristesse), paralysie, "
+                        "morsure par un animal inconnu",
+        "mortality": "high",
+        "spread": "bite",
+        "incubation_days": (14, 180),
+        "zoonosis": True,
+        "caution": "Mortelle pour l'homme. Après une morsure : laver à l'eau et au savon, aller à "
+                   "l'hôpital. Ne pas toucher la bave.",
+        "samples": (
+            ("Tête de l'animal mort, entière", "Par le vétérinaire seulement ; sac étanche, au froid"),
+        ),
+    },
 }
 
 MORTALITY_LABELS = {"low": "faible", "variable": "variable", "high": "forte"}
-SPREAD_LABELS = {"rapid": "rapide", "slow": "lente"}
+SPREAD_LABELS = {
+    "rapid": "rapide",
+    "slow": "lente",
+    "soil": "par les spores du sol (pas de bête à bête)",
+    "vector": "par les moustiques et le sang",
+    "bite": "par morsure",
+}

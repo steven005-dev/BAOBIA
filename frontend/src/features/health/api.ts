@@ -34,6 +34,8 @@ export interface DiseaseLead {
   spread: string
   incubation_days: [number, number]
   zoonosis: boolean
+  /** Consigne de prudence propre à la maladie (ex. « Ne pas ouvrir la carcasse »). */
+  caution: string | null
   samples: { nature: string; conditioning: string }[]
 }
 
@@ -43,6 +45,9 @@ export interface Leads {
   validated: boolean
   lab_note: string
   warning: string
+  /** Signe d'alerte général (plusieurs bêtes malades ou mortes en peu de temps). */
+  general_alert: string
+  diseases_count: number
 }
 
 export interface Report {
