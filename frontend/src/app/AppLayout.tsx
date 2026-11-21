@@ -19,6 +19,8 @@ import { SidebarNav } from '@/components/SidebarNav'
 import { healthApi } from '@/features/health/api'
 import { useLiveResource } from '@/features/health/live'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
+
+import { AccountLink } from './AccountLink'
 import { profileFor } from '@/lib/profiles'
 
 import { navigationFor } from './navigation'
@@ -57,13 +59,15 @@ export function AppLayout() {
     <div className="flex min-h-dvh bg-background">
       <SidebarNav items={withBadges} profile={profile} className="sticky top-0 hidden h-dvh lg:flex" />
       <div className="flex min-w-0 flex-1 flex-col">
-        <AppHeader profile={profile} desktopTitle={current?.label} extra={<NotificationBell />} />
+        <AppHeader profile={profile} desktopTitle={current?.label}
+                   extra={<><NotificationBell /><AccountLink /></>} />
         <OfflineIndicator variant="banner" />
         {user?.is_simulated && <DemoDataNotice />}
         <main className={`mx-auto w-full max-w-mobile flex-1 px-4 pt-6 pb-[calc(var(--nav-height)+var(--space-6)+env(safe-area-inset-bottom))] lg:px-8 lg:pb-8 ${desk ? 'lg:max-w-6xl' : 'lg:max-w-form'}`}>
           <Outlet />
         </main>
-        <BottomNav items={withBadges} className="lg:hidden" />
+        {/* Téléphone : 4 entrées au plus (charte) ; « Mon compte » est dans l'en-tête. */}
+        <BottomNav items={withBadges.filter((item) => item.to !== '/profil')} className="lg:hidden" />
       </div>
     </div>
   )

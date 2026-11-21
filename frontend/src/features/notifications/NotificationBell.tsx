@@ -34,7 +34,7 @@ export function NotificationBell() {
 
   return (
     <Link to="/messages" aria-label={unread ? messagesTextes.nonLus(unread) : messagesTextes.ouvrir}
-          className="relative flex h-touch shrink-0 items-center gap-1.5 rounded-full px-2 text-caption font-bold text-primary-foreground hover:bg-primary-hover sm:px-3">
+          className="relative flex h-touch shrink-0 items-center gap-3 rounded-full px-2 text-caption font-bold text-primary-foreground hover:bg-primary-hover sm:px-3">
       {/* La pastille est posée sur la cloche, jamais sur le mot. */}
       <span className="relative flex">
         <Bell aria-hidden className="size-icon" />

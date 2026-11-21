@@ -17,7 +17,6 @@ import { Link } from 'react-router'
 
 import { useAuth } from '@/auth/AuthProvider'
 import { Card } from '@/components/Card'
-import { DemoDataNotice } from '@/components/DemoDataNotice'
 import { COUNTRY_CODE, formatNationalPhone } from '@/lib/phone'
 import { profileFor, profileStyles } from '@/lib/profiles'
 import { cn } from '@/lib/utils'
@@ -67,13 +66,12 @@ export function ProfilePage() {
             {style && RoleIcon && (
               <span className={cn('inline-flex items-center gap-1.5 self-start rounded-full border-2 px-3 py-0.5 text-small font-bold', style.soft)}>
                 <RoleIcon aria-hidden className="size-icon-small" />
-                {user.roles.map((r) => r.label_fr).join(' · ')}
+                {[...new Set(user.roles.map((r) => r.label_fr))].join(' · ')}
               </span>
             )}
           </div>
         </div>
       </section>
-      {user.is_simulated && <DemoDataNotice />}
 
       <Card>
         <div className="flex flex-col divide-y divide-border/70">
