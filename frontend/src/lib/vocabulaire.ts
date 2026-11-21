@@ -251,6 +251,43 @@ export const titres = {
  * À VALIDER : module santé, alertes et carte (Yéo). Mots simples, sans nom de maladie
  * pour l'éleveur ; « Contact possible », jamais « contaminé ».
  */
+/** À VALIDER : pistes de maladie et fiche de laboratoire (aide au vétérinaire). */
+export const pistesTextes = {
+  titre: 'Pistes de maladie',
+  aucune: 'Aucune piste : les signes cochés ne correspondent à aucune fiche maladie.',
+  fichesAValider: 'Fiches maladie à faire valider par un vétérinaire (version de démonstration).',
+  signesMajeurs: 'signes majeurs',
+  contagion: 'Contagion',
+  incubation: 'Incubation',
+  jours: 'jours',
+  zoonose: 'Transmissible à l’humain : gants et masque pour les prélèvements.',
+  declarationObligatoire: 'Déclaration obligatoire',
+  prelevements: 'Prélèvements conseillés',
+  ficheLabo: 'Fiche pour le laboratoire',
+  titreLabo: "Demande d'analyse de laboratoire",
+  imprimer: 'Imprimer',
+  maladieSuspectee: 'Maladie suspectée',
+  aPreciser: 'À préciser',
+  prelevementsFaits: 'Prélèvements faits',
+  nombre: 'Nombre',
+  demandeur: 'Vétérinaire demandeur',
+  elevage: 'Élevage',
+  zone: 'Zone',
+  dateObservation: "Date d'observation",
+  animauxPreleves: 'Animaux concernés',
+  etiquette: 'Étiquette',
+  espece: 'Espèce',
+  etat: 'État',
+  malade: 'malade',
+  mort: 'mort',
+  signes: 'Signes signalés par l’éleveur',
+  mortsMalades: 'Morts / malades',
+  reference: 'Référence BAOBIA',
+  signature: 'Signature et cachet du vétérinaire',
+  receptionLabo: 'Réception au laboratoire (date, heure, état des échantillons)',
+  donneesSimulees: 'Prototype : données simulées, aucune valeur légale.',
+} as const
+
 export const sante = {
   titreSignaler: 'Signaler un cas',
   quelElevage: 'Quel élevage ?',
