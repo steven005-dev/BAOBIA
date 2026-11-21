@@ -435,6 +435,11 @@ export const alertesTextes = {
 export const profilTextes = {
   titre: 'Mon compte',
   ongletCourt: 'Compte',
+  deconnexionTitre: 'Se déconnecter ?',
+  deconnexionTexte: 'Vous devrez entrer à nouveau votre numéro et votre mot de passe.',
+  deconnexionAttente: 'envoi(s) encore en attente sur ce téléphone. Attendez le réseau avant de vous déconnecter.',
+  deconnexionEnCours: 'Déconnexion…',
+  deconnecte: 'Vous êtes déconnecté.',
   telephone: 'Numéro de téléphone',
   zone: 'Zone',
   organisation: 'Organisation',

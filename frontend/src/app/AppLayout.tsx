@@ -61,7 +61,10 @@ export function AppLayout() {
         <OfflineIndicator variant="banner" />
         {user?.is_simulated && <DemoDataNotice />}
         <main className={`mx-auto w-full max-w-mobile flex-1 px-4 pt-6 pb-[calc(var(--nav-height)+var(--space-6)+env(safe-area-inset-bottom))] lg:px-8 lg:pb-8 ${desk ? 'lg:max-w-6xl' : 'lg:max-w-form'}`}>
-          <Outlet />
+          {/* Changement d'écran en douceur (fondu court), pas un saut sec. */}
+          <div key={pathname} className="animate-enter">
+            <Outlet />
+          </div>
         </main>
         <BottomNav items={withBadges} className="lg:hidden" />
       </div>

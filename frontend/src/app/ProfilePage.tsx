@@ -12,11 +12,14 @@ import {
   BadgeCheck, Building2, ChevronRight, KeyRound, LogOut, MapPin, Phone, ShieldAlert, Warehouse,
   type LucideIcon,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 
 import { useAuth } from '@/auth/AuthProvider'
 import { Card } from '@/components/Card'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useToast } from '@/components/Toast'
+import { usePendingCount } from '@/hooks/usePendingCount'
 import { COUNTRY_CODE, formatNationalPhone } from '@/lib/phone'
 import { profileFor, profileStyles } from '@/lib/profiles'
 import { cn } from '@/lib/utils'
@@ -41,9 +44,22 @@ function displayPhone(phone: string) {
   return `+${COUNTRY_CODE} ${formatNationalPhone(national)}`
 }
 
+/** Laisse voir l'état « Déconnexion… » un court instant : sinon l'écran saute sans retour. */
+const LOGOUT_MIN_MS = 800
+
 export function ProfilePage() {
   const { user, logout } = useAuth()
+  const toast = useToast()
+  const pending = usePendingCount()
+  const [confirming, setConfirming] = useState(false)
+  const [leaving, setLeaving] = useState(false)
   if (!user) return null
+
+  const signOut = async () => {
+    setLeaving(true)
+    await Promise.all([logout(), new Promise((resolve) => window.setTimeout(resolve, LOGOUT_MIN_MS))])
+    toast.show(profilTextes.deconnecte, 'success')
+  }
   const profile = profileFor(user.roles, user.full_name)
   const style = profile ? profileStyles[profile.role] : null
   const isVet = user.roles.some((r) => r.code === 'veterinarian')
@@ -135,12 +151,27 @@ export function ProfilePage() {
         </Link>
         {/* Déconnexion : passe à la couleur « erreur » de la charte au survol et au toucher
             (pas le rouge d'alerte, réservé à une alerte validée). */}
-        <button type="button" onClick={() => void logout()} className="group flex min-h-touch-primary w-full items-center gap-3 px-4 text-left font-display text-body font-bold text-foreground transition-colors hover:bg-error-bg hover:text-error focus-visible:bg-error-bg focus-visible:text-error active:bg-error-bg active:text-error">
+        <button type="button" onClick={() => setConfirming(true)} className="group flex min-h-touch-primary w-full items-center gap-3 px-4 text-left font-display text-body font-bold text-foreground transition-colors hover:bg-error-bg hover:text-error focus-visible:bg-error-bg focus-visible:text-error active:bg-error-bg active:text-error">
           <span className="flex size-10 items-center justify-center rounded-md bg-accent text-primary transition-colors group-hover:bg-error group-hover:text-destructive-foreground group-active:bg-error group-active:text-destructive-foreground"><LogOut aria-hidden className="size-icon" /></span>
           <span className="flex-1">{mots.deconnexion}</span>
           <ChevronRight aria-hidden className="size-icon text-muted-foreground group-hover:text-error" />
         </button>
       </div>
+
+      <ConfirmDialog
+        open={confirming}
+        title={profilTextes.deconnexionTitre}
+        confirmLabel={leaving ? profilTextes.deconnexionEnCours : mots.deconnexion}
+        confirmIcon={LogOut}
+        variant="danger"
+        loading={leaving}
+        onConfirm={() => void signOut()}
+        onCancel={() => setConfirming(false)}
+      >
+        {pending > 0
+          ? <strong className="text-warning">{pending} {profilTextes.deconnexionAttente}</strong>
+          : profilTextes.deconnexionTexte}
+      </ConfirmDialog>
     </div>
   )
 }
