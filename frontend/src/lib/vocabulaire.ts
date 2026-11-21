@@ -263,7 +263,13 @@ export const champs = {
   accordEleveur: "L'éleveur a écouté et il est d'accord", // À VALIDER
   lireEleveur: "À lire à l'éleveur", // À VALIDER
   // À VALIDER : boucle préimprimée (spec v1.4).
-  scannerBoucle: 'Scanner la boucle',
+  scannerBoucle: 'Boucle BAOBIA (QR)', // À VALIDER : distincte de la boucle officielle
+  // À VALIDER (21/11) : identifiant officiel = numéro de la boucle (15 chiffres, Vet'Tronic).
+  boucleOfficielle: 'Boucle officielle (15 chiffres)',
+  numeroOfficiel: 'Numéro de la boucle officielle',
+  numeroOfficielAide: '15 chiffres imprimés sur la boucle (384 = Côte d’Ivoire). Un code QR BAOBIA est aussi créé.',
+  numeroOuCode: 'Numéro officiel ou code BAOBIA',
+  numeroOuCodeAide: '15 chiffres de la boucle officielle, ou les 9 caractères écrits sous le QR code',
   creerCode: 'Pas de boucle : créer un code',
 } as const
 

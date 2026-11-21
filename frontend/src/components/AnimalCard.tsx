@@ -18,6 +18,8 @@ import { StatusBadge } from './StatusBadge'
 
 export interface AnimalCardProps {
   shortCode?: string | null
+  /** Numéro officiel de la boucle (15 chiffres) : identifiant principal quand il existe. */
+  officialNumber?: string | null
   name?: string | null
   species: string
   kind?: 'animal' | 'lot'
@@ -28,7 +30,7 @@ export interface AnimalCardProps {
   className?: string
 }
 
-export function AnimalCard({ shortCode, name, species, kind = 'animal', size, state, to, className }: AnimalCardProps) {
+export function AnimalCard({ shortCode, officialNumber, name, species, kind = 'animal', size, state, to, className }: AnimalCardProps) {
   const Icon = kind === 'lot' ? Users : PawPrint
   const body = (
     <>
@@ -36,7 +38,12 @@ export function AnimalCard({ shortCode, name, species, kind = 'animal', size, st
         <Icon aria-hidden className="size-icon" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="text-card-title font-bold tracking-wider">{shortCode ? formatShortCode(shortCode) : '—'}</span>
+        <span className="text-card-title font-bold tracking-wider">
+          {officialNumber ?? (shortCode ? formatShortCode(shortCode) : '—')}
+        </span>
+        {officialNumber && shortCode && (
+          <span className="text-caption text-muted-foreground">QR {formatShortCode(shortCode)}</span>
+        )}
         <span className="truncate text-small text-muted-foreground">
           {[name, species, kind === 'lot' && size ? `${size}` : null].filter(Boolean).join(' · ')}
         </span>

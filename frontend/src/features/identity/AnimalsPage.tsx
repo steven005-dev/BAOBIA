@@ -83,6 +83,7 @@ export function AnimalsPage() {
                 <li key={unit.id}>
                   <AnimalCard
                     shortCode={unit.label_code}
+                    officialNumber={unit.official_number}
                     name={unit.local_name}
                     species={unit.species.label_fr}
                     kind={unit.kind}

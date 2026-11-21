@@ -1,12 +1,13 @@
 /**
  * Ajouter un animal ou un lot (gabarit Formulaire en une action) : une question par écran.
  * Étapes : espèce -> animal ou lot (si l'espèce permet les deux) -> nombre (lot) -> étiquette.
- * Étiquette (spec v1.4, 9.10) : voie principale = SCANNER LA BOUCLE PRÉIMPRIMÉE remise par l'agent ;
- * secours = code CRÉÉ PAR LE TÉLÉPHONE, que la fiche affiche ensuite pour faire l'étiquette.
+ * Étiquette (21/11) : pour un animal, voie principale = NUMÉRO OFFICIEL de la boucle (15 chiffres,
+ * Vet'Tronic) ; un code QR BAOBIA est créé en plus (étiquette, scan). Autres voies : scanner la
+ * boucle BAOBIA préimprimée, ou code créé par le téléphone (lots, porcs, volailles, secours).
  * L'identifiant et le code sont créés une seule fois : un double envoi est sans effet.
  */
 
-import { ArrowLeft, ArrowRight, CirclePlus, PawPrint, QrCode, ScanQrCode, Users } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BadgeCheck, CirclePlus, PawPrint, QrCode, ScanQrCode, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 
@@ -14,10 +15,13 @@ import { Banner } from '@/components/Banner'
 import { Button } from '@/components/Button'
 import { ChoiceGrid } from '@/components/ChoiceGrid'
 import { CodeInput } from '@/components/CodeInput'
+import { Input } from '@/components/Input'
 import { Field } from '@/components/Field'
 import { Loader } from '@/components/Loader'
 import { NumberStepper } from '@/components/NumberStepper'
 import { useToast } from '@/components/Toast'
+import { normalizeRfid } from '@/features/movements/api'
+import { submit } from '@/offline'
 import { ApiError } from '@/lib/api'
 import { generateShortCode, isValidShortCode, normalizeShortCode } from '@/lib/shortCode'
 import { champs, erreurs, messages, mots, titres } from '@/lib/vocabulaire'
@@ -29,7 +33,7 @@ import { speciesIcon } from './speciesIcon'
 import { useResource } from './useResource'
 
 type Step = 'species' | 'kind' | 'size' | 'label'
-type LabelMode = 'tag' | 'generate'
+type LabelMode = 'official' | 'tag' | 'generate'
 
 function stepsFor(species: Species | undefined, kind: UnitKind): Step[] {
   const steps: Step[] = ['species']
@@ -54,8 +58,10 @@ export function AddUnitPage() {
   const [kindChoice, setKindChoice] = useState<UnitKind | null>(null)
   const [size, setSize] = useState(1)
   const [code, setCode] = useState(generateShortCode)
-  const [labelMode, setLabelMode] = useState<LabelMode>('tag')
+  const [labelChoice, setLabelChoice] = useState<LabelMode | null>(null)
   const [tagCode, setTagCode] = useState('')
+  const [officialDigits, setOfficialDigits] = useState('')
+  const [officialRead, setOfficialRead] = useState<'code_scan' | 'manual_entry'>('manual_entry')
   const [stepIndex, setStepIndex] = useState(0)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -66,12 +72,17 @@ export function AddUnitPage() {
   const steps = stepsFor(chosen, kind)
   const step = steps[Math.min(stepIndex, steps.length - 1)]
   const isLast = stepIndex >= steps.length - 1
+  // La boucle officielle se pose sur un animal (pas un lot) : c'est le choix proposé d'abord.
+  const officialAllowed = kind === 'animal'
+  const labelMode: LabelMode = labelChoice ?? (officialAllowed ? 'official' : 'tag')
+  const officialNumber = normalizeRfid(officialDigits)
 
   const canContinue =
     (step === 'species' && !!chosen) ||
     step === 'kind' ||
     (step === 'size' && size >= 1) ||
-    (step === 'label' && (labelMode === 'generate' || isValidShortCode(tagCode)))
+    (step === 'label' && (labelMode === 'generate' || (labelMode === 'official' ? !!officialNumber
+      : isValidShortCode(tagCode))))
 
   const back = () => {
     setError(null)
@@ -99,6 +110,12 @@ export function AddUnitPage() {
         const fresh = generateShortCode()
         setCode(fresh)
         result = await identityApi.addUnit(unitId, unit(fresh))
+      }
+      if (labelMode === 'official' && officialNumber && result.status !== 'check') {
+        // Boucle officielle, enregistrée par le module traceability (file hors ligne comprise).
+        const tagId = newUuid()
+        await submit({ id: tagId, type: 'rfid_tag.bind', path: '/rfid-tags/', method: 'POST',
+                       body: { id: tagId, unit_id: unitId, number: officialNumber, read_mode: officialRead } })
       }
       if (result.status === 'sent') {
         toast.show(kind === 'lot' ? messages.lotAjoute : messages.animalAjoute, 'success')
@@ -190,14 +207,33 @@ export function AddUnitPage() {
             label={titres.quelleEtiquette}
             value={labelMode}
             onChange={(value) => {
-              setLabelMode(value as LabelMode)
+              setLabelChoice(value as LabelMode)
               setError(null)
             }}
             options={[
+              ...(officialAllowed ? [{ value: 'official', label: champs.boucleOfficielle, icon: BadgeCheck }] : []),
               { value: 'tag', label: champs.scannerBoucle, icon: ScanQrCode },
               { value: 'generate', label: champs.creerCode, icon: QrCode },
             ]}
           />
+          {labelMode === 'official' && (
+            <>
+              <QrScanner
+                onCode={(raw) => {
+                  const value = normalizeRfid(raw)
+                  if (!value) return setError(messages.etiquetteNonReconnue)
+                  setOfficialDigits(value)
+                  setOfficialRead('code_scan')
+                  setError(null)
+                  toast.show(messages.boucleLue, 'success')
+                }}
+              />
+              <Field label={champs.numeroOfficiel} help={champs.numeroOfficielAide}>
+                <Input inputMode="numeric" autoComplete="off" value={officialDigits}
+                       onChange={(e) => { setOfficialDigits(e.target.value); setOfficialRead('manual_entry') }} />
+              </Field>
+            </>
+          )}
           {labelMode === 'tag' && (
             <>
               <QrScanner

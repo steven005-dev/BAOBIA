@@ -75,6 +75,19 @@ def _label_codes(unit_ids):
     )
 
 
+def _official_numbers(unit_ids):
+    """Numéro officiel actif (boucle Vet'Tronic, 15 chiffres) de chaque unité, en une requête.
+    La boucle est enregistrée par le module traceability (RfidTag) : lecture seule ici."""
+    from apps.traceability.models import RfidTag
+    from apps.traceability.services import format_rfid
+
+    return {
+        unit_id: format_rfid(number)
+        for unit_id, number in RfidTag.objects.filter(
+            unit_id__in=list(unit_ids), status="active").values_list("unit_id", "number")
+    }
+
+
 def _unit_data(unit, label_code=None):
     animal = getattr(unit, "animal", None) if unit.kind == "animal" else None
     lot = getattr(unit, "lot", None) if unit.kind == "lot" else None
@@ -92,6 +105,7 @@ def _unit_data(unit, label_code=None):
             if unit.current_center else None
         ),
         "label_code": label_code,
+        "official_number": _official_numbers([unit.id]).get(unit.id),
         "animal": (
             {"sex": animal.sex, "birth_date": animal.birth_date,
              "birth_date_precision": animal.birth_date_precision, "breed": animal.breed,
@@ -280,6 +294,7 @@ class CenterUnitsView(APIView):
             .order_by("-created_at")
         )
         codes = _label_codes([u.id for u in units])
+        officials = _official_numbers([u.id for u in units])
         return Response(UnitListItemSerializer([
             {
                 "id": u.id,
@@ -288,6 +303,7 @@ class CenterUnitsView(APIView):
                 "local_name": u.local_name,
                 "life_status": u.life_status,
                 "label_code": codes.get(u.id),
+                "official_number": officials.get(u.id),
                 "size": u.lot.current_size if u.kind == "lot" else 1,
             }
             for u in units
@@ -533,10 +549,27 @@ class ScanView(APIView):
             "contrôle faux ; 404 si aucune étiquette ou étiquette non posée. Lecture seule."
         ),
         parameters=[OpenApiParameter("code", str, OpenApiParameter.PATH,
-                                     description="Code court de 9 caractères.")],
+                                     description="Numéro officiel de la boucle (15 chiffres) ou "
+                                                 "code BAOBIA de 9 caractères.")],
         responses={200: ScanResultSerializer, 400: ErrorSerializer, 404: ErrorSerializer},
     )
     def get(self, request, code):
+        # Identifiant officiel (21/11) : 15 chiffres de la boucle Vet'Tronic, retrouvés par le
+        # module traceability ; sinon, code BAOBIA de 9 caractères (QR).
+        from apps.traceability.services import normalize_rfid, resolve_unit_code
+
+        if normalize_rfid(code):
+            unit = resolve_unit_code(code)
+            if unit is None:
+                raise NotFound("Aucun animal ne porte cette boucle officielle.")
+            unit = _unit_queryset().get(pk=unit.pk)
+            full = services.user_can_view_unit(request.user, unit)
+            label = services.active_label(unit)
+            return Response(ScanResultSerializer({
+                "result": "found", "message": SCAN_MESSAGES["found"],
+                "label_code": label.short_code if label else None, "full_access": full,
+                "unit": _unit_data(unit) if full else None, "species": _species_ref(unit.species),
+            }).data)
         result, label, unit = services.scan_label(code)
         if result == "invalid":
             raise ValidationError({"detail": LABEL_NOT_RECOGNIZED})

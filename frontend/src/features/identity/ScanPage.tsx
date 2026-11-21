@@ -11,10 +11,11 @@ import { useNavigate } from 'react-router'
 import { Banner } from '@/components/Banner'
 import { Button } from '@/components/Button'
 import { Card } from '@/components/Card'
-import { CodeInput } from '@/components/CodeInput'
+import { Input } from '@/components/Input'
 import { Field } from '@/components/Field'
 import { useToast } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
+import { normalizeRfid } from '@/features/movements/api'
 import { formatShortCode, isValidShortCode, normalizeShortCode } from '@/lib/shortCode'
 import { champs, erreurs, messages, mots } from '@/lib/vocabulaire'
 
@@ -38,10 +39,12 @@ export function ScanPage() {
   const [reduced, setReduced] = useState<ScanResult | null>(null)
 
   const lookup = async (raw: string, method: 'scan' | 'manual_code') => {
-    const value = normalizeShortCode(raw)
-    setCode(value)
+    // Identifiant officiel (21/11) : 15 chiffres de la boucle ; sinon code BAOBIA (9 caractères).
+    const official = normalizeRfid(raw)
+    const value = official ?? normalizeShortCode(raw)
+    setCode(official ? raw : value)
     setReduced(null)
-    if (!isValidShortCode(value)) {
+    if (!official && !isValidShortCode(value)) {
       setError(value.length === 9 ? erreurs.codeIncorrect : messages.etiquetteNonReconnue)
       return
     }
@@ -52,9 +55,12 @@ export function ScanPage() {
       if (result.full_access && result.unit) {
         const unitId = result.unit.id
         // Trace du contrôle, sans bloquer l'écran (la position peut prendre quelques secondes).
-        void currentPosition()
-          .then((position) => identityApi.recordVerification(unitId, value, method, position))
-          .catch(() => {})
+        const labelCode = result.label_code
+        if (labelCode) {
+          void currentPosition()
+            .then((position) => identityApi.recordVerification(unitId, labelCode, method, position))
+            .catch(() => {})
+        }
         toast.show(RESULT_MESSAGES[result.result], result.result === 'found' ? 'success' : 'warning')
         navigate(`/centres/animaux/${result.unit.id}`)
       } else {
@@ -69,7 +75,9 @@ export function ScanPage() {
     }
   }
 
-  const codeError = code.length === 9 && !isValidShortCode(code) ? erreurs.codeIncorrect : null
+  const isOfficial = normalizeRfid(code) !== null
+  const codeError = !isOfficial && code.length === 9 && !isValidShortCode(normalizeShortCode(code))
+    ? erreurs.codeIncorrect : null
 
   return (
     <div className="flex flex-col gap-6">
@@ -84,10 +92,11 @@ export function ScanPage() {
           void lookup(code, 'manual_code')
         }}
       >
-        <Field label={champs.codeEtiquette} help={champs.codeEtiquetteAide} error={codeError}>
-          <CodeInput value={code} onValueChange={setCode} />
+        <Field label={champs.numeroOuCode} help={champs.numeroOuCodeAide} error={codeError}>
+          <Input value={code} onChange={(e) => setCode(e.target.value)} autoComplete="off" />
         </Field>
-        <Button type="submit" variant="secondary" icon={Search} loading={busy} disabled={code.length !== 9}>
+        <Button type="submit" variant="secondary" icon={Search} loading={busy}
+                disabled={!isOfficial && normalizeShortCode(code).length !== 9}>
           {mots.rechercher}
         </Button>
       </form>
@@ -96,7 +105,7 @@ export function ScanPage() {
 
       {reduced && (
         <Card title={reduced.species.label_fr} icon={speciesIcon(reduced.species.code)}>
-          <p className="text-body text-foreground">{formatShortCode(reduced.label_code)}</p>
+          {reduced.label_code && <p className="text-body text-foreground">{formatShortCode(reduced.label_code)}</p>}
           <p className="text-body text-muted-foreground">
             {reduced.result === 'found' ? messages.pasDansVosElevages : RESULT_MESSAGES[reduced.result]}
           </p>

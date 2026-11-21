@@ -8,7 +8,7 @@
 
 | # | Action | Commande / détail |
 |---|---|---|
-| 1 | Base propre avec les données de démo | `docker compose down -v` ; `docker compose up -d` ; dans `backend/` : `python manage.py migrate` puis `python manage.py seed --demo` (`SEED_DEMO_PASSWORD` dans `.env` ; charge aussi les districts et régions de Côte d'Ivoire et place les élevages de démo dans le Poro et le Gbêkê) |
+| 1 | Base propre avec les données de démo | `docker compose down -v` ; `docker compose up -d` ; dans `backend/` : `python manage.py migrate` puis `python manage.py seed --demo` (`SEED_DEMO_PASSWORD` dans `.env` ; charge aussi les districts et régions de Côte d'Ivoire et place les élevages de démo dans le Poro et le Gbêkê) ; puis `seed_health`, `seed_alerts`, `seed_demo_traceability`, `seed_demo_rfid` et **en dernier `seed_official_tags`** (numéro officiel de 15 chiffres, 384…, sur chaque bovin, mouton et chèvre simulé) |
 | 2 | Certificat HTTPS (caméra du téléphone) | dans `frontend/` : `npm run cert` |
 | 3 | Serveurs | `python manage.py runserver` (backend) ; `npm run dev:phone` (frontend) |
 | 4 | Téléphones | même Wi-Fi que le PC ; ouvrir `https://<IP-du-PC>:5173`, accepter l'avertissement une fois, autoriser la caméra |

@@ -150,6 +150,9 @@ class UnitSerializer(serializers.Serializer):
     life_status = serializers.CharField()
     current_center = NamedRefSerializer(allow_null=True)
     label_code = serializers.CharField(allow_null=True, help_text="Étiquette QR active.")
+    official_number = serializers.CharField(
+        allow_null=True, help_text="Numéro officiel de la boucle (15 chiffres, Vet'Tronic, "
+                                   "384 = Côte d'Ivoire), affiché par groupes de 3 ; null si aucun.")
     animal = AnimalDetailSerializer(allow_null=True)
     lot = LotDetailSerializer(allow_null=True)
     created_at = serializers.DateTimeField()
@@ -163,6 +166,9 @@ class UnitListItemSerializer(serializers.Serializer):
     local_name = serializers.CharField(allow_null=True)
     life_status = serializers.CharField()
     label_code = serializers.CharField(allow_null=True)
+    official_number = serializers.CharField(
+        allow_null=True, help_text="Numéro officiel de la boucle (15 chiffres, Vet'Tronic, "
+                                   "384 = Côte d'Ivoire), affiché par groupes de 3 ; null si aucun.")
     size = serializers.IntegerField(help_text="1 pour un animal, effectif pour un lot.")
 
 
@@ -175,7 +181,8 @@ class ScanResultSerializer(serializers.Serializer):
                   "qui la portait) ; lost = étiquette déclarée perdue.",
     )
     message = serializers.CharField(help_text="Message court du vocabulaire officiel.")
-    label_code = serializers.CharField()
+    label_code = serializers.CharField(allow_null=True,
+                                       help_text="Étiquette QR BAOBIA ; null si l'animal n'en a pas.")
     full_access = serializers.BooleanField(
         help_text="false = vue réduite (espèce seulement), sans élevage ni détail."
     )

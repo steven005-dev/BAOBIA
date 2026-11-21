@@ -33,6 +33,8 @@ export interface UnitItem {
   local_name: string | null
   life_status: string
   label_code: string | null
+  /** Numéro officiel de la boucle (15 chiffres, groupés par 3) ; null si l'animal n'en a pas. */
+  official_number: string | null
   size: number
 }
 
@@ -44,6 +46,7 @@ export interface Unit {
   life_status: string
   current_center: { id: string; name: string } | null
   label_code: string | null
+  official_number: string | null
   animal: { sex: string; birth_date: string | null; breed: string | null; marks: string | null } | null
   lot: { current_size: number; description: string | null } | null
   created_at: string
@@ -53,7 +56,7 @@ export interface Unit {
 export interface ScanResult {
   result: 'found' | 'replaced' | 'lost'
   message: string
-  label_code: string
+  label_code: string | null
   /** false : vue réduite, l'animal n'est pas dans les élevages de l'utilisateur. */
   full_access: boolean
   unit: Unit | null
