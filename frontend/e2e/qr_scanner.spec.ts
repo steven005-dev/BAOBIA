@@ -3,9 +3,10 @@
  * (Chromium de Playwright sous Windows, comme Chrome Windows ou Safari iPhone) :
  * le décodeur de repli jsQR doit lire le QR.
  *
- * Une fausse caméra (vidéo Y4M générée ici) filme le QR d'une étiquette de l'Élevage B,
- * généré comme sur l'étiquette imprimée (qrcode, correction « Q », marge 2).
- * Le test s'arrête à la liste des animaux scannés : il n'écrit rien en base.
+ * Une fausse caméra (vidéo Y4M générée ici) filme le QR d'une étiquette (Animal 2 de la
+ * base de démo), généré comme sur l'étiquette imprimée (qrcode, correction « Q », marge 2).
+ * Sur l'écran Marché, chaque scan part aussitôt : le test enregistre donc une Entrée
+ * (données simulées). Rejoué, la ligne apparaît quand même (« Déjà scanné » ou refus).
  */
 import { writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -71,8 +72,9 @@ test('scanner une étiquette avec la caméra, sans décodeur natif (repli jsQR)'
   expect(await page.evaluate(() => 'BarcodeDetector' in window)).toBe(false)
 
   await page.goto('/mouvements/marche')
-  await page.getByRole('button', { name: /Entrée/ }).click()
+  await expect(page.getByRole('heading', { name: 'Marché', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Scanner' }).click()
-  await expect(page.getByRole('heading', { name: '1 animal scanné' })).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByText(LABEL_CODE)).toBeVisible()
+  // Le code lu par la caméra apparaît dans la liste des scans (quel qu'en soit le résultat).
+  await expect(page.locator('section[aria-labelledby="scanned-heading"] li').first())
+    .toContainText(LABEL_CODE, { timeout: 15_000 })
 })

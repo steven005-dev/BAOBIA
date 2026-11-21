@@ -97,3 +97,74 @@ export const movementApi = {
   detail: (movementId: string, centerId: string) =>
     api.get<Movement>(`/movements/${movementId}/?center_id=${encodeURIComponent(centerId)}`),
 }
+
+// ---------------------------------------------------------------------------
+// Guide de réalisation des ajouts (21/11) : boucle RFID, marché, parcours, bilan
+// ---------------------------------------------------------------------------
+
+export type RfidReadMode = 'rfid_reader' | 'code_scan' | 'manual_entry'
+
+/** '384 000 000 000 028' -> '384000000000028' ; null si ce n'est pas 15 chiffres. */
+export function normalizeRfid(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '')
+  return digits.length === 15 ? digits : null
+}
+
+/** '384000000000028' -> '384 000 000 000 028'. */
+export function formatRfid(digits: string): string {
+  return digits.replace(/\D/g, '').slice(0, 15).replace(/(\d{3})(?=\d)/g, '$1 ')
+}
+
+export interface Place {
+  label: string
+  type: string | null
+  zone: string | null
+  detail?: string | null
+}
+
+export interface RouteStep {
+  movement_id: string
+  occurred_at: string
+  received_at: string | null
+  from: Place
+  to: Place
+  status: MovementStatus
+  confidence: 'confirmed' | 'one_side' | 'disputed' | null
+  confidence_label: string
+  declared_by: 'both' | 'sender' | 'receiver'
+}
+
+export interface UnitRoute {
+  unit_id: string
+  rfid: { number: string; read_mode: RfidReadMode } | null
+  steps: RouteStep[]
+}
+
+export type ScanResult = 'ok' | 'unknown' | 'already_scanned' | 'refused'
+
+export interface MarketScanResponse {
+  id: string
+  result: ScanResult
+  reason: string | null
+  direction: 'in' | 'out'
+  animal: { id: string; label: string; tag: string | null } | null
+  movement: { id: string; confidence: string | null } | null
+  warnings: { code: string; message: string }[]
+}
+
+export interface MarketSummary {
+  date: string
+  market: string
+  entered: number
+  left: number
+  unknown: number
+  warnings: number
+  by_species: { species: string; direction: 'in' | 'out'; count: number }[]
+  by_origin_zone: { zone: string; count: number }[]
+}
+
+export const tracingApi = {
+  route: (unitId: string) => api.get<UnitRoute>(`/units/${unitId}/route/`),
+  summary: (marketId: string, day?: string) =>
+    api.get<MarketSummary>(`/markets/${marketId}/summary/${day ? `?date=${day}` : ''}`),
+}

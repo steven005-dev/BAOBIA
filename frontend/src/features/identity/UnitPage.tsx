@@ -15,6 +15,8 @@ import { Loader } from '@/components/Loader'
 import { formatShortCode } from '@/lib/shortCode'
 import { champs, messages, mots, titres } from '@/lib/vocabulaire'
 
+import { UnitTraceability } from '@/features/movements/UnitTraceability'
+
 import { identityApi } from './api'
 import { LabelToPrint } from './LabelToPrint'
 import { UnitHealth } from './UnitHealth'
@@ -73,6 +75,9 @@ export function UnitPage() {
           <Row label={champs.ajouteLe} value={new Date(unit.created_at).toLocaleDateString('fr-CI')} />
         </dl>
       </Card>
+
+      {/* Boucle officielle RFID et parcours de l'animal (module mouvements). */}
+      <UnitTraceability unitId={unit.id} isAnimal={unit.kind === 'animal'} />
 
       <UnitHealth unitId={unit.id} />
 

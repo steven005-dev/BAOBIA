@@ -160,19 +160,16 @@ test.describe.serial('Écrans mouvements : écart, refus, historique, marché', 
     await page.getByRole('button', { name: 'Marché : entrées et sorties' }).click()
     await expect(page.getByRole('heading', { name: 'Marché', exact: true })).toBeVisible()
 
-    await page.getByRole('button', { name: /Entrée/ }).click()
-    await page.getByLabel('Ou saisir le code de l’étiquette').fill(labelCode)
+    // Entrée (choisie par défaut) : chaque scan part aussitôt, la ligne passe au vert.
+    await page.getByLabel('Numéro de boucle ou code').fill(labelCode)
     await page.getByRole('button', { name: 'Ajouter' }).click()
-    await expect(page.getByRole('heading', { name: '1 animal scanné' })).toBeVisible()
-    await page.getByRole('button', { name: 'Enregistrer l’entrée' }).click()
-    await expect(page.getByText('Entrée enregistrée.')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: '1 animal entré' })).toBeVisible({ timeout: 10_000 })
 
-    await page.getByRole('button', { name: 'Retour au marché' }).click()
-    await page.getByRole('button', { name: /Sortie/ }).click()
-    await page.getByLabel('Ou saisir le code de l’étiquette').fill(labelCode)
-    await page.getByRole('button', { name: 'Ajouter' }).click()
+    // Sortie vers un acheteur non inscrit : l'animal sort du système.
+    await page.getByRole('radio', { name: /Sortie/ }).click()
     await page.getByLabel('Sinon, acheteur non inscrit').fill('Acheteur de Bouaké (test)')
-    await page.getByRole('button', { name: 'Enregistrer la sortie' }).click()
-    await expect(page.getByText('Sortie enregistrée.')).toBeVisible({ timeout: 10_000 })
+    await page.getByLabel('Numéro de boucle ou code').fill(labelCode)
+    await page.getByRole('button', { name: 'Ajouter' }).click()
+    await expect(page.getByRole('heading', { name: '1 animal sorti' })).toBeVisible({ timeout: 10_000 })
   })
 })
