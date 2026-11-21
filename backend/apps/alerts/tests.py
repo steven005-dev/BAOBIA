@@ -30,6 +30,12 @@ from . import services
 from .models import Alert, AlertEvent, AlertExposure, AlertReport, AlertReview, DiseaseRule
 
 
+
+def exposure_messages():
+    """Messages d'exposition aux éleveurs (contact possible, fin de surveillance) : depuis le
+    21/11, vétérinaires, autorité et éleveur signaleur reçoivent aussi d'autres messages."""
+    return Notification.objects.filter(message_code__startswith="exposure.")
+
 class AlertScenarioMixin:
     def setUp(self):
         self.now = timezone.now()
@@ -199,7 +205,7 @@ class ExposureEngineTests(AlertScenarioMixin, TestCase):
         alert = Alert.objects.get()
         self.assertEqual(alert.level, 2)
         self.assertIn("Élevage B", self.exposure_map(alert))
-        self.assertFalse(Notification.objects.exists())
+        self.assertFalse(exposure_messages().exists())
 
     def test_dismiss_cancels_the_open_alert(self):
         report = self.report_at_a()
@@ -219,14 +225,14 @@ class OneAlertPerFocusTests(AlertScenarioMixin, TestCase):
     def test_second_validated_report_joins_the_open_alert(self):
         first, second = self.report_at_a(), self.report_at_a()
         self.validate(first)
-        notifications = Notification.objects.count()
+        notifications = exposure_messages().count()
         self.validate(second)
         alert = Alert.objects.get()
         self.assertEqual(
             set(AlertReport.objects.filter(alert=alert).values_list("report_id", flat=True)),
             {first.pk, second.pk})
         self.assertEqual(alert.level, 3)
-        self.assertEqual(Notification.objects.count(), notifications)  # pas de 2e message
+        self.assertEqual(exposure_messages().count(), notifications)  # pas de 2e message
         event = AlertEvent.objects.filter(alert=alert, event_type="reviewed")             .latest("occurred_at")
         self.assertTrue(event.payload["attached"])
 
@@ -271,7 +277,7 @@ class OneAlertPerFocusTests(AlertScenarioMixin, TestCase):
 class NeutralNotificationTests(AlertScenarioMixin, TestCase):
     def test_exposed_breeders_get_a_neutral_message_only(self):
         self.validate(self.report_at_a())
-        notified = {n.user_id: n for n in Notification.objects.all()}
+        notified = {n.user_id: n for n in exposure_messages()}
         self.assertEqual(set(notified), {self.users["B"].pk, self.users["C"].pk})
         for notification in notified.values():
             self.assertEqual(notification.message_code, "exposure.contact_possible")
@@ -312,7 +318,7 @@ class EndOfSurveillanceTests(AlertScenarioMixin, TestCase):
         self.validate(report, decision="raise_level2")
         health_services.review_report(report=report, vet=self.vet, decision="dismiss",
                                       note="Examen négatif.")
-        self.assertFalse(Notification.objects.exists())
+        self.assertFalse(exposure_messages().exists())
 
     def test_alert_kept_open_sends_no_end_message(self):
         first, second = self.report_at_a(), self.report_at_a()

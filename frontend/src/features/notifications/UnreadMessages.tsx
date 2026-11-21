@@ -6,32 +6,24 @@
  * Exemple : <UnreadMessages />
  */
 
-import { CircleCheck, Clock, Siren, Stethoscope, TriangleAlert, X, type LucideIcon } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/Button'
 import { Card } from '@/components/Card'
-import { messages, mots, textesNotifications } from '@/lib/vocabulaire'
+import { messages, mots } from '@/lib/vocabulaire'
 
-import { notificationsApi, type AppNotification, type NotificationKind } from './api'
+import { notificationsApi, type AppNotification } from './api'
+import { messageIcon, messageText } from './text'
 
 /** Icône propre à un message (sinon celle de son type) : la fin de surveillance rassure. */
-const MESSAGE_ICONS: Record<string, LucideIcon> = { 'exposure.ended': CircleCheck }
-
-const ICONS: Record<NotificationKind, LucideIcon> = {
-  exposure: TriangleAlert,
-  alert: Siren,
-  zone_cluster_review: Stethoscope,
-  escalation: Clock,
-}
-
 export function UnreadMessages() {
   const [items, setItems] = useState<AppNotification[]>([])
 
   useEffect(() => {
     let alive = true
     notificationsApi.list().then(
-      (list) => alive && setItems(list.filter((n) => !n.read_at && textesNotifications[n.message_code])),
+      (list) => alive && setItems(list.filter((n) => !n.read_at && messageText(n) !== null)),
       () => {}, // hors ligne ou erreur : pas de message, l'Accueil reste utilisable
     )
     return () => {
@@ -52,7 +44,7 @@ export function UnreadMessages() {
       {items.map((n) => (
         <Card
           key={n.id}
-          icon={MESSAGE_ICONS[n.message_code] ?? ICONS[n.kind] ?? TriangleAlert}
+          icon={messageIcon(n)}
           title={new Date(n.created_at).toLocaleDateString('fr-CI')}
           footer={
             <Button variant="ghost" icon={X} onClick={() => close(n.id)}>
@@ -60,7 +52,7 @@ export function UnreadMessages() {
             </Button>
           }
         >
-          <p className="text-body text-foreground">{textesNotifications[n.message_code]}</p>
+          <p className="text-body text-foreground">{messageText(n)}</p>
         </Card>
       ))}
     </section>

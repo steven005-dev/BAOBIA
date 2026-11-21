@@ -26,7 +26,7 @@ from django.utils import timezone
 from apps.audit.services import record_event
 from apps.health.models import HealthReport
 from apps.health.services import HealthError
-from apps.identity.models import Center, CenterMember, Lot, TrackedUnit
+from apps.identity.models import Center, Lot, TrackedUnit
 from apps.traceability.models import Movement
 
 from .models import (
@@ -152,6 +152,9 @@ def handle_report_review(report, review):
             alert.save(update_fields=["status", "closed_at", "updated_at"])
             _event(alert, alert.status, vet, {"review_id": str(review.pk)})
             notify_end(alert, vet)
+            if alert.level == 3:  # l'autorité avait été prévenue de la validation
+                from apps.notifications.services import on_alert_closed
+                on_alert_closed(alert)
             recompute_zone_stats()
         return alert
 
@@ -205,6 +208,8 @@ def handle_report_review(report, review):
     compute_exposures(alert, vet)
     if alert.level == 3:
         notify_exposed(alert, vet)
+        from apps.notifications.services import on_alert_validated
+        on_alert_validated(alert)
     recompute_zone_stats()
     return alert
 
@@ -381,13 +386,11 @@ def current_exposures(alert):
 
 
 def _center_users(center_ids):
-    now = timezone.now()
-    member_ids = CenterMember.objects.filter(
-        center_id__in=center_ids, starts_at__lte=now
-    ).filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now)).values_list("user_id", flat=True)
-    from django.contrib.auth import get_user_model
+    """Membres actifs ET agents mandatés des élevages (ils aident les éleveurs sans
+    smartphone) : identity.services.center_contacts."""
+    from apps.identity.services import center_contacts
 
-    return list(get_user_model().objects.filter(pk__in=member_ids, is_active=True))
+    return center_contacts(center_ids)
 
 
 def notify_exposed(alert, actor):
