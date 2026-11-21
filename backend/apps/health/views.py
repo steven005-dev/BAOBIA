@@ -17,8 +17,10 @@ from rest_framework.views import APIView
 from apps.accounts.permissions import HasRole, HasValidHabilitation
 from apps.accounts.serializers import ErrorSerializer
 from apps.identity.models import Center
+from apps.identity.services import active_label
 
 from . import services
+from .leads import leads_payload
 from .models import Disease, HealthReport, Symptom
 from .serializers import (
     CatalogItemSerializer,
@@ -57,7 +59,7 @@ def _catalog_item(item):
 
 
 def _report_queryset():
-    return HealthReport.objects.select_related("center").prefetch_related(
+    return HealthReport.objects.select_related("center__zone").prefetch_related(
         "symptoms", "subjects__unit__species", "reviews__disease", "reviews__created_by"
     )
 
@@ -86,6 +88,13 @@ def report_data(report, *, professional):
         ],
     }
     if professional:
+        # Aide au vétérinaire : pistes de maladie expliquées et fiche de laboratoire.
+        data["leads"] = leads_payload(report)
+        data["center"]["zone_name"] = report.center.zone.name
+        labels = {s.unit_id: active_label(s.unit) for s in report.subjects.all()}
+        for subject in data["subjects"]:
+            label = labels.get(subject["unit_id"])
+            subject["code"] = label.short_code if label else None
         data["reviews"] = [
             {"id": r.id, "decision": r.decision,
              "disease": _catalog_item(r.disease) if r.disease else None,

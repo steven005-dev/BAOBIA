@@ -228,7 +228,8 @@ dialog::backdrop {
 @media print {
   @page { margin: 10mm; }
   body * { visibility: hidden; }
-  .print-label, .print-label * { visibility: visible; }
+  .print-label, .print-label *, .print-sheet, .print-sheet * { visibility: visible; }
+  .print-sheet { position: absolute; top: 0; left: 0; width: 100%; border: none; box-shadow: none; }
   .print-label {
     position: absolute;
     top: 0;
