@@ -3,9 +3,10 @@
  * (Chromium de Playwright sous Windows, comme Chrome Windows ou Safari iPhone) :
  * le décodeur de repli jsQR doit lire le QR.
  *
- * Une fausse caméra (vidéo Y4M générée ici) filme le QR d'une étiquette de l'Élevage B,
- * généré comme sur l'étiquette imprimée (qrcode, correction « Q », marge 2).
- * Le test s'arrête à la liste des animaux scannés : il n'écrit rien en base.
+ * Une fausse caméra (vidéo Y4M générée ici) filme le QR d'une étiquette (Animal 7, chèvre de la
+ * base de démo), généré comme sur l'étiquette imprimée (qrcode, correction « Q », marge 2).
+ * Sur l'écran Marché, chaque scan part aussitôt : le test enregistre donc une Entrée
+ * (données simulées). Rejoué, la ligne apparaît quand même (« Déjà scanné » ou refus).
  */
 import { writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -17,7 +18,8 @@ import QRCode from 'qrcode'
 const password = process.env.SEED_DEMO_PASSWORD ?? ''
 const api = process.env.BAOBIA_API_TARGET ?? 'http://127.0.0.1:8000'
 // Étiquette d'un animal de l'Élevage B dans la base de démo (voir seed.py, codes à graine fixe).
-const LABEL_CODE = process.env.E2E_SCAN_CODE ?? 'MYLHHLPGV'
+// La chèvre de l'Élevage B (Animal 7) : son passage n'a aucun effet sur l'alerte bovine de la démo.
+const LABEL_CODE = process.env.E2E_SCAN_CODE ?? 'QGKQU8G4S'
 
 /** Vidéo Y4M (niveaux de gris) qui montre le QR au centre, image fixe répétée. */
 function writeQrVideo(code: string): string {
@@ -71,8 +73,9 @@ test('scanner une étiquette avec la caméra, sans décodeur natif (repli jsQR)'
   expect(await page.evaluate(() => 'BarcodeDetector' in window)).toBe(false)
 
   await page.goto('/mouvements/marche')
-  await page.getByRole('button', { name: /Entrée/ }).click()
+  await expect(page.getByRole('heading', { name: 'Marché', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Scanner' }).click()
-  await expect(page.getByRole('heading', { name: '1 animal scanné' })).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByText(LABEL_CODE)).toBeVisible()
+  // Le code lu par la caméra apparaît dans la liste des scans (quel qu'en soit le résultat).
+  await expect(page.locator('section[aria-labelledby="scanned-heading"] li').first())
+    .toContainText(LABEL_CODE, { timeout: 15_000 })
 })

@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import re
 import secrets
 import uuid
 from datetime import timedelta
@@ -11,7 +12,7 @@ from django.db.models import Case, CharField, Exists, OuterRef, Value, When
 from django.utils import timezone
 
 from apps.audit.services import record_event
-from apps.identity.models import TrackedUnit
+from apps.identity.models import Center, TrackedUnit
 from apps.identity.services import set_current_center
 from apps.traceability.exceptions import (
     InvalidConfirmationCodeError,
@@ -22,12 +23,14 @@ from apps.traceability.exceptions import (
     UnitNotAtOriginCenterError,
 )
 from apps.traceability.models import (
+    MarketScan,
     Movement,
     MovementConfirmation,
     MovementConfirmationCode,
     MovementDiscrepancy,
     MovementItem,
     MovementStatusEvent,
+    RfidTag,
     StatusEvent,
     UnitOpenMovement,
 )
@@ -683,42 +686,49 @@ def declare_market_entry(*, market, label_codes, created_by, entry_id, occurred_
     release_stale_locks(ids)
     if UnitOpenMovement.objects.filter(unit_id__in=list(ids)).exists():
         raise UnitAlreadyLockedError("Un animal est dans un départ pas encore reçu.")
-    simulated = bool(created_by.is_simulated or market.is_simulated)
-    movements = []
-    for unit in locked:
-        if unit.current_center_id is None:
-            raise InvalidMovementDataError("Un animal n'a pas d'élevage connu.")
-        if unit.current_center_id == market.pk:
-            raise InvalidMovementDataError("Un animal est déjà au marché.")
-        movement = Movement.objects.create(
-            id=ids[unit.pk], movement_type="sale", from_center_id=unit.current_center_id,
-            to_center=market, occurred_at=now, created_by=created_by, device=device,
-            is_simulated=simulated or unit.is_simulated,
-        )
-        quantity = _quantity(unit)
-        MovementItem.objects.create(movement=movement, unit=unit, quantity_sent=quantity,
-                                    quantity_received=quantity)
-        MovementStatusEvent.objects.create(
-            movement=movement, status="declared",
-            reason="Entrée au marché déclarée par le marché",
-            occurred_at=now, created_by=created_by, device=device,
-            is_simulated=movement.is_simulated,
-        )
-        MovementConfirmation.objects.create(
-            movement=movement, side="receiver", decision="confirm", occurred_at=now,
-            created_by=created_by, device=device, is_simulated=movement.is_simulated,
-        )
-        movement.received_at = now
-        movement.save(update_fields=["received_at"])
-        set_current_center(unit, market)
-        record_event(
-            action="movement.market_entry", actor_user=created_by, entity_table="movement",
-            entity_id=movement.pk, device=device,
-            details={"market_id": str(market.pk), "unit_id": str(unit.pk),
-                     "mode": confirmation_mode(created_by, market.pk)},
-        )
-        movements.append(movement)
+    movements = [
+        _enter_market_unit(unit, market, created_by=created_by, movement_id=ids[unit.pk],
+                           now=now, device=device)
+        for unit in locked
+    ]
     return movements, True
+
+
+def _enter_market_unit(unit, market, *, created_by, movement_id, now, device=None):
+    """Une unité (verrouillée par l'appelant) entre au marché : mouvement origine -> marché
+    déclaré par le marché, reçu par lui ; l'unité compte au marché tout de suite (Q1)."""
+    if unit.current_center_id is None:
+        raise InvalidMovementDataError("Un animal n'a pas d'élevage connu.")
+    if unit.current_center_id == market.pk:
+        raise InvalidMovementDataError("Un animal est déjà au marché.")
+    movement = Movement.objects.create(
+        id=movement_id, movement_type="sale", from_center_id=unit.current_center_id,
+        to_center=market, occurred_at=now, created_by=created_by, device=device,
+        is_simulated=bool(created_by.is_simulated or market.is_simulated or unit.is_simulated),
+    )
+    quantity = _quantity(unit)
+    MovementItem.objects.create(movement=movement, unit=unit, quantity_sent=quantity,
+                                quantity_received=quantity)
+    MovementStatusEvent.objects.create(
+        movement=movement, status="declared",
+        reason="Entrée au marché déclarée par le marché",
+        occurred_at=now, created_by=created_by, device=device,
+        is_simulated=movement.is_simulated,
+    )
+    MovementConfirmation.objects.create(
+        movement=movement, side="receiver", decision="confirm", occurred_at=now,
+        created_by=created_by, device=device, is_simulated=movement.is_simulated,
+    )
+    movement.received_at = now
+    movement.save(update_fields=["received_at"])
+    set_current_center(unit, market)
+    record_event(
+        action="movement.market_entry", actor_user=created_by, entity_table="movement",
+        entity_id=movement.pk, device=device,
+        details={"market_id": str(market.pk), "unit_id": str(unit.pk),
+                 "mode": confirmation_mode(created_by, market.pk)},
+    )
+    return movement
 
 
 @transaction.atomic
@@ -752,6 +762,16 @@ def declare_market_exit(*, market, label_codes, created_by, exit_id, to_center=N
             code = renew_confirmation_code(existing)
         return existing, code, False
 
+    movement, code = _exit_market_units(
+        market, units, created_by=created_by, exit_id=exit_id, to_center=to_center,
+        to_party_note=to_party_note, occurred_at=occurred_at, device=device,
+    )
+    return movement, code, True
+
+
+def _exit_market_units(market, units, *, created_by, exit_id, to_center=None,
+                       to_party_note=None, occurred_at=None, device=None):
+    """Départ du marché vers un élevage inscrit (avec code), ou hors système (Q3)."""
     movement, code = declare_movement(
         movement_id=exit_id, from_center=market, to_center=to_center, movement_type="sale",
         items=[{"unit": unit, "quantity_sent": _quantity(unit)} for unit in units],
@@ -760,7 +780,7 @@ def declare_market_exit(*, market, label_codes, created_by, exit_id, to_center=N
         is_simulated=bool(created_by.is_simulated or market.is_simulated),
     )
     if to_center is not None:
-        return movement, code, True
+        return movement, code
 
     now = occurred_at or timezone.now()
     _close_open_movement(movement)
@@ -775,7 +795,7 @@ def declare_market_exit(*, market, label_codes, created_by, exit_id, to_center=N
         entity_id=movement.pk, device=device,
         details={"market_id": str(market.pk), "out_of_system": True},
     )
-    return movement, None, True
+    return movement, None
 
 
 def renew_confirmation_code(movement) -> str:
@@ -789,3 +809,347 @@ def renew_confirmation_code(movement) -> str:
         movement=movement, code_hash=code_hash, expires_at=now + timedelta(days=7),
     )
     return plain_code
+
+
+# ---------------------------------------------------------------------------
+# Boucle RFID Vet'Tronic (guide de réalisation des ajouts, ajout 1)
+# ---------------------------------------------------------------------------
+
+IVORIAN_RFID_PREFIX = "384"
+
+
+def normalize_rfid(raw) -> Optional[str]:
+    """'384 000 000 000 028' -> '384000000000028' ; None si ce n'est pas 15 chiffres."""
+    digits = re.sub(r"\D", "", raw or "")
+    return digits if len(digits) == 15 else None
+
+
+def format_rfid(number: str) -> str:
+    """'384000000000028' -> '384 000 000 000 028' pour l'affichage."""
+    return " ".join(number[i:i + 3] for i in range(0, 15, 3))
+
+
+def rfid_warnings(number: str) -> List[str]:
+    """Une boucle ivoirienne commence par 384 ; un autre préfixe (code fabricant 900 à 998,
+    autre pays) est permis par la norme : on avertit, on ne refuse pas."""
+    return [] if number.startswith(IVORIAN_RFID_PREFIX) else ["check_number"]
+
+
+def active_rfid(unit_id):
+    return RfidTag.objects.filter(unit_id=unit_id, status="active").first()
+
+
+@transaction.atomic
+def bind_rfid_tag(*, unit_id, number, read_mode, created_by, tag_id=None, occurred_at=None):
+    """Associe une boucle RFID à un animal. Une boucle active déjà présente sur l'animal
+    passe « remplacée » (rien ne s'efface). Un numéro déjà actif sur un autre animal est
+    refusé sans dire lequel. Rejouer le même `tag_id` est sans effet.
+    Retourne (boucle, créée, avertissements)."""
+    normalized = normalize_rfid(number)
+    if normalized is None:
+        raise InvalidMovementDataError("Le numéro de boucle doit contenir 15 chiffres.")
+    if read_mode not in dict(RfidTag.READ_MODES):
+        raise InvalidMovementDataError("Mode de lecture inconnu.")
+    if tag_id:
+        existing = RfidTag.objects.filter(pk=tag_id).first()
+        if existing is not None:
+            if str(existing.unit_id) != str(unit_id) or existing.number != normalized:
+                raise OperationConflictError("Cette référence a déjà été utilisée.")
+            return existing, False, rfid_warnings(normalized)
+
+    unit = TrackedUnit.objects.select_for_update().filter(pk=unit_id).first()
+    if unit is None:
+        raise InvalidMovementDataError("Animal introuvable.")
+    if unit.kind != "animal":
+        raise InvalidMovementDataError("Une boucle se pose sur un animal, pas sur un lot.")
+    taken = RfidTag.objects.filter(number=normalized, status="active").exclude(unit=unit)
+    if taken.exists():
+        raise OperationConflictError("Cette boucle est déjà liée à un autre animal.")
+    now = occurred_at or timezone.now()
+    current = active_rfid(unit.pk)
+    if current is not None:
+        if current.number == normalized:
+            return current, False, rfid_warnings(normalized)
+        current.status, current.ended_at = "replaced", now
+        current.save(update_fields=["status", "ended_at"])
+
+    kwargs = {"id": tag_id} if tag_id else {}
+    tag = RfidTag.objects.create(
+        unit=unit, number=normalized, read_mode=read_mode, fitted_at=now, fitted_by=created_by,
+        is_simulated=bool(created_by.is_simulated or unit.is_simulated), **kwargs,
+    )
+    record_event(
+        action="rfid_tag.bind", actor_user=created_by, entity_table="rfid_tag", entity_id=tag.pk,
+        details={"unit_id": str(unit.pk), "read_mode": read_mode,
+                 "replaced": str(current.pk) if current else None},
+    )
+    return tag, True, rfid_warnings(normalized)
+
+
+@transaction.atomic
+def declare_rfid_lost(*, tag, created_by, occurred_at=None):
+    """Boucle perdue : statut « perdue », son numéro redevient libre. Rien ne s'efface."""
+    if tag.status != "active":
+        return tag
+    tag.status, tag.ended_at = "lost", occurred_at or timezone.now()
+    tag.save(update_fields=["status", "ended_at"])
+    record_event(action="rfid_tag.lost", actor_user=created_by, entity_table="rfid_tag",
+                 entity_id=tag.pk, details={"unit_id": str(tag.unit_id)})
+    return tag
+
+
+def resolve_unit_code(code):
+    """Numéro de boucle RFID (15 chiffres) ou code d'étiquette BAOBIA -> unité, ou None."""
+    number = normalize_rfid(code)
+    if number:
+        tag = RfidTag.objects.select_related("unit").filter(number=number, status="active").first()
+        return tag.unit if tag else None
+    from apps.identity.services import scan_label
+
+    result, _label, unit = scan_label(code or "")
+    return unit if result == "found" else None
+
+
+# ---------------------------------------------------------------------------
+# Animal déclaré disparu ou volé, vu au marché (ajout 3, MV-13)
+# ---------------------------------------------------------------------------
+
+DECLARED_MISSING_MESSAGE = (
+    "Cet animal fait l'objet d'une déclaration. Prévenez les services compétents."
+)
+
+
+def open_missing_declaration(unit):
+    """Dernière déclaration de disparition ou de vol encore ouverte (non levée)."""
+    last = (StatusEvent.objects
+            .filter(unit=unit,
+                    event_type__in=("missing", "stolen_declared", "found", "stolen_lifted"))
+            .order_by("-occurred_at", "-created_at").first())
+    return last if last and last.event_type in ("missing", "stolen_declared") else None
+
+
+def _report_missing_seen(scan, declaration, market, created_by):
+    """Journal d'audit, message neutre au déclarant et à l'Autorité de la zone du marché."""
+    from apps.accounts.services import users_with_role_in_zone
+    from apps.notifications.services import notify
+
+    record_event(
+        action="declared_missing_seen", actor_user=created_by, entity_table="market_scan",
+        entity_id=scan.pk,
+        details={"unit_id": str(scan.unit_id), "market_id": str(market.pk),
+                 "declaration_id": str(declaration.pk),
+                 "latitude": str(scan.latitude) if scan.latitude is not None else None,
+                 "longitude": str(scan.longitude) if scan.longitude is not None else None},
+    )
+    recipients = {declaration.created_by_id: declaration.created_by}
+    for user in users_with_role_in_zone("authority", market.zone_id, None, include_ancestors=True):
+        recipients.setdefault(user.pk, user)
+    for user in recipients.values():
+        notify(user, "declared_missing.seen", dedup_key=f"seen:{scan.pk}:{user.pk}")
+
+
+# ---------------------------------------------------------------------------
+# Scan au marché, un animal à la fois (ajout 2)
+# ---------------------------------------------------------------------------
+
+RESCAN_WINDOW = timedelta(minutes=10)
+
+
+def unit_summary(unit):
+    """Description sans donnée personnelle : « Bovin · femelle » et la boucle."""
+    animal = getattr(unit, "animal", None) if unit.kind == "animal" else None
+    sex = {"female": "femelle", "male": "mâle"}.get(getattr(animal, "sex", None))
+    tag = active_rfid(unit.pk)
+    return {
+        "id": str(unit.pk),
+        "label": " · ".join(filter(None, [unit.species.label_fr, sex])),
+        "tag": format_rfid(tag.number) if tag else None,
+    }
+
+
+def _scan_response(scan):
+    warnings = []
+    if scan.warning_code == "declared_missing":
+        warnings.append({"code": "declared_missing", "message": DECLARED_MISSING_MESSAGE})
+    return {
+        "id": str(scan.pk),
+        "result": scan.result,
+        "reason": scan.reason,
+        "direction": scan.direction,
+        "animal": unit_summary(scan.unit) if scan.unit_id else None,
+        "movement": ({"id": str(scan.movement_id),
+                      "confidence": movement_confidence(scan.movement)}
+                     if scan.movement_id else None),
+        "warnings": warnings,
+    }
+
+
+def record_market_scan(*, scan_id, market, direction, code, created_by, occurred_at=None,
+                       latitude=None, longitude=None, position_accuracy_m=None,
+                       position_source="none", to_center=None, to_party_note=None):
+    """Un scan à l'Entrée ou à la Sortie d'un marché ; ne bloque jamais les scans suivants.
+
+    - code : numéro de boucle RFID ou code BAOBIA ; inconnu -> résultat « unknown » gardé.
+    - Entrée : origine -> marché, déclaré par le marché (« probable », Q1).
+    - Sortie : marché -> élevage inscrit (code de confirmation), sinon hors système (Q3).
+    - Même animal, même sens, même marché il y a moins de 10 min -> « already_scanned ».
+    - Animal déclaré disparu ou volé : le mouvement est quand même enregistré, avertissement
+      neutre, audit et messages neutres (ajout 3).
+    - `scan_id` créé par l'appareil : rejouer est sans effet. Retourne (réponse, créé).
+    """
+    if direction not in ("in", "out"):
+        raise InvalidMovementDataError("Sens inconnu : entrée ou sortie.")
+    _market(market)
+    code = (code or "").strip()[:40]
+    existing = MarketScan.objects.filter(pk=scan_id).first()
+    if existing is not None:
+        if (existing.market_id != market.pk or existing.direction != direction
+                or existing.code != code):
+            raise OperationConflictError("Cette référence a déjà été utilisée pour un autre scan.")
+        return _scan_response(existing), False
+
+    now = occurred_at or timezone.now()
+    has_position = latitude is not None and longitude is not None
+    base = dict(
+        id=scan_id, market=market, direction=direction, code=code, occurred_at=now,
+        created_by=created_by, is_simulated=bool(created_by.is_simulated or market.is_simulated),
+        latitude=latitude if has_position else None,
+        longitude=longitude if has_position else None,
+        position_accuracy_m=position_accuracy_m if has_position else None,
+        position_source=position_source if has_position else "none",
+    )
+
+    unit = resolve_unit_code(code)
+    if unit is None:
+        return _scan_response(MarketScan.objects.create(result="unknown", **base)), True
+
+    declaration = open_missing_declaration(unit)
+    warning_code = "declared_missing" if declaration else None
+    recent = MarketScan.objects.filter(
+        market=market, direction=direction, unit=unit, result="ok",
+        occurred_at__gte=now - RESCAN_WINDOW, occurred_at__lte=now + RESCAN_WINDOW,
+    ).exists()
+    if recent:
+        # L'agent revoit l'avertissement à chaque scan ; les messages ne repartent pas.
+        scan = MarketScan.objects.create(result="already_scanned", unit=unit,
+                                         warning_code=warning_code, **base)
+        return _scan_response(scan), True
+    origin_zone_id = None
+    movement = None
+    try:
+        with transaction.atomic():
+            locked = TrackedUnit.objects.select_for_update().get(pk=unit.pk)
+            release_stale_locks([locked.pk])
+            if UnitOpenMovement.objects.filter(unit=locked).exists():
+                raise UnitAlreadyLockedError("Cet animal est dans un départ pas encore reçu.")
+            movement_id = uuid.uuid5(uuid.UUID(str(scan_id)), "movement")
+            if direction == "in":
+                origin_zone_id = (Center.objects.filter(pk=locked.current_center_id)
+                                  .values_list("zone_id", flat=True).first())
+                movement = _enter_market_unit(locked, market, created_by=created_by,
+                                              movement_id=movement_id, now=now)
+            else:
+                if locked.current_center_id != market.pk:
+                    raise InvalidMovementDataError("Cet animal n'est pas au marché.")
+                note = to_party_note if to_center else (to_party_note or "Acheteur non précisé")
+                movement, _code = _exit_market_units(
+                    market, [locked], created_by=created_by, exit_id=movement_id,
+                    to_center=to_center, to_party_note=note, occurred_at=now,
+                )
+    except (InvalidMovementDataError, UnitAlreadyLockedError, UnitNotAtOriginCenterError) as error:
+        scan = MarketScan.objects.create(result="refused", unit=unit, reason=str(error)[:160],
+                                         warning_code=warning_code, **base)
+    else:
+        scan = MarketScan.objects.create(result="ok", unit=unit, movement=movement,
+                                         origin_zone_id=origin_zone_id,
+                                         warning_code=warning_code, **base)
+    if declaration is not None:
+        _report_missing_seen(scan, declaration, market, created_by)
+    return _scan_response(scan), True
+
+
+# ---------------------------------------------------------------------------
+# Parcours d'un animal (ajout 4)
+# ---------------------------------------------------------------------------
+
+NAMED_PLACE_TYPES = ("market", "abattoir")
+CONFIDENCE_LABELS = {"confirmed": "Sûr", "one_side": "Probable", "disputed": "Contesté"}
+
+
+def place_label(center, user, note=None):
+    """Nom du lieu seulement si l'utilisateur a le droit de le voir ; marchés et abattoirs
+    restent nommés ; sinon « Élevage » et sa zone."""
+    from apps.identity.services import user_can_access_center, user_covers_zone
+
+    if center is None:
+        return {"label": "Hors système", "type": None, "zone": None, "detail": note}
+    zone = center.zone.name if center.zone_id else None
+    if (center.center_type in NAMED_PLACE_TYPES or user_can_access_center(user, center.pk)
+            or user_covers_zone(user, center.zone_id)):
+        return {"label": center.name, "type": center.center_type, "zone": zone}
+    return {"label": "Élevage", "type": center.center_type, "zone": zone}
+
+
+def unit_route(unit, user):
+    """Mouvements d'une unité, du plus récent au plus ancien, avec leur confiance
+    (« Sûr » / « Probable »). Lecture seule."""
+    from apps.identity.services import user_can_access_center
+
+    movements = (Movement.objects.filter(items__unit=unit)
+                 .select_related("from_center__zone", "to_center__zone")
+                 .prefetch_related("confirmations")
+                 .order_by("-occurred_at").distinct())
+    steps = []
+    for m in movements:
+        confidence = movement_confidence(m)
+        sides = {c.side for c in m.confirmations.all()}
+        sender_view = user_can_access_center(user, m.from_center_id)
+        steps.append({
+            "movement_id": str(m.pk),
+            "occurred_at": m.occurred_at,
+            "received_at": m.received_at,
+            "from": place_label(m.from_center, user),
+            "to": place_label(m.to_center, user, note=m.to_party_note if sender_view else None),
+            "status": m.status,
+            "confidence": confidence,
+            "confidence_label": CONFIDENCE_LABELS.get(confidence, "Ne compte pas"),
+            "declared_by": ("both" if sides == {"sender", "receiver"}
+                            else "receiver" if sides == {"receiver"} else "sender"),
+        })
+    return steps
+
+
+# ---------------------------------------------------------------------------
+# Bilan du marché (ajout 5) : chiffres agrégés, aucun nom d'élevage
+# ---------------------------------------------------------------------------
+
+MIN_ZONE_GROUP = 5  # une zone d'origine avec moins de 5 animaux rejoint « Autres zones »
+
+
+def market_summary(market, day):
+    from django.db.models import Count, Q
+
+    scans = MarketScan.objects.filter(market=market, occurred_at__date=day)
+    totals = scans.aggregate(
+        entered=Count("id", filter=Q(direction="in", result="ok")),
+        left=Count("id", filter=Q(direction="out", result="ok")),
+        unknown=Count("id", filter=Q(result="unknown")),
+        warnings=Count("unit", distinct=True, filter=Q(warning_code__isnull=False)),
+    )
+    by_species = [
+        {"species": row["unit__species__label_fr"], "direction": row["direction"],
+         "count": row["n"]}
+        for row in scans.filter(result="ok").values("unit__species__label_fr", "direction")
+        .annotate(n=Count("id")).order_by("unit__species__label_fr", "direction")
+    ]
+    zones, others = [], 0
+    for row in (scans.filter(direction="in", result="ok").values("origin_zone__name")
+                .annotate(n=Count("id")).order_by("-n")):
+        if row["n"] >= MIN_ZONE_GROUP and row["origin_zone__name"]:
+            zones.append({"zone": row["origin_zone__name"], "count": row["n"]})
+        else:
+            others += row["n"]
+    if others:
+        zones.append({"zone": "Autres zones", "count": others})
+    return {"date": day.isoformat(), "market": market.name, **totals,
+            "by_species": by_species, "by_origin_zone": zones}

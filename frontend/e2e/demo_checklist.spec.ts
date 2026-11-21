@@ -53,7 +53,8 @@ async function center(request: APIRequestContext, phone: string, name: string) {
 
 async function animals(request: APIRequestContext, phone: string, centerId: string) {
   const units = await call<UnitItem[]>(request, phone, 'GET', `/centers/${centerId}/units/`)
-  return units.filter((u) => u.kind === 'animal')
+  // Seulement les animaux étiquetés QR du seed : jamais les bovins de la démo RFID.
+  return units.filter((u) => u.kind === 'animal' && u.label_code)
 }
 
 async function declare(request: APIRequestContext, phone: string, from: Center, to: Center, unitId: string) {
@@ -149,7 +150,7 @@ test.describe.serial('Plan de test : assistée, contestation, hors ligne, parcou
     await expect(source).toHaveValue(/.+/)
     // Nouveau style : chaque animal est montré par son code d'étiquette et son espèce.
     const animal = page.locator('section[aria-labelledby="units-heading"] button')
-      .filter({ hasText: /Animal/ }).first()
+      .filter({ hasText: /[2-9A-HJ-NP-Z]{9}/ }).filter({ hasText: /Animal/ }).first()
     await expect(animal).toBeVisible()
     await expect(page.locator('section[aria-labelledby="units-heading"]')).not.toContainText(DEMO_ANIMAL_CODE)
     await page.getByRole('button', { name: 'Vente' }).click()
