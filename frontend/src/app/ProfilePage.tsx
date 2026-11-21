@@ -17,7 +17,6 @@ import { Link } from 'react-router'
 
 import { useAuth } from '@/auth/AuthProvider'
 import { Card } from '@/components/Card'
-import { DemoDataNotice } from '@/components/DemoDataNotice'
 import { COUNTRY_CODE, formatNationalPhone } from '@/lib/phone'
 import { profileFor, profileStyles } from '@/lib/profiles'
 import { cn } from '@/lib/utils'
@@ -73,7 +72,6 @@ export function ProfilePage() {
           </div>
         </div>
       </section>
-      {user.is_simulated && <DemoDataNotice />}
 
       <Card>
         <div className="flex flex-col divide-y divide-border/70">
