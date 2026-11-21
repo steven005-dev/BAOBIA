@@ -159,7 +159,7 @@ export function ReportPage() {
     const next = [sante.etapeRecu, sante.etapeEnExamen, sante.etapeDecision]
     return (
       <div className="flex flex-col items-center gap-6 pt-4 text-center">
-        <span className="flex size-24 items-center justify-center rounded-full bg-success-bg text-success shadow-card">
+        <span className="flex size-24 animate-pop items-center justify-center rounded-full bg-success-bg text-success shadow-card">
           <CircleCheck aria-hidden className="size-14" strokeWidth={2.5} />
         </span>
         <div className="flex flex-col gap-2">
@@ -218,6 +218,7 @@ export function ReportPage() {
         <h1 className="text-title font-bold text-foreground">{sante.titreSignaler}</h1>
       </div>
 
+      <div key={step} className="animate-enter">
       {step === 'center' && (
         <ChoiceGrid
           label={sante.quelElevage}
@@ -288,6 +289,8 @@ export function ReportPage() {
                          min={minSick} max={10000} />
         </div>
       )}
+
+      </div>
 
       {error && <Banner variant="error">{error}</Banner>}
 
