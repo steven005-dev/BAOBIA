@@ -24,6 +24,8 @@ export function AppLayout() {
   const { user, logout } = useAuth()
   const items = navigationFor(user?.roles.map((role) => role.code) ?? [])
   const profile = user ? profileFor(user.roles, user.full_name) : null
+  // Vétérinaire et autorité travaillent surtout sur ordinateur : écran plus large (carte, listes).
+  const desk = profile?.role === 'veterinarian' || profile?.role === 'authority'
   return (
     <div className="flex min-h-dvh bg-background">
       <SidebarNav items={items} profile={profile} className="sticky top-0 hidden h-dvh lg:flex" />
@@ -31,7 +33,7 @@ export function AppLayout() {
         <AppHeader onLogout={() => void logout()} profile={profile} />
         <OfflineIndicator variant="banner" />
         {user?.is_simulated && <DemoDataNotice />}
-        <main className="mx-auto w-full max-w-mobile flex-1 px-4 pt-6 pb-[calc(var(--nav-height)+var(--space-6)+env(safe-area-inset-bottom))] lg:max-w-form lg:px-8 lg:pb-8">
+        <main className={`mx-auto w-full max-w-mobile flex-1 px-4 pt-6 pb-[calc(var(--nav-height)+var(--space-6)+env(safe-area-inset-bottom))] lg:px-8 lg:pb-8 ${desk ? 'lg:max-w-6xl' : 'lg:max-w-form'}`}>
           <Outlet />
         </main>
         <BottomNav items={items} className="lg:hidden" />

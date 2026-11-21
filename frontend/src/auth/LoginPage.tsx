@@ -16,7 +16,7 @@ import { PhoneInput } from '@/components/PhoneInput'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { ApiError } from '@/lib/api'
 import { isCompletePhone } from '@/lib/phone'
-import { APP_NAME, champs, erreurs, mots, titres } from '@/lib/vocabulaire'
+import { accueilTextes, APP_NAME, champs, erreurs, mots, titres } from '@/lib/vocabulaire'
 
 import { useAuth } from './AuthProvider'
 
@@ -60,12 +60,29 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
-      <header className="bg-primary px-4 pt-[env(safe-area-inset-top)] text-primary-foreground">
-        <p className="mx-auto max-w-mobile py-6 text-display font-bold">{APP_NAME}</p>
+    <div className="flex min-h-dvh flex-col bg-background lg:flex-row">
+      {/* Bandeau de la marque : en haut sur téléphone, moitié gauche sur ordinateur. */}
+      <header className="relative overflow-hidden bg-hero px-6 pt-[env(safe-area-inset-top)] pb-14 text-primary-foreground lg:flex lg:w-1/2 lg:flex-col lg:justify-center lg:px-16 lg:pb-0">
+        <div className="mx-auto w-full max-w-mobile pt-8 lg:max-w-md lg:pt-0">
+          <p className="flex items-center gap-3 font-display text-display font-bold tracking-wide">
+            <img src="/baobia-icon.svg" alt="" className="size-14 rounded-lg ring-2 ring-on-brand-line" />
+            {APP_NAME}
+          </p>
+          <p className="mt-4 text-body text-on-brand-muted lg:text-subtitle">{accueilTextes.slogan}</p>
+          <ul className="mt-5 flex flex-wrap gap-2">
+            {accueilTextes.piliers.map((pilier) => (
+              <li key={pilier} className="rounded-full bg-on-brand-soft px-3 py-1 font-display text-small font-bold">
+                {pilier}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <img src="/baobia-icon.svg" alt="" aria-hidden
+             className="pointer-events-none absolute -right-10 -bottom-12 size-48 rotate-6 opacity-15 lg:size-96" />
       </header>
-      <OfflineIndicator variant="banner" />
-      <main className="mx-auto flex w-full max-w-mobile flex-1 flex-col px-4 py-6">
+      <main className="mx-auto -mt-8 flex w-full max-w-mobile flex-1 flex-col px-4 pb-8 lg:mt-0 lg:max-w-none lg:items-center lg:justify-center lg:px-16">
+        <div className="w-full rounded-xl bg-surface p-6 shadow-raised lg:max-w-md lg:p-8">
+        <OfflineIndicator variant="banner" />
         <h1 className="mb-6 text-title font-bold text-foreground">{titres.connexion}</h1>
         <form noValidate onSubmit={onSubmit} className="flex flex-col gap-6">
           <Field label={champs.telephone} help={champs.telephoneAide} error={phoneError} required>
@@ -96,6 +113,7 @@ export function LoginPage() {
             {mots.seConnecter}
           </Button>
         </form>
+        </div>
       </main>
     </div>
   )

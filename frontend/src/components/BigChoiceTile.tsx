@@ -23,12 +23,25 @@ export interface BigChoiceTileProps {
   role?: 'radio' | 'checkbox'
   selected?: boolean
   disabled?: boolean
+  /** Ton de l'icône (charte v2) : une couleur par action, jamais une couleur d'état sanitaire. */
+  tone?: Tone
   className?: string
 }
 
+export type Tone = 'brand' | 'teal' | 'indigo' | 'violet' | 'earth' | 'slate'
+
+const TONES: Record<Tone, string> = {
+  brand: 'bg-tone-brand-bg text-tone-brand',
+  teal: 'bg-tone-teal-bg text-tone-teal',
+  indigo: 'bg-tone-indigo-bg text-tone-indigo',
+  violet: 'bg-tone-violet-bg text-tone-violet',
+  earth: 'bg-tone-earth-bg text-tone-earth',
+  slate: 'bg-tone-slate-bg text-tone-slate',
+}
+
 const base = [
-  'relative flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 p-4 text-center',
-  'bg-surface text-foreground shadow-card transition-colors',
+  'relative flex min-h-32 w-full flex-col items-center justify-center gap-3 rounded-xl border-2 p-4 text-center',
+  'bg-surface text-foreground shadow-card transition-all hover:-translate-y-0.5 hover:shadow-raised',
   'active:bg-accent disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground',
 ].join(' ')
 
@@ -41,16 +54,19 @@ export function BigChoiceTile({
   role,
   selected = false,
   disabled = false,
+  tone = 'brand',
   className,
 }: BigChoiceTileProps) {
-  const classes = cn(base, selected ? 'border-primary border-[length:var(--border-focus)] bg-accent' : 'border-border', className)
+  const classes = cn(base, selected ? 'border-primary border-[length:var(--border-focus)] bg-accent' : 'border-transparent', className)
   const content = (
     <>
       {selected && (
         <CircleCheck aria-hidden className="absolute top-2 right-2 size-icon text-primary" strokeWidth={2.5} />
       )}
-      <Icon aria-hidden className="size-icon-empty text-primary" strokeWidth={1.75} />
-      <span className="text-body font-bold">{label}</span>
+      <span className={cn('flex size-16 items-center justify-center rounded-lg', TONES[tone])}>
+        <Icon aria-hidden className="size-9" strokeWidth={1.9} />
+      </span>
+      <span className="font-display text-body font-bold">{label}</span>
       {description && <span className="text-small text-muted-foreground">{description}</span>}
     </>
   )

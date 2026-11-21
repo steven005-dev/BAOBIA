@@ -17,9 +17,12 @@ import { ProfileChip } from './ProfileBar'
 
 export function SidebarNav({ items, profile, className }: { items: NavItem[]; profile?: Profile | null; className?: string }) {
   return (
-    <nav aria-label="Navigation principale" className={cn('flex w-sidebar shrink-0 flex-col gap-1 border-r border-border bg-surface p-4', className)}>
-      <p className="px-3 pb-2 text-subtitle font-bold text-primary">{APP_NAME}</p>
-      {profile && <ProfileChip profile={profile} className="mb-4" />}
+    <nav aria-label="Navigation principale" className={cn('flex w-sidebar shrink-0 flex-col gap-1 bg-brand-gradient p-4 text-primary-foreground', className)}>
+      <p className="flex items-center gap-3 px-2 pt-1 pb-5 font-display text-subtitle font-bold tracking-wide">
+        <img src="/baobia-icon.svg" alt="" className="size-10 rounded-md ring-1 ring-on-brand-line" />
+        {APP_NAME}
+      </p>
+      {profile && <ProfileChip profile={profile} className="mb-5" />}
       {items.map(({ to, label, icon: Icon, end }) => (
         <NavLink
           key={to}
@@ -27,8 +30,8 @@ export function SidebarNav({ items, profile, className }: { items: NavItem[]; pr
           end={end}
           className={({ isActive }) =>
             cn(
-              'flex min-h-touch items-center gap-3 rounded-md border-l-4 px-3 text-body',
-              isActive ? 'border-primary bg-accent font-bold text-primary' : 'border-transparent text-foreground hover:bg-muted',
+              'flex min-h-touch items-center gap-3 rounded-md border-l-4 px-3 font-display text-body transition-colors',
+              isActive ? 'border-brand-mint bg-on-brand-soft font-bold text-primary-foreground' : 'border-transparent text-on-brand-muted hover:bg-on-brand-soft hover:text-primary-foreground',
             )
           }
         >

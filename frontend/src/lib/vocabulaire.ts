@@ -337,6 +337,15 @@ export const raisonsExposition: Record<string, string> = {
   movement_expired: 'Transfert expiré',
 }
 
+/** À VALIDER : accueil (charte v2). */
+export const accueilTextes = {
+  bonjour: 'Bonjour',
+  queVoulezVousFaire: 'Que voulez-vous faire ?',
+  monCompte: 'Mon compte',
+  piliers: ['Identifier', 'Tracer', 'Surveiller', 'Alerter'],
+  slogan: 'Retrouver vite le chemin des animaux, pour réagir vite et juste.',
+} as const
+
 export const carteTextes = {
   titre: 'Carte par zones',
   legende: 'Légende',
