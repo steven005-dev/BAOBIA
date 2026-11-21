@@ -131,6 +131,22 @@ class AlertDetailView(APIView):
         return Response(data)
 
 
+def _counts_hidden(stats):
+    """Zones dont les effectifs ne sont pas donnés : les zones masquées ET toutes leurs zones
+    mères (district, pays). Sinon, l'effectif d'une région masquée se retrouverait par
+    soustraction (effectif du district moins celui des régions visibles)."""
+    from apps.geo.models import Zone
+
+    parents = dict(Zone.objects.values_list("id", "parent_id"))
+    hidden = set()
+    for s in stats:
+        zone_id = s.zone_id if s.is_masked else None
+        while zone_id is not None and zone_id not in hidden:
+            hidden.add(zone_id)
+            zone_id = parents.get(zone_id)
+    return hidden
+
+
 class MapZonesView(APIView):
     @extend_schema(
         tags=[TAG_MAP],
@@ -151,6 +167,8 @@ class MapZonesView(APIView):
         stats = ZoneStat.objects.select_related("zone")
         stats = stats.filter(species__code=species_code) if species_code else \
             stats.filter(species__isnull=True)
+        stats = list(stats.order_by("zone__name"))
+        hidden = _counts_hidden(stats)
         zones = [
             {
                 "zone": {"id": s.zone_id, "code": s.zone.code, "name": s.zone.name,
@@ -158,11 +176,11 @@ class MapZonesView(APIView):
                          "latitude": s.zone.latitude, "longitude": s.zone.longitude},
                 "state": s.state,
                 "is_masked": s.is_masked,
-                "centers_count": None if s.is_masked else s.centers_count,
-                "animals_count": None if s.is_masked else s.animals_count,
+                "centers_count": None if s.zone_id in hidden else s.centers_count,
+                "animals_count": None if s.zone_id in hidden else s.animals_count,
                 "computed_at": s.computed_at,
             }
-            for s in stats.order_by("zone__name")
+            for s in stats
         ]
         mine = Center.objects.filter(pk__in=[c["id"] for c in accessible_centers(request.user)])
         covered = services._covered_zone_ids(request.user)
