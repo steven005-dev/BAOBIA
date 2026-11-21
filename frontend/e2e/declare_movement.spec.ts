@@ -4,6 +4,7 @@ test.describe('Déclaration de mouvement (MV-01, TR-05)', () => {
   test('un destinataire partage son élevage et confirme un transfert entre deux comptes', async ({ page }) => {
     const password = process.env.SEED_DEMO_PASSWORD
     test.skip(!password, 'Définir SEED_DEMO_PASSWORD pour utiliser le compte de démonstration.')
+    test.setTimeout(90_000) // deux téléphones, deux connexions
 
     // Le destinataire (Élevage C) partage d'abord son élevage avec l'expéditeur (Élevage B).
     // Le test ne touche pas à l'Élevage A : son Animal 1 est réservé au signalement de la démo.
@@ -33,8 +34,10 @@ test.describe('Déclaration de mouvement (MV-01, TR-05)', () => {
     await senderPage.goto('/mouvements')
     const sourceCenterSelect = senderPage.getByLabel('Élevage de départ')
     await expect(sourceCenterSelect).toBeVisible()
+    // Attendre la liste de B elle-même (celle de l'élevage choisi par défaut arrive d'abord).
+    const centerB = await sourceCenterSelect.locator('option', { hasText: 'Élevage B (simulé)' }).getAttribute('value')
     const unitsOfB = senderPage.waitForResponse(
-      (response) => response.url().includes('/units/') && response.request().method() === 'GET',
+      (response) => response.url().includes(`/centers/${centerB}/units/`) && response.request().method() === 'GET',
     )
     await sourceCenterSelect.selectOption({ label: 'Élevage B (simulé)' })
     const units = (await (await unitsOfB).json()) as Array<{ id: string; kind: string; label_code: string | null }>

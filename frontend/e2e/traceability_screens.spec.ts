@@ -69,10 +69,12 @@ async function cancelOpenTestDepartures(request: APIRequestContext) {
   const access = await token(request, PHONES.breeder2)
   const centers = await apiGet<{ id: string; name: string }[]>(request, access, '/centers/')
   const b = centers.find((c) => c.name === 'Élevage B (simulé)')!
-  const movements = await apiGet<{ id: string; status: string; to_center_name: string | null }[]>(
-    request, access, `/movements/?center_id=${b.id}`)
+  type Listed = { id: string; status: string; from_center: string; confirmations: { side: string }[] }
+  const movements = await apiGet<Listed[]>(request, access, `/movements/?center_id=${b.id}`)
   for (const movement of movements) {
-    if (movement.status !== 'declared' || movement.to_center_name !== 'Élevage C (simulé)') continue
+    // Tout départ de B jamais reçu (une entrée au marché est déjà reçue : elle reste).
+    if (movement.status !== 'declared' || movement.from_center !== b.id
+        || movement.confirmations.some((c) => c.side === 'receiver')) continue
     const response = await request.post(`${api}/api/movements/${movement.id}/cancel/`, {
       headers: { Authorization: `Bearer ${access}` },
       data: { center_id: b.id, reason: 'Nettoyage du test E2E' },
