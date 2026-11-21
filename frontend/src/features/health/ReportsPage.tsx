@@ -12,11 +12,11 @@ import { Banner } from '@/components/Banner'
 import { Button } from '@/components/Button'
 import { DemoDataNotice } from '@/components/DemoDataNotice'
 import { EmptyState } from '@/components/EmptyState'
-import { Loader } from '@/components/Loader'
-import { useResource } from '@/features/identity/useResource'
 import { mots, sante, typesSignalement } from '@/lib/vocabulaire'
 
 import { healthApi, type Report } from './api'
+import { depuis, useLiveResource } from './live'
+import { ListSkeleton } from './ListSkeleton'
 import { ReportStatusBadge } from './ReportStatusBadge'
 
 const TO_REVIEW = ['submitted', 'under_review']
@@ -33,8 +33,10 @@ function ReportRow({ report }: { report: Report }) {
             {typesSignalement[report.report_kind]}
           </span>
           <span className="text-small text-muted-foreground">
-            {report.center.name} · {new Date(report.occurred_at).toLocaleDateString('fr-FR')}
-            {' · '}{sante.morts} {report.dead_count} · {sante.malades} {report.affected_count - report.dead_count}
+            {report.center.name} · {depuis(report.occurred_at)}
+          </span>
+          <span className="text-small font-bold tabular-nums text-foreground">
+            {sante.morts} {report.dead_count} · {sante.malades} {report.affected_count - report.dead_count}
           </span>
           <ReportStatusBadge status={report.status} className="self-start" />
         </div>
@@ -46,11 +48,12 @@ function ReportRow({ report }: { report: Report }) {
 
 export function ReportsPage() {
   const navigate = useNavigate()
-  const { hasRole } = useAuth()
+  const { hasRole, user } = useAuth()
   const professional = hasRole('veterinarian') || hasRole('authority')
-  const reports = useResource(healthApi.reports, 'signalements')
+  // Mis à jour tout seul : un nouveau signalement apparaît sans recharger la page.
+  const reports = useLiveResource(healthApi.reports, 'signalements')
 
-  if (reports.loading) return <Loader />
+  if (reports.loading) return <ListSkeleton />
   if (reports.error) return <Banner variant="error">{reports.error.message}</Banner>
 
   const all = reports.data ?? []
@@ -65,14 +68,17 @@ export function ReportsPage() {
       {!professional && (
         <Button icon={Flag} onClick={() => navigate('/sante/signaler')}>{mots.signaler}</Button>
       )}
-      {all.some((r) => r.is_simulated) && <DemoDataNotice />}
+      {!user?.is_simulated && all.some((r) => r.is_simulated) && <DemoDataNotice />}
       {all.length === 0 && (
         <EmptyState icon={Flag} title={sante.aucunSignalement}
                     text={professional ? undefined : sante.aucunSignalementAide} />
       )}
       {toReview.length > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 className="text-subtitle font-bold text-foreground">{sante.aExaminer}</h2>
+          <h2 className="flex items-center gap-2 text-subtitle font-bold text-foreground">
+            {sante.aExaminer}
+            <span className="rounded-full bg-primary px-2.5 text-small font-bold tabular-nums text-primary-foreground">{toReview.length}</span>
+          </h2>
           <ul className="flex flex-col gap-3">
             {toReview.map((r) => <ReportRow key={r.id} report={r} />)}
           </ul>

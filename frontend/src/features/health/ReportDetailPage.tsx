@@ -15,6 +15,7 @@ import { Banner } from '@/components/Banner'
 import { Button } from '@/components/Button'
 import { Card } from '@/components/Card'
 import { ChoiceGrid } from '@/components/ChoiceGrid'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { DemoDataNotice } from '@/components/DemoDataNotice'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
@@ -47,14 +48,29 @@ function VetDecision({ reportId, species, onDone }: {
   const [note, setNote] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Décisions lourdes (valider niveau 3, refuser) : confirmées avant l'envoi.
+  const [confirming, setConfirming] = useState(false)
+  const heavy = decision === 'validate_level3' || decision === 'dismiss'
 
   const needsDisease = decision === 'validate_level3' || decision === 'raise_level2'
-  const send = async () => {
+  const ready = () => {
     if (!decision || (decision === 'validate_level3' && !disease) ||
         (decision === 'dismiss' && !note.trim())) {
       setError(messages.champManquant)
-      return
+      return false
     }
+    return true
+  }
+
+  const ask = () => {
+    if (!ready()) return
+    if (heavy) setConfirming(true)
+    else void send()
+  }
+
+  const send = async () => {
+    if (!ready() || !decision) return
+    setConfirming(false)
     setSending(true)
     setError(null)
     try {
@@ -89,10 +105,27 @@ function VetDecision({ reportId, species, onDone }: {
           <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
         </Field>
         {error && <Banner variant="error">{error}</Banner>}
-        <Button icon={ShieldCheck} onClick={() => void send()} loading={sending}>
+        <Button icon={ShieldCheck} onClick={ask} loading={sending}>
           {decision === 'dismiss' ? mots.refuser : mots.valider}
         </Button>
       </div>
+      <ConfirmDialog
+        open={confirming}
+        title={decision === 'dismiss' ? sante.confirmerRefusTitre : sante.confirmerValidationTitre}
+        confirmLabel={decision === 'dismiss' ? mots.refuser : mots.valider}
+        confirmIcon={decision === 'dismiss' ? CircleX : ShieldCheck}
+        variant={decision === 'dismiss' ? 'danger' : 'primary'}
+        loading={sending}
+        onConfirm={() => void send()}
+        onCancel={() => setConfirming(false)}
+      >
+        {decision === 'dismiss'
+          ? sante.confirmerRefusTexte
+          : <>
+              <strong>{(diseases.data ?? []).find((d) => d.code === disease)?.label_fr}</strong>
+              {' · '}{sante.confirmerValidationTexte}
+            </>}
+      </ConfirmDialog>
     </Card>
   )
 }
@@ -121,7 +154,7 @@ export function ReportDetailPage() {
         <h1 className="text-title font-bold text-foreground">{typesSignalement[r.report_kind]}</h1>
         <ReportStatusBadge status={r.status} className="self-start" />
       </div>
-      {r.is_simulated && <DemoDataNotice />}
+      {!user?.is_simulated && r.is_simulated && <DemoDataNotice />}
 
       <Card>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-body">

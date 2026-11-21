@@ -4,25 +4,22 @@
  * mène à l'écran du module concerné. Pas de logique métier ici.
  */
 
-import { ArrowLeftRight, ChevronRight, CirclePlus, Flag, KeyRound, LogOut, PackageCheck, QrCode, UserPlus } from 'lucide-react'
-import { Link, Navigate } from 'react-router'
+import { ArrowLeftRight, CirclePlus, Flag, PackageCheck, QrCode, UserPlus } from 'lucide-react'
+import { Navigate } from 'react-router'
 
 import { useAuth } from '@/auth/AuthProvider'
 import { BigChoiceTile } from '@/components/BigChoiceTile'
 import { UnreadMessages } from '@/features/notifications/UnreadMessages'
-import { profileFor, profileStyles } from '@/lib/profiles'
-import { accueilTextes, mots, titres } from '@/lib/vocabulaire'
+import { accueilTextes, mots } from '@/lib/vocabulaire'
 
 function firstName(fullName?: string) {
   return fullName?.split(' ')[0] ?? ''
 }
 
 export function HomePage() {
-  const { user, logout, hasRole } = useAuth()
+  const { user, hasRole } = useAuth()
   // Vétérinaire et autorité : pas d'Accueil terrain, on ouvre les alertes (charte, section 7).
   if (hasRole('veterinarian') || hasRole('authority')) return <Navigate to="/alertes" replace />
-  const profile = user ? profileFor(user.roles, user.full_name) : null
-  const style = profile ? profileStyles[profile.role] : null
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
@@ -32,13 +29,6 @@ export function HomePage() {
         <h1 className="mt-1 text-title font-bold">
           {accueilTextes.bonjour} {firstName(user?.full_name)}
         </h1>
-        {style && (
-          <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-on-brand-soft px-3 py-1 text-small font-bold">
-            <style.icon aria-hidden className="size-icon-small" />
-            {style.label}
-            {profile?.zone && <span className="font-normal text-on-brand-muted">· {profile.zone}</span>}
-          </p>
-        )}
         <img src="/baobia-icon.svg" alt="" aria-hidden
              className="pointer-events-none absolute -right-6 -bottom-8 size-36 rotate-6 opacity-20" />
       </section>
@@ -57,21 +47,6 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-subtitle font-bold text-foreground">{accueilTextes.monCompte}</h2>
-        <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/60 bg-surface shadow-card">
-          <Link to="/mot-de-passe" className="flex min-h-touch-primary items-center gap-3 px-4 font-display text-body font-bold text-foreground hover:bg-accent">
-            <span className="flex size-10 items-center justify-center rounded-md bg-accent text-primary"><KeyRound aria-hidden className="size-icon" /></span>
-            <span className="flex-1">{titres.changerMotDePasse}</span>
-            <ChevronRight aria-hidden className="size-icon text-muted-foreground" />
-          </Link>
-          <button type="button" onClick={() => void logout()} className="flex min-h-touch-primary w-full items-center gap-3 px-4 text-left font-display text-body font-bold text-foreground hover:bg-accent">
-            <span className="flex size-10 items-center justify-center rounded-md bg-accent text-primary"><LogOut aria-hidden className="size-icon" /></span>
-            <span className="flex-1">{mots.quitter}</span>
-            <ChevronRight aria-hidden className="size-icon text-muted-foreground" />
-          </button>
-        </div>
-      </section>
     </div>
   )
 }
