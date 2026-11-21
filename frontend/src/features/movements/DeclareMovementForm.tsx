@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
 import {
   ArrowLeftRight,
   Check,
+  History,
   CircleAlert,
   CircleCheck,
   KeyRound,
   PawPrint,
   ShoppingBag,
+  Store,
   Users,
   Warehouse,
 } from 'lucide-react'
@@ -47,6 +50,7 @@ interface SavedDeclaration {
 }
 
 export function DeclareMovementForm() {
+  const navigate = useNavigate()
   const centersResource = useResource(identityApi.centers, 'centres')
   const centers = centersResource.data ?? []
   const [fromCenterId, setFromCenterId] = useState('')
@@ -239,6 +243,14 @@ export function DeclareMovementForm() {
       {error && <Banner variant="error">{error}</Banner>}
 
       <h1 className="text-title font-bold text-foreground">{mots.mouvements}</h1>
+      <Button type="button" icon={History} variant="ghost" onClick={() => navigate('/mouvements/historique')}>
+        Mes mouvements
+      </Button>
+      {centers.some((center) => center.center_type === 'market') && (
+        <Button type="button" icon={Store} variant="secondary" fullWidth onClick={() => navigate('/mouvements/marche')}>
+          Marché : entrées et sorties
+        </Button>
+      )}
 
       {centers.length > 1 ? (
         <Field label="Élevage de départ" required>
