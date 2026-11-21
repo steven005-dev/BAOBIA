@@ -156,7 +156,9 @@ export function LabSheetPage() {
               <li key={s.nature}><b>{counts[s.nature] ?? 0} ×</b> {s.nature} ({s.conditioning})</li>
             ))}
           </ul>
-          {chosen?.zoonosis && <p className="mt-1 font-bold">{pistesTextes.zoonose}</p>}
+          {(chosen?.caution || chosen?.zoonosis) && (
+            <p className="mt-1 font-bold">{chosen.caution ?? pistesTextes.zoonose}</p>
+          )}
           {r.leads && <p className="mt-1 text-caption">{r.leads.lab_note}</p>}
         </section>
 

@@ -13,8 +13,8 @@ Règles, dans cet ordre (toutes explicables, écrites dans la réponse) :
 Le vétérinaire examine et décide ; les fiches sont à valider (disease_profiles.VALIDATED).
 """
 
-from .disease_profiles import (LAB_NOTE, MORTALITY_LABELS, PROFILES, SPREAD_LABELS, VALIDATED,
-                               VERSION)
+from .disease_profiles import (GENERAL_ALERT, LAB_NOTE, MORTALITY_LABELS, PROFILES, SPREAD_LABELS,
+                               VALIDATED, VERSION)
 
 STRENGTHS = ("strong", "medium", "weak")
 STRENGTH_LABELS = {"strong": "piste forte", "medium": "piste moyenne", "weak": "piste faible"}
@@ -101,6 +101,7 @@ def disease_leads(report):
             "spread": SPREAD_LABELS[profile["spread"]],
             "incubation_days": list(profile["incubation_days"]),
             "zoonosis": profile["zoonosis"],
+            "caution": profile.get("caution"),
             "samples": [{"nature": n, "conditioning": c} for n, c in profile["samples"]],
         })
     leads.sort(key=lambda lead: (STRENGTHS.index(lead["strength"]), -lead["major_found"],
@@ -114,6 +115,8 @@ def leads_payload(report):
         "profiles_version": VERSION,
         "validated": VALIDATED,
         "lab_note": LAB_NOTE,
+        "general_alert": GENERAL_ALERT,
+        "diseases_count": len(PROFILES),
         "warning": "Pistes calculées à partir des signes cochés par l'éleveur : ce n'est pas un "
                    "diagnostic. Le vétérinaire examine les animaux et décide.",
     }
