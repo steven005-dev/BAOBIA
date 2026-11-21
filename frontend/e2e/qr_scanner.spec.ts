@@ -3,7 +3,7 @@
  * (Chromium de Playwright sous Windows, comme Chrome Windows ou Safari iPhone) :
  * le décodeur de repli jsQR doit lire le QR.
  *
- * Une fausse caméra (vidéo Y4M générée ici) filme le QR d'une étiquette (Animal 2 de la
+ * Une fausse caméra (vidéo Y4M générée ici) filme le QR d'une étiquette (Animal 7, chèvre de la
  * base de démo), généré comme sur l'étiquette imprimée (qrcode, correction « Q », marge 2).
  * Sur l'écran Marché, chaque scan part aussitôt : le test enregistre donc une Entrée
  * (données simulées). Rejoué, la ligne apparaît quand même (« Déjà scanné » ou refus).
@@ -18,7 +18,8 @@ import QRCode from 'qrcode'
 const password = process.env.SEED_DEMO_PASSWORD ?? ''
 const api = process.env.BAOBIA_API_TARGET ?? 'http://127.0.0.1:8000'
 // Étiquette d'un animal de l'Élevage B dans la base de démo (voir seed.py, codes à graine fixe).
-const LABEL_CODE = process.env.E2E_SCAN_CODE ?? 'MYLHHLPGV'
+// La chèvre de l'Élevage B (Animal 7) : son passage n'a aucun effet sur l'alerte bovine de la démo.
+const LABEL_CODE = process.env.E2E_SCAN_CODE ?? 'QGKQU8G4S'
 
 /** Vidéo Y4M (niveaux de gris) qui montre le QR au centre, image fixe répétée. */
 function writeQrVideo(code: string): string {

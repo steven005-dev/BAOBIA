@@ -39,7 +39,8 @@ async function animalsAtB(request: APIRequestContext) {
   const centers = await apiGet<{ id: string; name: string }[]>(request, access, '/centers/')
   const b = centers.find((c) => c.name === 'Élevage B (simulé)')!
   const units = await apiGet<UnitItem[]>(request, access, `/centers/${b.id}/units/`)
-  return { b, animals: units.filter((u) => u.kind === 'animal' && u.local_name) }
+  // Seulement les animaux étiquetés QR du seed : jamais les bovins de la démo RFID.
+  return { b, animals: units.filter((u) => u.kind === 'animal' && u.local_name && u.label_code) }
 }
 
 async function declareFromB(request: APIRequestContext, count: number) {
