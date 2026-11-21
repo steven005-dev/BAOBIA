@@ -11,6 +11,7 @@ Le texte affiché est choisi par l'application (vocabulaire officiel), pas par l
 Écriture :
 - notify(user, message_code, *, alert_id=None, params=None, dedup_key=None, channel="in_app")
 - notify_many(users, message_code, *, dedup_prefix, alert_id=None, params=None)
+- mark_alert_messages_read(*, alert_id, message_code)
 - notify_zone_vets(zone_id, message_code, *, alert_id, round_no=0, params=None,
                    include_ancestors=True)  -> list[Notification]
 - mark_read(user, ids=None)  (ids=None : tout marquer lu)
@@ -93,6 +94,15 @@ def notify(user, message_code, *, alert_id=None, params=None, dedup_key=None, ch
         if dedup_key:
             return Notification.objects.get(dedup_key=dedup_key)
         raise
+
+
+def mark_alert_messages_read(*, alert_id, message_code):
+    """Marque lus les messages `message_code` d'une alerte (ex. « Contact possible » quand
+    arrive « Fin de surveillance ») : l'éleveur ne voit plus deux messages contraires à
+    l'accueil ; ils restent dans son historique. Retourne le nombre de messages marqués."""
+    return Notification.objects.filter(
+        alert_id=alert_id, message_code=message_code, read_at__isnull=True,
+    ).update(status=Notification.Status.READ, read_at=timezone.now())
 
 
 def notify_many(users, message_code, *, dedup_prefix, alert_id=None, params=None):
