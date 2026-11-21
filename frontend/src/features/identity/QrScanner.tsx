@@ -1,8 +1,10 @@
 /**
- * Lecture d'un QR code par la caméra arrière, avec l'API BarcodeDetector du navigateur
- * (Chrome et navigateurs Android récents) : aucune bibliothèque ajoutée.
- * Navigateur sans cette API ou caméra refusée : on le dit, et la saisie du code reste
- * possible à côté (charte : le code court se dicte et se tape).
+ * Lecture d'un QR code par la caméra arrière.
+ * - Décodeur natif du navigateur (BarcodeDetector) quand il existe : Chrome Android, Mac.
+ * - Sinon, bibliothèque de repli jsQR, chargée seulement à l'ouverture de la caméra :
+ *   Chrome et Edge sur Windows, Safari sur iPhone, Firefox (guide développeur, « Scan QR »).
+ * Sans caméra, caméra refusée ou adresse non sécurisée (http) : on dit pourquoi, et la
+ * saisie du code reste possible à côté (charte : le code court se dicte et se tape).
  *
  * Exemple :
  *   <QrScanner onCode={(code) => chercher(code)} />
@@ -22,16 +24,50 @@ interface BarcodeDetectorLike {
   detect(source: HTMLVideoElement): Promise<DetectedBarcode[]>
 }
 type BarcodeDetectorCtor = new (options: { formats: string[] }) => BarcodeDetectorLike
+type Decode = (video: HTMLVideoElement) => Promise<string | null>
 
-function detectorClass(): BarcodeDetectorCtor | null {
-  const ctor = (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector
-  const hasCamera = typeof navigator.mediaDevices?.getUserMedia === 'function'
-  return ctor && hasCamera ? ctor : null
+function nativeDetector(): BarcodeDetectorCtor | null {
+  return (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector ?? null
+}
+
+/** Pourquoi la caméra ne peut pas s'ouvrir du tout ; null si elle peut s'ouvrir. */
+function cameraBlocker(): string | null {
+  if (typeof navigator.mediaDevices?.getUserMedia === 'function') return null
+  return window.isSecureContext ? messages.cameraIndisponible : messages.cameraHttps
+}
+
+/** Décodeur natif si présent, sinon jsQR sur une image de la vidéo. */
+async function makeDecoder(): Promise<Decode> {
+  const Native = nativeDetector()
+  if (Native) {
+    const detector = new Native({ formats: ['qr_code'] })
+    return async (video) => (await detector.detect(video))[0]?.rawValue ?? null
+  }
+  const { default: jsQR } = await import('jsqr')
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d', { willReadFrequently: true })
+  return async (video) => {
+    if (!context || !video.videoWidth) return null
+    // Une image réduite suffit pour un QR et reste rapide sur un téléphone modeste.
+    const scale = Math.min(1, 640 / video.videoWidth)
+    canvas.width = Math.round(video.videoWidth * scale)
+    canvas.height = Math.round(video.videoHeight * scale)
+    context.drawImage(video, 0, 0, canvas.width, canvas.height)
+    const image = context.getImageData(0, 0, canvas.width, canvas.height)
+    return jsQR(image.data, image.width, image.height, { inversionAttempts: 'dontInvert' })?.data ?? null
+  }
+}
+
+function cameraError(error: unknown): string {
+  const name = error instanceof DOMException ? error.name : ''
+  if (name === 'NotAllowedError' || name === 'SecurityError') return messages.cameraRefusee
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return messages.cameraAbsente
+  return messages.cameraIndisponible
 }
 
 export function QrScanner({ onCode }: { onCode: (code: string) => void }) {
   const [open, setOpen] = useState(false)
-  const [failed, setFailed] = useState(() => detectorClass() === null)
+  const [problem, setProblem] = useState<string | null>(() => cameraBlocker())
   const videoRef = useRef<HTMLVideoElement>(null)
   const onCodeRef = useRef(onCode)
   useEffect(() => {
@@ -40,45 +76,47 @@ export function QrScanner({ onCode }: { onCode: (code: string) => void }) {
 
   useEffect(() => {
     if (!open) return
-    const Detector = detectorClass()
-    if (!Detector) return
     let stream: MediaStream | null = null
     let timer: number | undefined
     let stopped = false
-    const detector = new Detector({ formats: ['qr_code'] })
 
-    const scan = async () => {
-      const video = videoRef.current
-      if (stopped || !video) return
+    const start = async () => {
       try {
-        if (video.readyState >= 2) {
-          const found = await detector.detect(video)
-          if (found[0]?.rawValue && !stopped) {
-            stopped = true
-            setOpen(false)
-            onCodeRef.current(found[0].rawValue)
-            return
-          }
-        }
-      } catch {
-        // Image illisible : on réessaie au tour suivant.
-      }
-      timer = window.setTimeout(scan, 250)
-    }
-
-    navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: 'environment' }, audio: false })
-      .then((media) => {
+        const [media, decode] = await Promise.all([
+          navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }),
+          makeDecoder(),
+        ])
         stream = media
-        if (stopped || !videoRef.current) return
-        videoRef.current.srcObject = media
-        void videoRef.current.play().catch(() => {})
+        const video = videoRef.current
+        if (stopped || !video) return
+        video.srcObject = media
+        await video.play().catch(() => {})
+
+        const scan = async () => {
+          if (stopped || !videoRef.current) return
+          try {
+            if (videoRef.current.readyState >= 2) {
+              const value = await decode(videoRef.current)
+              if (value && !stopped) {
+                stopped = true
+                setOpen(false)
+                onCodeRef.current(value)
+                return
+              }
+            }
+          } catch {
+            // Image illisible : on réessaie au tour suivant.
+          }
+          timer = window.setTimeout(scan, 250)
+        }
         void scan()
-      })
-      .catch(() => {
-        setFailed(true)
+      } catch (error) {
+        if (stopped) return
+        setProblem(cameraError(error))
         setOpen(false)
-      })
+      }
+    }
+    void start()
 
     return () => {
       stopped = true
@@ -87,13 +125,18 @@ export function QrScanner({ onCode }: { onCode: (code: string) => void }) {
     }
   }, [open])
 
-  if (failed) return <Banner variant="info">{messages.cameraIndisponible}</Banner>
-
   if (!open) {
     return (
-      <Button icon={ScanQrCode} onClick={() => setOpen(true)}>
-        {mots.scanner}
-      </Button>
+      <div className="flex flex-col gap-3">
+        {problem && <Banner variant="info">{problem}</Banner>}
+        {/* Après un refus ou une erreur, on peut réessayer ; pas si la caméra est impossible
+            (adresse http, navigateur sans accès caméra). */}
+        {cameraBlocker() === null && (
+          <Button icon={ScanQrCode} onClick={() => { setProblem(null); setOpen(true) }}>
+            {mots.scanner}
+          </Button>
+        )}
+      </div>
     )
   }
 

@@ -4,16 +4,18 @@ test.describe('Déclaration de mouvement (MV-01, TR-05)', () => {
   test('un destinataire partage son élevage et confirme un transfert entre deux comptes', async ({ page }) => {
     const password = process.env.SEED_DEMO_PASSWORD
     test.skip(!password, 'Définir SEED_DEMO_PASSWORD pour utiliser le compte de démonstration.')
+    test.setTimeout(90_000) // deux téléphones, deux connexions
 
-    // Le destinataire partage d'abord son élevage B avec l'expéditeur.
+    // Le destinataire (Élevage C) partage d'abord son élevage avec l'expéditeur (Élevage B).
+    // Le test ne touche pas à l'Élevage A : son Animal 1 est réservé au signalement de la démo.
     await page.goto('/connexion')
-    await page.getByLabel(/téléphone/i).fill('0000000002')
+    await page.getByLabel(/téléphone/i).fill('0000000003')
     await page.getByLabel(/mot de passe/i).fill(password!)
     await page.getByRole('button', { name: /se connecter/i }).click()
     await page.waitForURL('/')
 
     await page.goto('/mouvements/partager')
-    await page.getByLabel('Élevage à partager').selectOption({ label: 'Élevage B (simulé)' })
+    await page.getByLabel('Élevage à partager').selectOption({ label: 'Élevage C (simulé)' })
     await page.getByRole('button', { name: 'Créer un code de partage' }).click()
     const destinationCode = await page.getByLabel('Code de partage').inputValue()
     expect(destinationCode).toBeTruthy()
@@ -24,26 +26,29 @@ test.describe('Déclaration de mouvement (MV-01, TR-05)', () => {
     const senderContext = await browser.newContext()
     const senderPage = await senderContext.newPage()
     await senderPage.goto('/connexion')
-    await senderPage.getByLabel(/téléphone/i).fill('0000000001')
+    await senderPage.getByLabel(/téléphone/i).fill('0000000002')
     await senderPage.getByLabel(/mot de passe/i).fill(password!)
     await senderPage.getByRole('button', { name: /se connecter/i }).click()
     await senderPage.waitForURL('/')
 
-    const sourceUnitsResponse = senderPage.waitForResponse(
-      (response) => response.url().includes('/units/') && response.request().method() === 'GET',
-    )
     await senderPage.goto('/mouvements')
-    const sourceUnits = (await (await sourceUnitsResponse).json()) as Array<{ id: string }>
     const sourceCenterSelect = senderPage.getByLabel('Élevage de départ')
-    if (await sourceCenterSelect.count()) {
-      await sourceCenterSelect.selectOption({ label: 'Élevage A (simulé)' })
-    }
-    await senderPage.locator('section[aria-labelledby="units-heading"] button').first().click()
+    await expect(sourceCenterSelect).toBeVisible()
+    // Attendre la liste de B elle-même (celle de l'élevage choisi par défaut arrive d'abord).
+    const centerB = await sourceCenterSelect.locator('option', { hasText: 'Élevage B (simulé)' }).getAttribute('value')
+    const unitsOfB = senderPage.waitForResponse(
+      (response) => response.url().includes(`/centers/${centerB}/units/`) && response.request().method() === 'GET',
+    )
+    await sourceCenterSelect.selectOption({ label: 'Élevage B (simulé)' })
+    const units = (await (await unitsOfB).json()) as Array<{ id: string; kind: string; label_code: string | null }>
+    const moved = units.find((unit) => unit.kind === 'animal' && unit.label_code)
+    expect(moved, 'Il faut un animal étiqueté à l’Élevage B').toBeTruthy()
+    await senderPage.locator('section[aria-labelledby="units-heading"] button')
+      .filter({ hasText: moved!.label_code! }).click()
     await senderPage.getByLabel('Code de partage du destinataire').fill(destinationCode)
     await senderPage.getByRole('button', { name: 'Vérifier le code' }).click()
-    await expect(senderPage.getByRole('status').filter({ hasText: 'Élevage destinataire vérifié' })).toContainText('Élevage B (simulé)')
+    await expect(senderPage.getByRole('status').filter({ hasText: 'Élevage destinataire vérifié' })).toContainText('Élevage C (simulé)')
     await senderPage.getByRole('button', { name: 'Déclarer' }).click()
-
     await expect(senderPage.getByRole('heading', { name: 'Départ enregistré' })).toBeVisible()
     const movementId = await senderPage
       .locator('dd[aria-label="Identifiant complet du mouvement"]')
@@ -57,14 +62,15 @@ test.describe('Déclaration de mouvement (MV-01, TR-05)', () => {
 
     // Le compte destinataire resté connecté sur son propre appareil confirme la réception.
     await page.goto('/mouvements/recevoir')
-    await page.getByLabel('Élevage destinataire').selectOption({ label: 'Élevage B (simulé)' })
+    await expect(page.getByRole('heading', { name: 'Confirmer la réception' })).toBeVisible()
+    await page.getByLabel('Élevage destinataire').selectOption({ label: 'Élevage C (simulé)' })
     await page.getByLabel(/Référence complète du départ/i).fill(movementId)
     await page.getByLabel('Code de confirmation').fill(code!)
-    await page.getByRole('button', { name: 'Confirmer' }).click()
+    await page.getByRole('button', { name: 'Confirmer', exact: true }).click()
 
     await expect(page.getByText(/associé aux animaux reçus/i)).toBeVisible({ timeout: 10_000 })
-    await page.goto(`/centres/animaux/${sourceUnits[0].id}`, { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText('Élevage B (simulé)', { exact: true })).toBeVisible()
+    await page.goto(`/centres/animaux/${moved!.id}`, { waitUntil: 'domcontentloaded' })
+    await expect(page.getByText('Élevage C (simulé)', { exact: true })).toBeVisible()
     await senderContext.close()
   })
 

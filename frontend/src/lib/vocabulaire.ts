@@ -138,6 +138,9 @@ export const messages = {
   pasDansVosElevages: "Cet animal n'est pas dans vos élevages.",
   visezEtiquette: "Visez le QR code de l'étiquette.",
   cameraIndisponible: 'Caméra indisponible. Saisissez le code.',
+  cameraHttps: 'La caméra demande une adresse sécurisée (https). Saisissez le code.',
+  cameraRefusee: 'Caméra refusée. Autorisez-la dans le navigateur, ou saisissez le code.',
+  cameraAbsente: 'Aucune caméra trouvée. Saisissez le code.',
   // À VALIDER : messages reçus (Accueil).
   nouveauxMessages: 'Nouveaux messages',
   etiquetteChangee: 'Étiquette changée.',
