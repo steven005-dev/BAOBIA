@@ -239,3 +239,29 @@ dialog::backdrop {
     box-shadow: none;
   }
 }
+
+/* ------------------------------------------------------------------ Mouvements (À VALIDER)
+   Courts et doux : une page ou une étape arrive en fondu, une confirmation « apparaît ».
+   Désactivés si le téléphone demande moins d'animations (accessibilité). */
+:root {
+  --duration-enter: 220ms;
+  --duration-pop: 320ms;
+}
+@keyframes baobia-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes baobia-pop {
+  0% { opacity: 0; transform: scale(0.6); }
+  70% { opacity: 1; transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+@utility animate-enter {
+  animation: baobia-enter var(--duration-enter) ease-out both;
+}
+@utility animate-pop {
+  animation: baobia-pop var(--duration-pop) ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-enter, .animate-pop { animation: none; }
+}
