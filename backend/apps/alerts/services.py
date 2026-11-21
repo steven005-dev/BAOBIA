@@ -151,6 +151,7 @@ def handle_report_review(report, review):
             alert.closed_at = timezone.now()
             alert.save(update_fields=["status", "closed_at", "updated_at"])
             _event(alert, alert.status, vet, {"review_id": str(review.pk)})
+            notify_end(alert, vet)
             recompute_zone_stats()
         return alert
 
@@ -401,6 +402,24 @@ def notify_exposed(alert, actor):
                        dedup_prefix=f"{alert.pk}:exp")
     _event(alert, "notified", actor, {"message_code": "exposure.contact_possible",
                                       "recipients": len(sent)})
+    return sent
+
+
+def notify_end(alert, actor):
+    """Message neutre « Fin de surveillance » à ceux qui avaient reçu « Contact possible »
+    pour cette alerte (clôturée ou annulée). Personne n'avait été prévenu (niveau 2) :
+    aucun message. Aucun paramètre, comme pour le premier message."""
+    from apps.accounts.models import User
+    from apps.notifications.models import Notification
+    from apps.notifications.services import notify_many
+
+    user_ids = Notification.objects.filter(
+        alert=alert, message_code="exposure.contact_possible").values_list("user_id", flat=True)
+    users = list(User.objects.filter(pk__in=list(user_ids)))
+    if not users:
+        return []
+    sent = notify_many(users, "exposure.ended", alert_id=alert.pk, dedup_prefix=f"{alert.pk}:end")
+    _event(alert, "notified", actor, {"message_code": "exposure.ended", "recipients": len(sent)})
     return sent
 
 

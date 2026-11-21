@@ -170,6 +170,8 @@ export const messages = {
  */
 export const textesNotifications: Record<string, string> = {
   'exposure.contact_possible': messages.contactPossibleEleveur,
+  // À VALIDER : fin de surveillance (alerte clôturée ou annulée), même ton neutre.
+  'exposure.ended': 'Fin de surveillance pour votre élevage. Si un animal semble malade, signalez-le.',
   'alert.validated': messages.alerteValidee,
   // À VALIDER : messages aux vétérinaires et à l'autorité (alerte de zone).
   'zone_cluster.review_requested': 'Plusieurs signalements dans votre zone. Votre avis est demandé.',
