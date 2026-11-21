@@ -2,9 +2,13 @@
  * Alerte expliquée (vétérinaire, autorité) : pourquoi elle existe (AL-05).
  * Règle appliquée, élevages en contact possible avec leur chemin, élevages écartés avec
  * la raison (cas négatif, AL-06). « Contact possible » ne veut jamais dire malade.
+ * Chronologie : signalé -> examiné -> validé -> élevages prévenus, avec l'heure et le délai
+ * depuis le signalement (alert_event). « Voir sur la carte » ouvre le district du foyer.
  */
 
-import { ArrowLeft, ArrowRight, CircleCheck, Scale, TriangleAlert, Warehouse } from 'lucide-react'
+import {
+  ArrowLeft, ArrowRight, CircleCheck, Clock, Map as MapIcon, Scale, TriangleAlert, Warehouse,
+} from 'lucide-react'
 import { useNavigate, useParams } from 'react-router'
 
 import { AlertLevelBadge } from '@/components/AlertLevelBadge'
@@ -19,6 +23,49 @@ import { useResource } from '@/features/identity/useResource'
 import { alertesTextes, mots, raisonsExposition } from '@/lib/vocabulaire'
 
 type Exposure = AlertDetail['exposures'][number]
+
+/** Délai lisible : « 4 min », « 2 h 05 », « 3 j ». */
+function delay(fromIso: string, toIso: string): string {
+  const minutes = Math.max(0, Math.round((Date.parse(toIso) - Date.parse(fromIso)) / 60000))
+  if (minutes < 60) return `${minutes} min`
+  if (minutes < 60 * 24) return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`
+  return `${Math.floor(minutes / (60 * 24))} j`
+}
+
+function Timeline({ alert: a }: { alert: AlertDetail }) {
+  const first = (type: string) => a.events.find((e) => e.type === type)?.at ?? null
+  const reported = a.reports.map((r) => r.created_at).sort()[0] ?? null
+  const end = first('closed') ?? first('cancelled')
+  const steps: { label: string; at: string | null }[] = [
+    { label: alertesTextes.etapeSignale, at: reported },
+    { label: alertesTextes.etapeExamine, at: first('opened') },
+    { label: alertesTextes.etapeValide, at: a.validated_at },
+    { label: `${alertesTextes.etapePrevenus} (${a.exposed_count})`, at: first('notified') },
+    ...(end ? [{ label: first('closed') ? alertesTextes.etapeCloture : alertesTextes.etapeAnnule, at: end }] : []),
+  ]
+  return (
+    <Card title={alertesTextes.chronologie} icon={Clock}>
+      <ol className="flex flex-col gap-3">
+        {steps.map((step) => (
+          <li key={step.label} className="flex gap-3">
+            <span aria-hidden className={`mt-1.5 size-3 shrink-0 rounded-full border-2 border-primary ${step.at ? 'bg-primary' : 'bg-surface'}`} />
+            <div className="flex flex-col">
+              <span className={`text-body font-bold ${step.at ? 'text-foreground' : 'text-muted-foreground'}`}>{step.label}</span>
+              <span className="text-small text-muted-foreground">
+                {step.at
+                  ? <>
+                      {new Date(step.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                      {reported && step.at !== reported && ` · ${delay(reported, step.at)} ${alertesTextes.apres}`}
+                    </>
+                  : alertesTextes.etapeAVenir}
+              </span>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </Card>
+  )
+}
 
 function ExposureCard({ exposure }: { exposure: Exposure }) {
   const exposed = exposure.status === 'exposed'
@@ -91,6 +138,15 @@ export function AlertDetailPage() {
       </div>
       {a.is_simulated && <DemoDataNotice />}
       {a.confidence === 'reduced' && <Banner variant="warning">{alertesTextes.confianceReduite}</Banner>}
+
+      {a.map_district && (
+        <Button variant="secondary" icon={MapIcon}
+                onClick={() => navigate(`/carte?district=${encodeURIComponent(a.map_district ?? '')}`)}>
+          {alertesTextes.voirCarte}
+        </Button>
+      )}
+
+      <Timeline alert={a} />
 
       <Card title={alertesTextes.regle} icon={Scale}>
         <p className="text-body">

@@ -8,6 +8,7 @@
 
 import { ArrowLeft, Layers, Map as MapIcon, Warehouse, ZoomIn } from 'lucide-react'
 import { useMemo, useState, type CSSProperties } from 'react'
+import { useSearchParams } from 'react-router'
 
 import { Banner } from '@/components/Banner'
 import { Button } from '@/components/Button'
@@ -64,8 +65,12 @@ function ZoneFacts({ zone }: { zone: ZoneState | undefined }) {
 export function MapPage() {
   const [species, setSpecies] = useState<string>(ALL)
   const [level, setLevel] = useState<'districts' | 'regions'>('districts')
-  const [focus, setFocus] = useState<string | null>(null)
-  const [selected, setSelected] = useState<string | null>(null)
+  // ?district=CI-D-… (depuis « Voir sur la carte » d'une alerte) : carte ouverte sur ce district.
+  const [params] = useSearchParams()
+  const initialDistrict = params.get('district')
+  const startFocus = initialDistrict && DISTRICT_CODES.has(initialDistrict) ? initialDistrict : null
+  const [focus, setFocus] = useState<string | null>(startFocus)
+  const [selected, setSelected] = useState<string | null>(startFocus)
   const speciesList = useResource(identityApi.species, 'especes')
   const map = useResource(() => healthApi.map(species === ALL ? undefined : species), species)
 

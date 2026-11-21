@@ -73,6 +73,19 @@ class AlertListView(APIView):
         return Response([_alert_summary(a) for a in alerts.order_by("-level", "-opened_at")[:200]])
 
 
+def _map_district(zone):
+    """Code du district (CI-D-…) qui contient la zone, pour ouvrir la carte dessus."""
+    from apps.geo.models import Zone
+
+    seen = set()
+    while zone is not None and zone.pk not in seen:
+        if zone.code.startswith("CI-D-"):
+            return zone.code
+        seen.add(zone.pk)
+        zone = Zone.objects.filter(pk=zone.parent_id).first() if zone.parent_id else None
+    return None
+
+
 class AlertDetailView(APIView):
     permission_classes = [PROFESSIONALS]
 
@@ -96,8 +109,10 @@ class AlertDetailView(APIView):
             "include_unconfirmed": rule.include_unconfirmed,
             "experimental": True,  # valeurs de démonstration, à valider par un vétérinaire
         }
+        data["map_district"] = _map_district(alert.zone)
         data["reports"] = [
             {"id": r.id, "center_id": r.center_id, "occurred_at": r.occurred_at,
+             "created_at": r.created_at,
              "affected_count": r.affected_count, "status": r.status}
             for r in alert.reports.all().order_by("occurred_at")
         ]

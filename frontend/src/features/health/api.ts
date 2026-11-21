@@ -79,7 +79,12 @@ export interface AlertSummary {
 export interface AlertDetail extends AlertSummary {
   rule: { version: number; lookback_days: number; lookforward_days: number; max_depth: number;
           include_unconfirmed: boolean; experimental: boolean }
-  reports: { id: string; occurred_at: string; affected_count: number; status: ReportStatus }[]
+  reports: { id: string; occurred_at: string; created_at: string; affected_count: number
+             status: ReportStatus }[]
+  /** District (CI-D-…) du foyer : ouvre la carte dessus. */
+  map_district: string | null
+  /** Journal de l'alerte (alert_event), du plus ancien au plus récent. */
+  events: { type: string; at: string; payload: Record<string, unknown> }[]
   exposures: {
     center: { id: string; name: string }
     status: 'exposed' | 'excluded_negative' | 'monitoring' | 'cleared'

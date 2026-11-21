@@ -39,6 +39,22 @@ class AlertApiTests(AlertScenarioMixin, TestCase):
         self.assertTrue(AuditLog.objects.filter(action="alert.view",
                                                 entity_id=self.alert.id).exists())
 
+    def test_detail_gives_the_timeline_and_the_map_district(self):
+        from apps.geo.models import Zone
+
+        data = self.get(self.vet, f"/api/alerts/{self.alert.id}/").json()
+        self.assertIsNone(data["map_district"])  # zones de test hors de la Côte d'Ivoire
+        self.assertTrue(data["reports"][0]["created_at"])
+        types = [e["type"] for e in data["events"]]
+        for expected in ("opened", "reviewed", "notified"):
+            self.assertIn(expected, types)
+        # Zone du foyer rattachée à une région, elle-même dans un district (CI-D-…).
+        district = Zone.objects.create(level=1, code="CI-D-TST", name="District test")
+        self.region.parent = district
+        self.region.save(update_fields=["parent"])
+        data = self.get(self.vet, f"/api/alerts/{self.alert.id}/").json()
+        self.assertEqual(data["map_district"], "CI-D-TST")
+
     def test_vet_list(self):
         resp = self.get(self.vet, "/api/alerts/")
         self.assertEqual([a["id"] for a in resp.json()], [str(self.alert.id)])
