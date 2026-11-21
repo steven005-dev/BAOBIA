@@ -181,6 +181,9 @@ export const textesNotifications: Record<string, string> = {
   'zone_cluster.review_requested': 'Plusieurs signalements dans votre zone. Votre avis est demandé.',
   'zone_cluster.escalated': 'Rappel : des signalements attendent toujours un avis.',
   'alert.review_disagreement': "Deux vétérinaires ne sont pas d'accord sur une alerte.",
+  // À VALIDER : animal déclaré disparu ou volé, scanné dans un marché (guide des ajouts, 3).
+  'declared_missing.seen':
+    'Un animal que vous avez déclaré a été vu dans un marché. Contactez votre service vétérinaire ou la gendarmerie.',
   // À VALIDER (21/11) : messages à tous les acteurs. {count}, {species}, {zone}, {disease}
   // sont remplacés par l'application (features/notifications/text.ts).
   'report.to_review': 'Nouveau signalement à examiner : {count} animal(aux) touché(s){species}.',

@@ -260,3 +260,32 @@ class DestinationShareResultSerializer(serializers.Serializer):
 class ResolvedDestinationSerializer(serializers.Serializer):
     center_id = serializers.UUIDField()
     center_name = serializers.CharField()
+
+
+class RfidTagCreateSerializer(serializers.Serializer):
+    """Boucle RFID Vet'Tronic posée sur un animal (guide des ajouts, 1)."""
+
+    id = serializers.UUIDField()
+    unit_id = serializers.UUIDField()
+    number = serializers.CharField(max_length=30, help_text="15 chiffres, espaces permis.")
+    read_mode = serializers.ChoiceField(choices=("rfid_reader", "code_scan", "manual_entry"))
+    occurred_at = serializers.DateTimeField(required=False)
+
+
+class MarketScanSerializer(serializers.Serializer):
+    """Un scan au marché (guide des ajouts, 2) : numéro de boucle ou code BAOBIA."""
+
+    id = serializers.UUIDField(help_text="UUID du scan créé sur le téléphone.")
+    direction = serializers.ChoiceField(choices=("in", "out"))
+    code = serializers.CharField(max_length=40)
+    scanned_at = serializers.DateTimeField(required=False)
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False,
+                                        allow_null=True, min_value=-90, max_value=90)
+    longitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False,
+                                         allow_null=True, min_value=-180, max_value=180)
+    position_accuracy_m = serializers.DecimalField(max_digits=7, decimal_places=1,
+                                                   required=False, allow_null=True, min_value=0)
+    position_source = serializers.ChoiceField(choices=("gps", "network", "manual", "none"),
+                                              default="none")
+    to_center_id = serializers.UUIDField(required=False, allow_null=True)
+    to_party_note = serializers.CharField(max_length=160, required=False, allow_blank=True)

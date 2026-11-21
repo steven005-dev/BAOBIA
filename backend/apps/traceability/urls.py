@@ -2,6 +2,10 @@ from django.urls import path
 from apps.traceability.views import (
     DestinationShareCodeView,
     MarketEntryView,
+    MarketScanView,
+    MarketSummaryView,
+    RfidTagCreateView,
+    UnitRouteView,
     MarketExitView,
     MovementCancelView,
     MovementConfirmView,
@@ -25,4 +29,8 @@ urlpatterns = [
     path("unit-events/", UnitEventListCreateView.as_view(), name="unit-event-list-create"),
     path("market/entries/", MarketEntryView.as_view(), name="market-entry"),
     path("market/exits/", MarketExitView.as_view(), name="market-exit"),
+    path("markets/<uuid:center_id>/scans/", MarketScanView.as_view(), name="market-scan"),
+    path("markets/<uuid:center_id>/summary/", MarketSummaryView.as_view(), name="market-summary"),
+    path("rfid-tags/", RfidTagCreateView.as_view(), name="rfid-tag-create"),
+    path("units/<uuid:unit_id>/route/", UnitRouteView.as_view(), name="unit-route"),
 ]

@@ -57,6 +57,9 @@ MESSAGES = {
     "zone_cluster.escalated": ("escalation", ("species", "reports", "zone")),
     # Autorité : deux vétérinaires ont pris des décisions différentes (décision D11).
     "alert.review_disagreement": ("alert", ("zone",)),
+    # Déclarant d'une disparition ou d'un vol, et Autorité de la zone : l'animal a été scanné
+    # dans un marché (traceability, ajout 3). Ni marché, ni animal, ni personne dans le texte.
+    "declared_missing.seen": ("declared_missing", ()),
     # --- 21/11 : tous les acteurs reçoivent des messages (voir les fonctions on_* plus bas).
     # Vétérinaires habilités de la zone : nouveau signalement à examiner.
     "report.to_review": ("review", ("species", "count", "report_id")),

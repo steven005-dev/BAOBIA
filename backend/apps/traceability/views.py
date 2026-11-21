@@ -1,14 +1,15 @@
 from django.db.models import Q
-from datetime import timedelta
+from datetime import date, timedelta
 from django.core import signing
 from rest_framework import status
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import HasCenterAccess
-from apps.identity.models import Center
+from apps.identity.models import Center, TrackedUnit
+from apps.identity.services import user_can_access_center, user_can_view_unit, user_covers_zone
 from apps.traceability.exceptions import (
     InvalidConfirmationCodeError,
     InvalidMovementDataError,
@@ -23,6 +24,8 @@ from apps.traceability.serializers import (
     MovementCreateSerializer,
     MovementDetailSerializer,
     MarketEntrySerializer,
+    MarketScanSerializer,
+    RfidTagCreateSerializer,
     MarketExitSerializer,
     MovementReasonSerializer,
     MovementRefuseSerializer,
@@ -34,7 +37,13 @@ from apps.traceability.serializers import (
     UnitEventReadSerializer,
 )
 from apps.traceability.services import (
+    active_rfid,
+    bind_rfid_tag,
     cancel_movement,
+    format_rfid,
+    market_summary,
+    record_market_scan,
+    unit_route,
     confirm_movement_receipt,
     contest_movement,
     declare_market_entry,
@@ -424,3 +433,108 @@ class UnitEventListCreateView(APIView):
             UnitEventReadSerializer(event).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+
+# ---------------------------------------------------------------------------
+# Guide de réalisation des ajouts (21/11) : boucle RFID, marché, parcours, bilan
+# ---------------------------------------------------------------------------
+
+
+class RfidTagCreateView(APIView):
+    """Pose une boucle RFID Vet'Tronic sur un animal (ajout 1). Droit : membre ou mandataire
+    (déclarer) de l'élevage où se trouve l'animal."""
+
+    def post(self, request):
+        serializer = RfidTagCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        unit = TrackedUnit.objects.filter(pk=data["unit_id"]).first()
+        if unit is None:
+            raise NotFound("Animal introuvable.")
+        if not user_can_access_center(request.user, unit.current_center_id, scope="declare"):
+            raise PermissionDenied("Vous n'avez pas accès à cet élevage.")
+        try:
+            tag, created, warnings = bind_rfid_tag(
+                unit_id=unit.pk, number=data["number"], read_mode=data["read_mode"],
+                created_by=request.user, tag_id=data["id"], occurred_at=data.get("occurred_at"),
+            )
+        except OperationConflictError as error:
+            return Response({"detail": str(error)}, status=status.HTTP_409_CONFLICT)
+        except InvalidMovementDataError as error:
+            raise ValidationError({"detail": str(error)}) from error
+        return Response(
+            {"id": tag.pk, "unit_id": tag.unit_id, "number": format_rfid(tag.number),
+             "read_mode": tag.read_mode, "status": tag.status, "warnings": warnings},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class UnitRouteView(APIView):
+    """Parcours d'un animal (ajout 4) : ses mouvements avec « Sûr » / « Probable ».
+    Visible par qui voit sa fiche ; un élevage sans droit d'accès reste anonyme."""
+
+    def get(self, request, unit_id):
+        unit = TrackedUnit.objects.select_related("species").filter(pk=unit_id).first()
+        if unit is None or not user_can_view_unit(request.user, unit):
+            raise NotFound("Animal introuvable.")
+        tag = active_rfid(unit.pk)
+        return Response({
+            "unit_id": unit.pk,
+            "rfid": ({"number": format_rfid(tag.number), "read_mode": tag.read_mode}
+                     if tag else None),
+            "steps": unit_route(unit, request.user),
+        })
+
+
+class MarketScanView(APIView):
+    """Un scan à l'Entrée ou à la Sortie d'un marché (ajouts 2 et 3) : membre du marché ou
+    mandat « move » dessus. Ne bloque jamais : inconnu, déjà scanné ou refusé sont gardés."""
+
+    permission_classes = [HasCenterAccess.for_scope("move")]
+
+    def post(self, request, center_id):
+        serializer = MarketScanSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        market = Center.objects.filter(pk=center_id).first()
+        if market is None:
+            raise NotFound("Marché introuvable.")
+        to_center = None
+        if data.get("to_center_id"):
+            to_center = Center.objects.filter(pk=data["to_center_id"], status="active").first()
+            if to_center is None:
+                raise ValidationError({"to_center_id": "Élevage acheteur introuvable."})
+        try:
+            body, created = record_market_scan(
+                scan_id=data["id"], market=market, direction=data["direction"],
+                code=data["code"], created_by=request.user, occurred_at=data.get("scanned_at"),
+                latitude=data.get("latitude"), longitude=data.get("longitude"),
+                position_accuracy_m=data.get("position_accuracy_m"),
+                position_source=data.get("position_source", "none"),
+                to_center=to_center, to_party_note=data.get("to_party_note"),
+            )
+        except OperationConflictError as error:
+            return Response({"detail": str(error)}, status=status.HTTP_409_CONFLICT)
+        except InvalidMovementDataError as error:
+            raise ValidationError({"detail": str(error)}) from error
+        return Response(body, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+class MarketSummaryView(APIView):
+    """Bilan du jour d'un marché (ajout 5), chiffres agrégés sans nom d'élevage. Droit :
+    membre ou mandataire du marché, ou Autorité dont le périmètre contient le marché."""
+
+    def get(self, request, center_id):
+        market = Center.objects.filter(pk=center_id, center_type="market").first()
+        allowed = market is not None and (
+            user_can_access_center(request.user, market.pk)
+            or user_covers_zone(request.user, market.zone_id, roles=("authority",))
+        )
+        if not allowed:
+            raise NotFound("Marché introuvable.")
+        raw_day = request.query_params.get("date")
+        try:
+            day = date.fromisoformat(raw_day) if raw_day else timezone.localdate()
+        except ValueError as error:
+            raise ValidationError({"date": "Date attendue au format AAAA-MM-JJ."}) from error
+        return Response(market_summary(market, day))

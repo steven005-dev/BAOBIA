@@ -390,3 +390,114 @@ class StatusEvent(EventModel, CorrectableMixin, PositionMixin):
                 name="uniq_status_event_supersedes",
             ),
         ]
+
+
+class RfidTag(UUIDModel):
+    """
+    Boucle d'oreille officielle RFID (Vet'Tronic, norme ISO 11784/11785) portée par une unité.
+    Numéro de 15 chiffres : 3 chiffres de pays (384 = Côte d'Ivoire) + 12 chiffres.
+    Le téléphone ne lit pas la puce : le numéro arrive par saisie, par scan du code imprimé,
+    ou plus tard par un lecteur RFID (read_mode). Rien ne s'efface : une boucle perdue ou
+    remplacée change de statut, une nouvelle est ajoutée.
+    Guide de réalisation des ajouts (Romuald, 21/11), ajout 1.
+    """
+
+    READ_MODES = (
+        ("rfid_reader", "Lecteur RFID"),
+        ("code_scan", "Scan du code imprimé"),
+        ("manual_entry", "Saisie manuelle"),
+    )
+    STATUS_CHOICES = (
+        ("active", "Active"),
+        ("lost", "Perdue"),
+        ("replaced", "Remplacée"),
+    )
+
+    unit = models.ForeignKey(
+        "identity.TrackedUnit", on_delete=models.PROTECT, related_name="rfid_tags"
+    )
+    number = models.CharField(max_length=15)
+    read_mode = models.CharField(max_length=12, choices=READ_MODES)
+    status = models.CharField(max_length=8, default="active", choices=STATUS_CHOICES)
+    fitted_at = models.DateTimeField()
+    fitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    ended_at = models.DateTimeField(null=True, blank=True)
+    is_simulated = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "rfid_tag"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(number__regex=r"^\d{15}$"), name="chk_rfid_tag_number"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(read_mode__in=("rfid_reader", "code_scan", "manual_entry")),
+                name="chk_rfid_tag_read_mode",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(status__in=("active", "lost", "replaced")),
+                name="chk_rfid_tag_status",
+            ),
+            # Un numéro n'est actif que sur une seule unité ; une unité n'a qu'une boucle active.
+            models.UniqueConstraint(
+                fields=("number",), condition=models.Q(status="active"),
+                name="uniq_rfid_tag_active_number",
+            ),
+            models.UniqueConstraint(
+                fields=("unit",), condition=models.Q(status="active"),
+                name="uniq_rfid_tag_active_unit",
+            ),
+        ]
+
+
+class MarketScan(EventModel, PositionMixin):
+    """
+    Un passage scanné à l'Entrée ou à la Sortie d'un marché (ajouts 2, 3 et 5 du guide).
+    Garde aussi les codes inconnus : le bilan du jour les compte. `id` créé par l'appareil
+    (rejouer le même scan est sans effet). Événement immuable.
+    """
+
+    DIRECTIONS = (("in", "Entrée"), ("out", "Sortie"))
+    RESULTS = (
+        ("ok", "Animal retrouvé"),
+        ("unknown", "Code inconnu"),
+        ("already_scanned", "Déjà scanné"),
+        ("refused", "Refusé"),
+    )
+
+    market = models.ForeignKey(
+        "identity.Center", on_delete=models.PROTECT, related_name="market_scans"
+    )
+    direction = models.CharField(max_length=3, choices=DIRECTIONS)
+    code = models.CharField(max_length=40)
+    unit = models.ForeignKey(
+        "identity.TrackedUnit", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="market_scans",
+    )
+    result = models.CharField(max_length=16, choices=RESULTS)
+    reason = models.CharField(max_length=160, null=True, blank=True)
+    warning_code = models.CharField(max_length=30, null=True, blank=True)
+    movement = models.ForeignKey(
+        Movement, null=True, blank=True, on_delete=models.PROTECT, related_name="market_scans"
+    )
+    origin_zone = models.ForeignKey(
+        "geo.Zone", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+
+    class Meta:
+        db_table = "market_scan"
+        indexes = [
+            models.Index(fields=("market", "occurred_at"), name="idx_market_scan_day"),
+            models.Index(fields=("unit", "occurred_at"), name="idx_market_scan_unit"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(direction__in=("in", "out")), name="chk_market_scan_direction"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(result__in=("ok", "unknown", "already_scanned", "refused")),
+                name="chk_market_scan_result",
+            ),
+        ]
