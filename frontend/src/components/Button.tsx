@@ -21,7 +21,8 @@ const buttonVariants = cva(
   [
     'inline-flex items-center justify-center gap-2 rounded-lg px-5 font-display text-button font-bold',
     'select-none transition-all active:scale-[0.98]',
-    'disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground',
+    // bg-none : sans lui, le dégradé du bouton principal resterait sous le texte gris (illisible).
+    'disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:bg-none disabled:text-muted-foreground disabled:shadow-none',
   ],
   {
     variants: {

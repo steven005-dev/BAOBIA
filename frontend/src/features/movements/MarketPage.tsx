@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { KeyRound, LogIn, LogOut, Plus, Store, Trash2 } from 'lucide-react'
+import { ArrowLeft, KeyRound, LogIn, LogOut, Pencil, Plus, Store, Trash2 } from 'lucide-react'
 
 import { Banner } from '@/components/Banner'
 import { BigChoiceTile } from '@/components/BigChoiceTile'
@@ -137,7 +137,7 @@ export function MarketPage() {
         <Button icon={direction === 'entry' ? LogIn : LogOut} fullWidth onClick={() => reset(true)}>
           {direction === 'entry' ? 'Nouvelle entrée' : 'Nouvelle sortie'}
         </Button>
-        <Button variant="ghost" onClick={() => reset()}>Retour au marché</Button>
+        <Button variant="ghost" icon={ArrowLeft} onClick={() => reset()}>Retour au marché</Button>
       </section>
     )
   }
@@ -231,7 +231,7 @@ export function MarketPage() {
           <h2 id="buyer-heading" className="text-subtitle font-bold text-foreground">Acheteur</h2>
           {buyer ? (
             <Banner variant="success" title={buyer.center_name}
-                    action={<Button variant="ghost" onClick={() => setBuyer(null)}>Changer</Button>}>
+                    action={<Button variant="ghost" icon={Pencil} onClick={() => setBuyer(null)}>Changer</Button>}>
               Élevage inscrit : il confirmera avec le code.
             </Banner>
           ) : (
@@ -256,7 +256,7 @@ export function MarketPage() {
               onClick={() => void send()}>
         {direction === 'entry' ? 'Enregistrer l’entrée' : 'Enregistrer la sortie'}
       </Button>
-      <Button variant="ghost" onClick={() => reset()}>Retour</Button>
+      <Button variant="ghost" icon={ArrowLeft} onClick={() => reset()}>Retour</Button>
     </section>
   )
 }

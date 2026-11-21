@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react'
-import { Ban, Clock, Flag, History, TriangleAlert, UserCheck } from 'lucide-react'
+import { ArrowLeft, Ban, Clock, Flag, History, TriangleAlert, UserCheck } from 'lucide-react'
 
 import { Banner } from '@/components/Banner'
 import { Button } from '@/components/Button'
@@ -127,7 +127,7 @@ function MovementCard({ movement, centerId, onDone }: {
                   onClick={() => void act()}>
             {ACTION_LABELS[action]}
           </Button>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Retour</Button>
+          <Button variant="ghost" icon={ArrowLeft} onClick={() => setOpen(false)}>Retour</Button>
         </div>
       )}
     </li>

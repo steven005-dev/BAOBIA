@@ -228,7 +228,7 @@ export function DeclareMovementForm() {
           </div>
           <div className="flex justify-between gap-4 border-t border-border pt-2">
             <dt className="text-muted-foreground">Animaux déclarés</dt>
-            <dd className="font-bold">{savedDeclaration.count} unités · {savedDeclaration.heads} têtes</dd>
+            <dd className="font-bold">{savedDeclaration.count} {savedDeclaration.count > 1 ? 'unités' : 'unité'} · {savedDeclaration.heads} {savedDeclaration.heads > 1 ? 'têtes' : 'tête'}</dd>
           </div>
         </dl>
         <Button icon={CircleAlert} variant="secondary" fullWidth onClick={reset}>
@@ -298,7 +298,7 @@ export function DeclareMovementForm() {
                         {unit.label_code || unit.local_name || unit.species.label_fr}
                       </span>
                       <span className="block text-caption text-muted-foreground">
-                        {unit.species.label_fr} · {unit.kind === 'lot' ? `${unit.size} têtes` : 'Animal'}
+                        {unit.species.label_fr} · {unit.kind === 'lot' ? `${unit.size} ${unit.size > 1 ? 'têtes' : 'tête'}` : 'Animal'}
                       </span>
                     </span>
                     {selected && <Check aria-hidden className="size-icon shrink-0 text-primary" />}

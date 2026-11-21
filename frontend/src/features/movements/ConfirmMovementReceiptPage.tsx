@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CircleCheck, CircleX, ListChecks, PackageCheck, QrCode, UserCheck } from 'lucide-react'
+import { ArrowLeft, CircleCheck, CircleX, ListChecks, PackageCheck, QrCode, UserCheck } from 'lucide-react'
 import { useNavigate } from 'react-router'
 
 import { Banner } from '@/components/Banner'
@@ -216,7 +216,7 @@ export function ConfirmMovementReceiptPage() {
           <Button type="submit" icon={CircleX} variant="danger" fullWidth loading={saving} disabled={!validInput}>
             {mots.refuser}
           </Button>
-          <Button type="button" variant="ghost" onClick={() => setStep('confirm')}>{mots.retour}</Button>
+          <Button type="button" variant="ghost" icon={ArrowLeft} onClick={() => setStep('confirm')}>{mots.retour}</Button>
         </>
       ) : (
         <>
