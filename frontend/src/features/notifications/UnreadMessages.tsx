@@ -6,7 +6,7 @@
  * Exemple : <UnreadMessages />
  */
 
-import { Clock, Siren, Stethoscope, TriangleAlert, X, type LucideIcon } from 'lucide-react'
+import { CircleCheck, Clock, Siren, Stethoscope, TriangleAlert, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/Button'
@@ -14,6 +14,9 @@ import { Card } from '@/components/Card'
 import { messages, mots, textesNotifications } from '@/lib/vocabulaire'
 
 import { notificationsApi, type AppNotification, type NotificationKind } from './api'
+
+/** Icône propre à un message (sinon celle de son type) : la fin de surveillance rassure. */
+const MESSAGE_ICONS: Record<string, LucideIcon> = { 'exposure.ended': CircleCheck }
 
 const ICONS: Record<NotificationKind, LucideIcon> = {
   exposure: TriangleAlert,
@@ -49,7 +52,7 @@ export function UnreadMessages() {
       {items.map((n) => (
         <Card
           key={n.id}
-          icon={ICONS[n.kind] ?? TriangleAlert}
+          icon={MESSAGE_ICONS[n.message_code] ?? ICONS[n.kind] ?? TriangleAlert}
           title={new Date(n.created_at).toLocaleDateString('fr-CI')}
           footer={
             <Button variant="ghost" icon={X} onClick={() => close(n.id)}>

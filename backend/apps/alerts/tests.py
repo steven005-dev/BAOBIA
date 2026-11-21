@@ -293,6 +293,10 @@ class EndOfSurveillanceTests(AlertScenarioMixin, TestCase):
             message_code="exposure.contact_possible").values_list("user_id", flat=True))
         health_services.review_report(report=report, vet=self.vet, decision="close")
         self.assertEqual(set(self.ended().values_list("user_id", flat=True)), notified)
+        # L'ancien « Contact possible » est marqué lu : l'accueil ne montre que la fin.
+        self.assertFalse(Notification.objects.filter(message_code="exposure.contact_possible",
+                                                     read_at__isnull=True).exists())
+        self.assertFalse(self.ended().filter(read_at__isnull=False).exists())
         for notification in self.ended():
             self.assertEqual(notification.params, {})  # neutre : ni foyer ni lieu
 

@@ -411,7 +411,7 @@ def notify_end(alert, actor):
     aucun message. Aucun paramètre, comme pour le premier message."""
     from apps.accounts.models import User
     from apps.notifications.models import Notification
-    from apps.notifications.services import notify_many
+    from apps.notifications.services import mark_alert_messages_read, notify_many
 
     user_ids = Notification.objects.filter(
         alert=alert, message_code="exposure.contact_possible").values_list("user_id", flat=True)
@@ -419,6 +419,8 @@ def notify_end(alert, actor):
     if not users:
         return []
     sent = notify_many(users, "exposure.ended", alert_id=alert.pk, dedup_prefix=f"{alert.pk}:end")
+    # L'ancien « Contact possible » ne reste pas affiché à côté de la fin de surveillance.
+    mark_alert_messages_read(alert_id=alert.pk, message_code="exposure.contact_possible")
     _event(alert, "notified", actor, {"message_code": "exposure.ended", "recipients": len(sent)})
     return sent
 
