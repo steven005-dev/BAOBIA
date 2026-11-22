@@ -227,7 +227,7 @@ export function MarketPage() {
 
       <section aria-labelledby="scanned-heading" className="flex flex-col gap-2">
         <h2 id="scanned-heading" className="text-subtitle font-bold text-foreground">
-          {done} animal{done > 1 ? 'aux' : ''} {direction === 'in' ? 'entré' : 'sorti'}{done > 1 ? 's' : ''}
+          {done} {done > 1 ? 'animaux' : 'animal'} {direction === 'in' ? 'entré' : 'sorti'}{done > 1 ? 's' : ''}
         </h2>
         <ul className="flex flex-col gap-2">
           {visible.map((row) => {
